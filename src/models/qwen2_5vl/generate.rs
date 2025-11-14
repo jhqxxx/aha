@@ -63,7 +63,11 @@ impl<'a> Qwen2_5VLGenerateModel<'a> {
 
 impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None);
+        let seed = match mes.seed {
+            None => 34562u64,
+            Some(s) => s as u64,
+        };
+        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let input = self.pre_processor.process_info(&mes, &mes_render)?;
         let mut input_ids = self
@@ -122,8 +126,19 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
     fn generate_stream(
         &mut self,
         mes: ChatCompletionParameters,
-    ) -> Result<impl Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>> {
-        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None);
+    ) -> Result<
+        Box<
+            dyn Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>
+                + Send
+                + Unpin
+                + '_,
+        >,
+    > {
+        let seed = match mes.seed {
+            None => 34562u64,
+            Some(s) => s as u64,
+        };
+        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let input = self.pre_processor.process_info(&mes, &mes_render)?;
         let mut input_ids = self
@@ -203,6 +218,6 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
             }
             self.qwen2_5_vl.clear_kv_cache();
         };
-        Ok(stream)
+        Ok(Box::new(Box::pin(stream)))
     }
 }

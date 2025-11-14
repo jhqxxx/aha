@@ -255,10 +255,11 @@ pub fn get_logit_processor(
     temperature: Option<f32>,
     top_p: Option<f32>,
     top_k: Option<usize>,
+    seed: u64,
 ) -> LogitsProcessor {
     match top_k {
         None => LogitsProcessor::new(
-            34562,
+            seed,
             temperature.map(|temp| temp as f64),
             top_p.map(|tp| tp as f64),
         ),
@@ -277,7 +278,7 @@ pub fn get_logit_processor(
                     },
                 },
             };
-            LogitsProcessor::from_sampling(34562, sampling)
+            LogitsProcessor::from_sampling(seed, sampling)
         }
     }
 }

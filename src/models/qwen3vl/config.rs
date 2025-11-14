@@ -42,6 +42,7 @@ pub struct Qwen3VLTextConfig {
     pub rms_norm_eps: f64,
     pub rope_scaling: RopeScaling,
     pub rope_theta: f32,
+    #[serde(default)]
     pub tie_word_embeddings: bool,
     pub use_cache: bool,
     pub vocab_size: usize,

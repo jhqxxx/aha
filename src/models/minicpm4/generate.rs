@@ -53,7 +53,11 @@ impl<'a> MiniCPMGenerateModel<'a> {
 
 impl<'a> GenerateModel for MiniCPMGenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None);
+        let seed = match mes.seed {
+            None => 34562u64,
+            Some(s) => s as u64,
+        };
+        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let mut input_ids = self.tokenizer.text_encode(mes_render, &self.device)?;
         let mut seq_len = input_ids.dim(1)?;
@@ -80,8 +84,19 @@ impl<'a> GenerateModel for MiniCPMGenerateModel<'a> {
     fn generate_stream(
         &mut self,
         mes: ChatCompletionParameters,
-    ) -> Result<impl Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>> {
-        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None);
+    ) -> Result<
+        Box<
+            dyn Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>
+                + Send
+                + Unpin
+                + '_,
+        >,
+    > {
+        let seed = match mes.seed {
+            None => 34562u64,
+            Some(s) => s as u64,
+        };
+        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let mut input_ids = self.tokenizer.text_encode(mes_render, &self.device)?;
         let mut seq_len = input_ids.dim(1)?;
@@ -125,6 +140,6 @@ impl<'a> GenerateModel for MiniCPMGenerateModel<'a> {
             }
             self.minicpm.clear_kv_cache();
         };
-        Ok(stream)
+        Ok(Box::new(Box::pin(stream)))
     }
 }
