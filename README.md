@@ -16,6 +16,7 @@
 * MiniCPM4 - 面壁智能 MiniCPM 系列语言模型
 * VoxCPM - 面壁智能语音生成模型
 * Qwen3VL - 阿里通义千问 3 多模态大语言模型
+* DeepSeek-OCR - 深度求索光学文字识别模型
 
 ## 计划支持
 我们持续扩展支持的模型列表，欢迎贡献！
@@ -137,7 +138,7 @@ fn main() -> Result<()> {
 
 ### v0.1.0
 * 初始版本发布
-* 支持 Qwen2.5VL, MiniCPM4, VoxCPM 模型
+* 支持 Qwen2.5VL, MiniCPM4, VoxCPM, DeepSeek-OCR 模型
 
 
 ⭐ 如果这个项目对你有帮助，请给我们一个 Star！
