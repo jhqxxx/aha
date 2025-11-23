@@ -138,12 +138,15 @@ fn main() -> Result<()> {
 2. 提交新的 Issue，包含详细描述和复现步骤
 
 ## 更新日志
+### v0.1.2
+* 添加 DeepSeek-OCR 模型
+
 ### v0.1.1
 * 添加 Qwen3VL 模型
 
 ### v0.1.0
 * 初始版本发布
-* 支持 Qwen2.5VL, MiniCPM4, VoxCPM, DeepSeek-OCR 模型
+* 支持 Qwen2.5VL, MiniCPM4, VoxCPM 模型
 
 
 ⭐ 如果这个项目对你有帮助，请给我们一个 Star！
