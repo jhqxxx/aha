@@ -44,27 +44,7 @@ aha = { git = "https://github.com/jhqxxx/aha.git", features = ["cuda"] }
 # 启用Flash Attention 支持（可选）
 aha = { git = "https://github.com/jhqxxx/aha.git", features = ["cuda", "flash-attn"] }
 ```
-
-### 从源码构建运行测试
-```bash
-git clone https://github.com/jhqxxx/aha.git
-cd aha
-# 修改测试用例中模型路径
-# 运行 DeepSeek-OCR 示例
-cargo test -F cuda deepseek_ocr_generate -r -- --nocapture
-
-# 运行 Qwen3VL 示例
-cargo test -F cuda qwen3vl_generate -r -- --nocapture
-
-# 运行 MiniCPM4 示例  
-cargo test -F cuda minicpm_generate -r -- --nocapture
-
-# 运行 VoxCPM 示例
-cargo test -F cuda voxcpm_generate -r -- --nocapture
-```
-
-## 使用方法
-### VoxCPM示例
+#### VoxCPM示例
 ```rust
 use aha::models::voxcpm::generate::VoxCPMGenerate;
 use aha::utils::audio_utils::save_wav;
@@ -97,21 +77,23 @@ fn main() -> Result<()> {
 git clone https://github.com/jhqxxx/aha.git
 cd aha
 # 修改测试用例中模型路径
+# 运行 DeepSeek-OCR 示例
+cargo test -F cuda deepseek_ocr_generate -r -- --nocapture
+
 # 运行 Qwen3VL 示例
-cargo test -F cuda qwen3vl_generate -- --nocapture
+cargo test -F cuda qwen3vl_generate -r -- --nocapture
 
 # 运行 MiniCPM4 示例  
-cargo test -F cuda minicpm_generate -- --nocapture
+cargo test -F cuda minicpm_generate -r -- --nocapture
 
 # 运行 VoxCPM 示例
-cargo test -F cuda voxcpm_generate -- --nocapture
+cargo test -F cuda voxcpm_generate -r -- --nocapture
 ```
 
 ### 从源码构建部署
 ```bash
 git clone https://github.com/jhqxxx/aha.git
 cd aha
-git checkout deploy
 ```
 
 #### cargo run 运行参数说明
@@ -139,7 +121,8 @@ cargo run -F cuda -- [参数]
     * qwen3vl-4b：Qwen/Qwen3-VL-4B-Instruct 模型
     * qwen3vl-8b：Qwen/Qwen3-VL-8B-Instruct 模型
     * qwen3vl-32b：Qwen/Qwen3-VL-32B-Instruct 模型
-* 示例：--model minicpm4-0.5b 或 -m qwen3vl-2b
+    * deepseek-ocr: deepseek-ai/DeepSeek-OCR 模型
+* 示例：--model deepseek-ocr 或 -m qwen3vl-2b
 
 3. 权重路径
 -----

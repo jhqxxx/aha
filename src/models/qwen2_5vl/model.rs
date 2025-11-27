@@ -5,14 +5,17 @@ use candle_nn::{
 };
 
 use crate::{
-    models::qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling},
+    models::{
+        common::eager_attention_forward,
+        qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling},
+    },
     position_embed::rope::{
         Qwen2_5VLTextRotaryEmbedding, Qwen2_5VisionRotaryEmbedding, apply_rotary_pos_emb,
         apply_rotary_pos_emb_vision,
     },
     utils::tensor_utils::{
-        get_equal_mask, get_vision_next_indices, masked_scatter_dim0, nonzero_index, repeat_kv,
-        safe_arg_sort_last_dim, zero_index,
+        get_equal_mask, get_vision_next_indices, masked_scatter_dim0, nonzero_index,
+        prepare_causal_attention_mask, safe_arg_sort_last_dim, zero_index,
     },
 };
 
@@ -128,7 +131,8 @@ struct Qwen2_5VLVisionAttention {
     qkv: Linear,
     proj: Linear,
     num_heads: usize,
-    scale: Tensor,
+    // scale: Tensor,
+    scale: f64,
 }
 
 impl Qwen2_5VLVisionAttention {
@@ -138,8 +142,9 @@ impl Qwen2_5VLVisionAttention {
         let head_dim = hidden_size / num_heads;
         let qkv = linear(hidden_size, hidden_size * 3, vb.pp("qkv"))?;
         let proj = linear(hidden_size, hidden_size, vb.pp("proj"))?;
-        let scale = Tensor::new(vec![1f32 / (head_dim as f32).sqrt()], vb.device())?
-            .to_dtype(vb.dtype())?;
+        // let scale = Tensor::new(vec![1f32 / (head_dim as f32).sqrt()], vb.device())?
+        //     .to_dtype(vb.dtype())?;
+        let scale = 1f64 / (head_dim as f64).sqrt();
         Ok(Self {
             qkv,
             proj,
@@ -169,24 +174,24 @@ impl Qwen2_5VLVisionAttention {
         let value_states = qkv_states.i(2)?.contiguous()?;
         let (query_states, key_states) =
             apply_rotary_pos_emb_vision(&query_states, &key_states, cos, sin)?;
-        // (seq_len, num_heads, head_dim) -> (num_heads, seq_len, head_dim)
-        let query_states = query_states.transpose(0, 1)?.contiguous()?;
-        let key_states = key_states.transpose(0, 1)?.contiguous()?;
-        let value_states = value_states.transpose(0, 1)?.contiguous()?;
-
-        let attn_output = {
-            let attn_weights = query_states
-                .matmul(&key_states.transpose(D::Minus2, D::Minus1)?)?
-                .broadcast_mul(&self.scale)?;
-            let attn_weights = attn_weights.broadcast_add(attention_mask)?;
-            let attn_weights = candle_nn::ops::softmax_last_dim(&attn_weights)?;
-            attn_weights.matmul(&value_states)?
-        };
-        // (num_heads, seq_len, head_dim) -> (seq_len, num_heads, head_dim) -> (seq_len, hidden_size)
+        //(seq_len, num_heads, head_dim) -> (num_heads, seq_len, head_dim) -> (1, num_heads, seq_len, head_dim)
+        let query_states = query_states.transpose(0, 1)?.unsqueeze(0)?.contiguous()?;
+        let key_states = key_states.transpose(0, 1)?.unsqueeze(0)?.contiguous()?;
+        let value_states = value_states.transpose(0, 1)?.unsqueeze(0)?.contiguous()?;
+        let attn_output = eager_attention_forward(
+            &query_states,
+            &key_states,
+            &value_states,
+            None,
+            Some(attention_mask),
+            self.scale,
+        )?;
+        //(1, seq_len, n_head, dim) -> (seq_len, n_head, dim)
         let attn_output = attn_output
-            .transpose(0, 1)?
+            .squeeze(0)?
             .reshape((seq_length, ()))?
             .contiguous()?;
+
         let attn_ouput = attn_output.apply(&self.proj)?;
         Ok(attn_ouput)
     }
@@ -493,19 +498,6 @@ impl Qwen2_5VLVisionModel {
         let sin = emb.sin()?.to_dtype(hidden_states.dtype())?;
         let cu_seqlens = grid_thw.i((.., 1))?.mul(&grid_thw.i((.., 2))?)?;
         let grid_t = grid_thw.i((.., 0))?.to_vec1::<u32>()?;
-        // let cu_seqlens_full = match cu_seqlens.rank() {
-        //     1 => cu_seqlens.repeat(grid_t[0] as usize)?,
-        //     2 => {
-        //         let mut cu_seqlens_repeat = Vec::new();
-        //         for (index, t) in grid_t.iter().enumerate() {
-        //             cu_seqlens_repeat.push(cu_seqlens.i(index)?.repeat(*t as usize)?);
-        //         }
-        //         Tensor::cat(&cu_seqlens_repeat, 0)?.flatten_all()?
-        //     }
-        //     _ => {
-        //         return Err(anyhow!(format!("create cu_seqlens error")));
-        //     }
-        // };
         let mut cu_seqlens_repeat = Vec::new();
         for (index, t) in grid_t.iter().enumerate() {
             cu_seqlens_repeat.push(cu_seqlens.i(index)?.repeat(*t as usize)?);
@@ -649,47 +641,16 @@ impl Qwen2_5VLTextAttention {
         };
 
         self.kv_cache = Some((key_states.clone(), value_states.clone()));
-
-        let key_states = repeat_kv(key_states, self.num_kv_groups)?.contiguous()?;
-        let value_states = repeat_kv(value_states, self.num_kv_groups)?.contiguous()?;
-        let query_states = query_states.contiguous()?;
-        let attn_output = {
-            let scale = 1f64 / f64::sqrt(self.head_dim as f64);
-            #[cfg(not(feature = "flash-attn"))]
-            {
-                let attn_weights =
-                    query_states.matmul(&key_states.transpose(D::Minus2, D::Minus1)?)?;
-                let attn_weights = (attn_weights * scale)?;
-                let attn_weights = match attention_mask {
-                    None => attn_weights,
-                    Some(mask) => attn_weights.broadcast_add(mask)?,
-                };
-                let attn_weights = candle_nn::ops::softmax_last_dim(&attn_weights)?;
-                attn_weights.matmul(&value_states)?
-            }
-            #[cfg(feature = "flash-attn")]
-            {
-                // use flash-attn,
-                // flash-attn shape: (bs, seq_len, num_head, head_dim)
-                let query_states = query_states.transpose(1, 2)?;
-                let key_states = key_states.transpose(1, 2)?;
-                let value_states = value_states.transpose(1, 2)?;
-                let attn_output = candle_flash_attn::flash_attn(
-                    &query_states,
-                    &key_states,
-                    &value_states,
-                    scale as f32,
-                    attention_mask.is_some(),
-                )?
-                .transpose(1, 2)?;
-                attn_output
-            }
-        };
-        let attn_output =
-            attn_output
-                .transpose(1, 2)?
-                .contiguous()?
-                .reshape((b_sz, q_len, self.hidden_size))?;
+        let scale = 1f64 / f64::sqrt(self.head_dim as f64);
+        let attn_output = eager_attention_forward(
+            &query_states,
+            &key_states,
+            &value_states,
+            Some(self.num_kv_groups),
+            attention_mask,
+            scale,
+        )?;
+        let attn_output = attn_output.reshape((b_sz, q_len, self.hidden_size))?;
         let attn_output = attn_output.apply(&self.o_proj)?;
         Ok(attn_output)
     }
@@ -755,8 +716,6 @@ pub struct Qwen2_5VLTextModel {
     norm: RmsNorm,
     rotary_emb: Qwen2_5VLTextRotaryEmbedding,
     dtype: DType,
-    sliding_window: usize,
-    device: Device,
     rope_scaling: RopeScaling,
 }
 
@@ -773,7 +732,6 @@ impl Qwen2_5VLTextModel {
             layers.push(layer)
         }
         let norm = rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("norm"))?;
-        let sliding_window = cfg.sliding_window;
         let rope_scaling = cfg.rope_scaling.clone();
         Ok(Self {
             embed_tokens,
@@ -781,42 +739,10 @@ impl Qwen2_5VLTextModel {
             norm,
             rotary_emb,
             dtype: vb.dtype(),
-            sliding_window,
-            device: vb.device().clone(),
             rope_scaling,
         })
     }
 
-    fn prepare_causal_attention_mask(
-        &self,
-        b_size: usize,
-        tgt_len: usize,
-        seqlen_offset: usize,
-    ) -> Result<Tensor> {
-        // Sliding window mask?
-        let mask: Vec<_> = (0..tgt_len)
-            .flat_map(|i| {
-                (0..tgt_len).map(move |j| {
-                    if i < j || j + self.sliding_window < i {
-                        f32::NEG_INFINITY
-                    } else {
-                        0.
-                    }
-                })
-            })
-            .collect();
-        let mask = Tensor::from_slice(&mask, (tgt_len, tgt_len), &self.device)?;
-        let mask = if seqlen_offset > 0 {
-            let mask0 = Tensor::zeros((tgt_len, seqlen_offset), self.dtype, &self.device)?;
-            Tensor::cat(&[&mask0, &mask], D::Minus1)?
-        } else {
-            mask
-        };
-        let mask = mask
-            .expand((b_size, 1, tgt_len, tgt_len + seqlen_offset))?
-            .to_dtype(self.dtype)?;
-        Ok(mask)
-    }
     pub fn forward(
         &mut self,
         inputs_embeds: &Tensor,
@@ -846,7 +772,12 @@ impl Qwen2_5VLTextModel {
             if seq_len <= 1 {
                 None
             } else {
-                Some(&self.prepare_causal_attention_mask(b_size, seq_len, 0)?)
+                Some(&prepare_causal_attention_mask(
+                    b_size,
+                    seq_len,
+                    0,
+                    xs.device(),
+                )?)
             }
         };
         for layer in self.layers.iter_mut() {
