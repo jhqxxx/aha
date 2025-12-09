@@ -24,7 +24,7 @@ fn deepseek_ocr_generate() -> Result<()> {
                     },              
                     {
                         "type": "text", 
-                        "text": "<image>\n<|grounding|>Convert the document to markdown. "
+                        "text": "<image>\nConvert the document to markdown. "
                     }
                 ]
             }

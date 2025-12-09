@@ -1,13 +1,13 @@
 use anyhow::{Result, anyhow};
 use candle_core::{D, DType, IndexOp, Shape, Tensor};
 use candle_nn::{
-    Activation, Embedding, Init, LayerNorm, LayerNormConfig, Linear, Module, RmsNorm, VarBuilder,
-    embedding, layer_norm, linear, linear_no_bias, rms_norm,
+    Activation, Embedding, Init, LayerNorm, Linear, Module, RmsNorm, VarBuilder, embedding, linear,
+    linear_no_bias, rms_norm,
 };
 
 use crate::{
     models::{
-        common::{GateUpDownMLP, eager_attention_forward},
+        common::{GateUpDownMLP, TwoLinearMLP, eager_attention_forward, get_layer_norm},
         qwen3vl::config::{Qwen3VLConfig, Qwen3VLTextConfig, Qwen3VLVisionConfig},
     },
     position_embed::rope::{
@@ -20,34 +20,6 @@ use crate::{
         zero_index,
     },
 };
-
-pub struct Qwen3VLVisionMLP {
-    linear_fc1: Linear,
-    linear_fc2: Linear,
-    act_fn: Activation,
-}
-
-impl Qwen3VLVisionMLP {
-    pub fn new(config: Qwen3VLVisionConfig, vb: VarBuilder) -> Result<Self> {
-        let hidden_size = config.hidden_size;
-        let intermediate_size = config.intermediate_size;
-        let linear_fc1 = linear(hidden_size, intermediate_size, vb.pp("linear_fc1"))?;
-        let linear_fc2 = linear(intermediate_size, hidden_size, vb.pp("linear_fc2"))?;
-        let act_fn = Activation::GeluPytorchTanh;
-        Ok(Self {
-            linear_fc1,
-            linear_fc2,
-            act_fn,
-        })
-    }
-}
-
-impl Module for Qwen3VLVisionMLP {
-    fn forward(&self, xs: &Tensor) -> candle_core::Result<Tensor> {
-        let xs = xs.apply(&self.linear_fc1)?.apply(&self.act_fn)?;
-        xs.apply(&self.linear_fc2)
-    }
-}
 
 pub struct Qwen3VLVisionPatchEmbed {
     conv3d_weight: Tensor,
@@ -111,17 +83,12 @@ impl Qwen3VLVisionPatchMerger {
         use_postshuffle_norm: bool,
     ) -> Result<Self> {
         let hidden_size = config.hidden_size * config.spatial_merge_size.pow(2);
-        let ln_config = LayerNormConfig {
-            eps: 1e-6,
-            remove_mean: true, // true for layernorm, false for RMSNorm
-            affine: true,      // true for with bias, false for without bias
-        };
         let norm_size = if use_postshuffle_norm {
             hidden_size
         } else {
             config.hidden_size
         };
-        let norm = layer_norm(norm_size, ln_config, vb.pp("norm"))?;
+        let norm = get_layer_norm(vb.pp("norm"), 1e-6, norm_size)?;
         let linear_fc1 = linear(hidden_size, hidden_size, vb.pp("linear_fc1"))?;
         let act_fn = Activation::Gelu;
         let linear_fc2 = linear(hidden_size, config.out_hidden_size, vb.pp("linear_fc2"))?;
@@ -226,20 +193,23 @@ pub struct Qwen3VLVisionBlock {
     norm1: LayerNorm,
     norm2: LayerNorm,
     attn: Qwen3VLVisionAttention,
-    mlp: Qwen3VLVisionMLP,
+    mlp: TwoLinearMLP,
 }
 
 impl Qwen3VLVisionBlock {
     pub fn new(config: Qwen3VLVisionConfig, vb: VarBuilder) -> Result<Self> {
-        let ln_config = LayerNormConfig {
-            eps: 1e-6,
-            remove_mean: true, // true for layernorm, false for RMSNorm
-            affine: true,      // true for with bias, false for without bias
-        };
-        let norm1 = layer_norm(config.hidden_size, ln_config, vb.pp("norm1"))?;
-        let norm2 = layer_norm(config.hidden_size, ln_config, vb.pp("norm2"))?;
+        let norm1 = get_layer_norm(vb.pp("norm1"), 1e-6, config.hidden_size)?;
+        let norm2 = get_layer_norm(vb.pp("norm2"), 1e-6, config.hidden_size)?;
         let attn = Qwen3VLVisionAttention::new(config.clone(), vb.pp("attn"))?;
-        let mlp = Qwen3VLVisionMLP::new(config, vb.pp("mlp"))?;
+        let mlp = TwoLinearMLP::new(
+            vb.pp("mlp"),
+            config.hidden_size,
+            config.intermediate_size,
+            config.hidden_act,
+            true,
+            "linear_fc1",
+            "linear_fc2",
+        )?;
         Ok(Self {
             norm1,
             norm2,

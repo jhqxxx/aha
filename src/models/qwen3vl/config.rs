@@ -50,7 +50,7 @@ pub struct Qwen3VLTextConfig {
 pub struct Qwen3VLVisionConfig {
     pub deepstack_visual_indexes: Vec<usize>,
     pub depth: usize,
-    pub hidden_act: String,
+    pub hidden_act: Activation,
     pub hidden_size: usize,
     pub in_channels: usize,
     pub initializer_range: f32,

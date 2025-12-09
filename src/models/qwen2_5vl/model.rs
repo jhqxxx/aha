@@ -1,12 +1,10 @@
 use anyhow::{Result, anyhow};
 use candle_core::{D, DType, Device, IndexOp, Tensor};
-use candle_nn::{
-    Activation, Init, Linear, Module, RmsNorm, VarBuilder, linear, linear_no_bias, rms_norm,
-};
+use candle_nn::{Init, Linear, Module, RmsNorm, VarBuilder, linear, linear_no_bias, rms_norm};
 
 use crate::{
     models::{
-        common::eager_attention_forward,
+        common::{GateUpDownMLP, eager_attention_forward},
         qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling},
     },
     position_embed::rope::{
@@ -95,38 +93,6 @@ impl Module for Qwen2_5VLPatchMerger {
 }
 
 #[derive(Debug, Clone)]
-struct Qwen2_5VLVisionMLP {
-    gate_proj: Linear,
-    up_proj: Linear,
-    down_proj: Linear,
-    act_fn: Activation,
-}
-
-impl Qwen2_5VLVisionMLP {
-    fn new(cfg: &Qwen2_5VLConfig, vb: VarBuilder) -> Result<Self> {
-        let hidden_sz = cfg.vision_config.hidden_size;
-        let intermediate_sz = cfg.vision_config.intermediate_size;
-        let gate_proj = linear(hidden_sz, intermediate_sz, vb.pp("gate_proj"))?;
-        let up_proj = linear(hidden_sz, intermediate_sz, vb.pp("up_proj"))?;
-        let down_proj = linear(intermediate_sz, hidden_sz, vb.pp("down_proj"))?;
-        Ok(Self {
-            gate_proj,
-            up_proj,
-            down_proj,
-            act_fn: cfg.hidden_act,
-        })
-    }
-}
-
-impl Module for Qwen2_5VLVisionMLP {
-    fn forward(&self, xs: &Tensor) -> candle_core::Result<Tensor> {
-        let lhs = xs.apply(&self.gate_proj)?.apply(&self.act_fn)?;
-        let rhs = xs.apply(&self.up_proj)?;
-        (lhs * rhs)?.apply(&self.down_proj)
-    }
-}
-
-#[derive(Debug, Clone)]
 struct Qwen2_5VLVisionAttention {
     qkv: Linear,
     proj: Linear,
@@ -200,7 +166,7 @@ impl Qwen2_5VLVisionAttention {
 #[derive(Debug, Clone)]
 struct Qwen2_5VLVisionBlock {
     attn: Qwen2_5VLVisionAttention,
-    mlp: Qwen2_5VLVisionMLP,
+    mlp: GateUpDownMLP,
     norm1: RmsNorm,
     norm2: RmsNorm,
 }
@@ -208,7 +174,13 @@ struct Qwen2_5VLVisionBlock {
 impl Qwen2_5VLVisionBlock {
     fn new(cfg: &Qwen2_5VLConfig, vb: VarBuilder) -> Result<Self> {
         let attn = Qwen2_5VLVisionAttention::new(cfg, vb.pp("attn"))?;
-        let mlp = Qwen2_5VLVisionMLP::new(cfg, vb.pp("mlp"))?;
+        let mlp = GateUpDownMLP::new(
+            vb.pp("mlp"),
+            cfg.vision_config.hidden_size,
+            cfg.vision_config.intermediate_size,
+            cfg.vision_config.hidden_act,
+            true,
+        )?;
         let norm1 = rms_norm(
             cfg.vision_config.hidden_size,
             cfg.rms_norm_eps,
@@ -538,39 +510,6 @@ impl Qwen2_5VLVisionModel {
 }
 
 #[derive(Debug, Clone)]
-struct Qwen2_5VLTextMLP {
-    gate_proj: Linear,
-    up_proj: Linear,
-    down_proj: Linear,
-    act_fn: Activation,
-}
-
-impl Qwen2_5VLTextMLP {
-    fn new(cfg: &Qwen2_5VLConfig, vb: VarBuilder) -> Result<Self> {
-        let hidden_sz = cfg.hidden_size;
-        let intermediate_sz = cfg.intermediate_size;
-        let gate_proj = linear_no_bias(hidden_sz, intermediate_sz, vb.pp("gate_proj"))?;
-        let up_proj = linear_no_bias(hidden_sz, intermediate_sz, vb.pp("up_proj"))?;
-        let down_proj = linear_no_bias(intermediate_sz, hidden_sz, vb.pp("down_proj"))?;
-
-        Ok(Self {
-            gate_proj,
-            up_proj,
-            down_proj,
-            act_fn: cfg.hidden_act,
-        })
-    }
-}
-
-impl Module for Qwen2_5VLTextMLP {
-    fn forward(&self, xs: &Tensor) -> candle_core::Result<Tensor> {
-        let lhs = xs.apply(&self.gate_proj)?.apply(&self.act_fn)?;
-        let rhs = xs.apply(&self.up_proj)?;
-        (lhs * rhs)?.apply(&self.down_proj)
-    }
-}
-
-#[derive(Debug, Clone)]
 struct Qwen2_5VLTextAttention {
     q_proj: Linear,
     k_proj: Linear,
@@ -663,7 +602,7 @@ impl Qwen2_5VLTextAttention {
 #[derive(Debug, Clone)]
 struct Qwen2_5VLTextDecoderLayer {
     self_attn: Qwen2_5VLTextAttention,
-    mlp: Qwen2_5VLTextMLP,
+    mlp: GateUpDownMLP,
     input_layernorm: RmsNorm,
     post_attention_layernorm: RmsNorm,
 }
@@ -671,7 +610,13 @@ struct Qwen2_5VLTextDecoderLayer {
 impl Qwen2_5VLTextDecoderLayer {
     fn new(cfg: &Qwen2_5VLConfig, vb: VarBuilder) -> Result<Self> {
         let self_attn = Qwen2_5VLTextAttention::new(cfg, vb.pp("self_attn"))?;
-        let mlp = Qwen2_5VLTextMLP::new(cfg, vb.pp("mlp"))?;
+        let mlp = GateUpDownMLP::new(
+            vb.pp("mlp"),
+            cfg.hidden_size,
+            cfg.intermediate_size,
+            cfg.hidden_act,
+            false,
+        )?;
         let input_layernorm =
             rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("input_layernorm"))?;
         let post_attention_layernorm = rms_norm(

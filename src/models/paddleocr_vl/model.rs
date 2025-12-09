@@ -8,7 +8,9 @@ use num::integer::Roots;
 
 use crate::{
     models::{
-        common::{GateUpDownMLP, NaiveAttention, TwoLinearMLP, get_conv2d, get_layer_norm},
+        common::{
+            NaiveAttnGateUpDownMLPBlock, NaiveAttnTwoLinearMLPBlock, get_conv2d, get_layer_norm,
+        },
         paddleocr_vl::config::{
             PaddleOCRVLConfig, PaddleOCRVLRopeScalingConfig, PaddleOCRVLVisionConfig,
         },
@@ -187,70 +189,8 @@ impl SiglipVisionEmbeddings {
     }
 }
 
-pub struct SiglipEncoderLayer {
-    layer_norm1: LayerNorm,
-    self_attn: NaiveAttention,
-    layer_norm2: LayerNorm,
-    mlp: TwoLinearMLP,
-}
-
-impl SiglipEncoderLayer {
-    pub fn new(vb: VarBuilder, config: &PaddleOCRVLVisionConfig) -> Result<Self> {
-        let layer_norm1 = get_layer_norm(
-            vb.pp("layer_norm1"),
-            config.layer_norm_eps,
-            config.hidden_size,
-        )?;
-        let self_attn = NaiveAttention::new(
-            vb.pp("self_attn"),
-            config.hidden_size,
-            config.num_attention_heads,
-            config.num_attention_heads,
-            None,
-            true,
-            Some("out_proj"),
-        )?;
-        let layer_norm2 = get_layer_norm(
-            vb.pp("layer_norm2"),
-            config.layer_norm_eps,
-            config.hidden_size,
-        )?;
-        let mlp = TwoLinearMLP::new(
-            vb.pp("mlp"),
-            config.hidden_size,
-            config.intermediate_size,
-            config.hidden_act,
-            true,
-            "fc1",
-            "fc2",
-        )?;
-        Ok(Self {
-            layer_norm1,
-            self_attn,
-            layer_norm2,
-            mlp,
-        })
-    }
-
-    pub fn forward(
-        &self,
-        xs: &Tensor,
-        cos: Option<&Tensor>,
-        sin: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let residual = xs.clone();
-        let xs = self.layer_norm1.forward(xs)?;
-        let xs = self.self_attn.forward(&xs, cos, sin, None, true)?;
-        let residual = residual.add(&xs)?;
-        let xs = self.layer_norm2.forward(&residual)?;
-        let xs = self.mlp.forward(&xs)?;
-        let xs = residual.add(&xs)?;
-        Ok(xs)
-    }
-}
-
 pub struct SiglipEncoder {
-    layers: Vec<SiglipEncoderLayer>,
+    layers: Vec<NaiveAttnTwoLinearMLPBlock>,
     rotary_pos_emb: Qwen2_5VisionRotaryEmbedding,
 }
 
@@ -259,7 +199,25 @@ impl SiglipEncoder {
         let vb_layers = vb.pp("layers");
         let mut layers = vec![];
         for i in 0..config.num_hidden_layers {
-            let layer_i = SiglipEncoderLayer::new(vb_layers.pp(i), config)?;
+            let layer_i = NaiveAttnTwoLinearMLPBlock::new(
+                vb_layers.pp(i),
+                config.hidden_size,
+                config.num_attention_heads,
+                None,
+                None,
+                true,
+                "self_attn",
+                Some("out_proj"),
+                config.intermediate_size,
+                config.hidden_act,
+                true,
+                "mlp",
+                "fc1",
+                "fc2",
+                config.layer_norm_eps,
+                "layer_norm1",
+                "layer_norm2",
+            )?;
             layers.push(layer_i);
         }
         let head_dim = config.hidden_size / config.num_attention_heads;
@@ -300,7 +258,7 @@ impl SiglipEncoder {
         let sin = rope_emb.sin()?;
         let mut xs = xs.clone();
         for layer in &self.layers {
-            xs = layer.forward(&xs, Some(&cos), Some(&sin))?;
+            xs = layer.forward(&xs, Some(&cos), Some(&sin), None, false)?;
         }
         Ok(xs)
     }
@@ -347,75 +305,9 @@ impl SiglipVisionModel {
     }
 }
 
-pub struct Ernie4_5DecoderLayer {
-    self_attn: NaiveAttention,
-    mlp: GateUpDownMLP,
-    input_layernorm: RmsNorm,
-    post_attention_layernorm: RmsNorm,
-}
-
-impl Ernie4_5DecoderLayer {
-    pub fn new(vb: VarBuilder, config: &PaddleOCRVLConfig) -> Result<Self> {
-        let self_attn = NaiveAttention::new(
-            vb.pp("self_attn"),
-            config.hidden_size,
-            config.num_attention_heads,
-            config.num_key_value_heads,
-            Some(config.head_dim),
-            config.use_bias,
-            None,
-        )?;
-        let mlp = GateUpDownMLP::new(
-            vb.pp("mlp"),
-            config.hidden_size,
-            config.intermediate_size,
-            config.hidden_act,
-            config.use_bias,
-        )?;
-        let input_layernorm = rms_norm(
-            config.hidden_size,
-            config.rms_norm_eps,
-            vb.pp("input_layernorm"),
-        )?;
-        let post_attention_layernorm = rms_norm(
-            config.hidden_size,
-            config.rms_norm_eps,
-            vb.pp("post_attention_layernorm"),
-        )?;
-        Ok(Self {
-            self_attn,
-            mlp,
-            input_layernorm,
-            post_attention_layernorm,
-        })
-    }
-
-    pub fn forward(
-        &mut self,
-        xs: &Tensor,
-        cos: &Tensor,
-        sin: &Tensor,
-        attention_mask: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let residual = xs.clone();
-        let xs = self.input_layernorm.forward(xs)?;
-        let xs = self
-            .self_attn
-            .forward_with_cache(&xs, cos, sin, attention_mask, false)?;
-        let residual = residual.add(&xs)?;
-        let xs = self.post_attention_layernorm.forward(&residual)?;
-        let xs = self.mlp.forward(&xs)?;
-        let xs = residual.add(&xs)?;
-        Ok(xs)
-    }
-    fn clear_kv_cache(&mut self) {
-        self.self_attn.clear_kv_cache()
-    }
-}
-
 pub struct Ernie4_5Model {
     embed_tokens: Embedding,
-    layers: Vec<Ernie4_5DecoderLayer>,
+    layers: Vec<NaiveAttnGateUpDownMLPBlock>,
     norm: RmsNorm,
     rotary_emb: Qwen2_5VLTextRotaryEmbedding,
     rope_scaling: PaddleOCRVLRopeScalingConfig,
@@ -427,7 +319,23 @@ impl Ernie4_5Model {
         let vb_layers = vb.pp("layers");
         let mut layers = vec![];
         for i in 0..config.num_hidden_layers {
-            let layer_i = Ernie4_5DecoderLayer::new(vb_layers.pp(i), config)?;
+            let layer_i = NaiveAttnGateUpDownMLPBlock::new(
+                vb_layers.pp(i),
+                config.hidden_size,
+                config.num_attention_heads,
+                Some(config.num_key_value_heads),
+                Some(config.head_dim),
+                config.use_bias,
+                "self_attn",
+                None,
+                config.intermediate_size,
+                config.hidden_act,
+                config.use_bias,
+                "mlp",
+                config.rms_norm_eps,
+                "input_layernorm",
+                "post_attention_layernorm",
+            )?;
             layers.push(layer_i);
         }
         let norm = rms_norm(config.hidden_size, config.rms_norm_eps, vb.pp("norm"))?;

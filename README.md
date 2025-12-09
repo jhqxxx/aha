@@ -38,26 +38,26 @@
 项目提供了几个可选的功能特性，您可以根据需要启用它们：
 * flash-attn: 启用 Flash Attention 支持以提升模型推理性能：
 ```bash
-cargo build --features flash-attn
+cargo build -r --features flash-attn
 ```
 
 * cuda: 为 candle 核心组件启用 CUDA 支持，实现 GPU 加速计算：
 ```bash
-cargo build --features cuda
+cargo build -r --features cuda
 ```
 
 * ffmpeg: 启用 FFmpeg 支持，提供多媒体处理功能：
 ```bash
-cargo build --features ffmpeg
+cargo build -r --features ffmpeg
 ```
 * 组合使用功能特性
 
 ```bash
 # 同时启用 CUDA 和 Flash Attention 以获得最佳性能
-cargo build --features "cuda,flash-attn"
+cargo build -r --features "cuda,flash-attn"
 
 # 启用所有功能特性
-cargo build --features "cuda,flash-attn,ffmpeg"
+cargo build -r --features "cuda,flash-attn,ffmpeg"
 ```
 
 ## 安装及使用
@@ -71,7 +71,7 @@ cd aha
 #### cargo run 运行参数说明
 ##### 基本用法
 ```bash
-cargo run -F cuda -- [参数]
+cargo run -F cuda -r -- [参数]
 ```
 ##### 参数详解
 1. 端口设置

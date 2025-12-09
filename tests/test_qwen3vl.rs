@@ -7,7 +7,7 @@ use rocket::futures::StreamExt;
 
 #[test]
 fn qwen3vl_generate() -> Result<()> {
-    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda qwen3vl_generate -r -- --nocapture
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda,ffmpeg qwen3vl_generate -r -- --nocapture
 
     let model_path = "/home/jhq/huggingface_model/Qwen/Qwen3-VL-2B-Instruct/";
 

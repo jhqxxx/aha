@@ -1,16 +1,13 @@
 use anyhow::{Result, anyhow};
 use candle_core::{D, IndexOp, Tensor};
 use candle_nn::{
-    Conv2d, Embedding, Init, LayerNorm, Linear, Module, RmsNorm, VarBuilder, embedding, linear,
+    Conv2d, Embedding, Init, Linear, Module, RmsNorm, VarBuilder, embedding, linear,
     linear_no_bias, rms_norm,
 };
 
 use crate::{
     models::{
-        common::{
-            GateUpDownMLP, NaiveAttention, TwoLinearMLP, eager_attention_forward, get_conv2d,
-            get_layer_norm,
-        },
+        common::{GateUpDownMLP, NaiveAttnTwoLinearMLPBlock, eager_attention_forward, get_conv2d},
         hunyuan_ocr::config::{HunYuanVLConfig, HunYuanVLVisionConfig},
     },
     position_embed::rope::{RoPE, apply_rotary_pos_emb, get_xd_cos_sin},
@@ -96,63 +93,6 @@ impl HunYuanVisionPatchEmbed {
         let patch_pos_embed = Tensor::cat(&patch_pos_embed_list, 1)?;
         let embedding = patch_embeds.add(&patch_pos_embed)?;
         Ok(embedding)
-    }
-}
-pub struct HunYuanVisionBlock {
-    self_attn: NaiveAttention,
-    mlp: TwoLinearMLP,
-    input_layernorm: LayerNorm,
-    post_attention_layernorm: LayerNorm,
-}
-
-impl HunYuanVisionBlock {
-    pub fn new(vb: VarBuilder, config: &HunYuanVLVisionConfig) -> Result<Self> {
-        let self_attn = NaiveAttention::new(
-            vb.pp("self_attn"),
-            config.hidden_size,
-            config.num_attention_heads,
-            config.num_attention_heads,
-            None,
-            true,
-            None,
-        )?;
-        let mlp = TwoLinearMLP::new(
-            vb.pp("mlp"),
-            config.hidden_size,
-            config.intermediate_size,
-            config.hidden_act,
-            true,
-            "dense_h_to_4h",
-            "dense_4h_to_h",
-        )?;
-
-        let input_layernorm = get_layer_norm(
-            vb.pp("input_layernorm"),
-            config.rms_norm_eps,
-            config.hidden_size,
-        )?;
-        let post_attention_layernorm = get_layer_norm(
-            vb.pp("post_attention_layernorm"),
-            config.rms_norm_eps,
-            config.hidden_size,
-        )?;
-        Ok(Self {
-            self_attn,
-            mlp,
-            input_layernorm,
-            post_attention_layernorm,
-        })
-    }
-
-    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
-        let residual = xs.clone();
-        let xs = self.input_layernorm.forward(xs)?;
-        let xs = self.self_attn.forward(&xs, None, None, None, false)?;
-        let residual = residual.add(&xs)?;
-        let xs = self.post_attention_layernorm.forward(&residual)?;
-        let xs = self.mlp.forward(&xs)?;
-        let xs = residual.add(&xs)?;
-        Ok(xs)
     }
 }
 
@@ -250,7 +190,7 @@ impl HunYuanVisionPatchMerger {
 
 pub struct HunYuanVisionTransformer {
     embeddings: HunYuanVisionPatchEmbed,
-    layers: Vec<HunYuanVisionBlock>,
+    layers: Vec<NaiveAttnTwoLinearMLPBlock>,
     perceive: HunYuanVisionPatchMerger,
 }
 
@@ -260,7 +200,25 @@ impl HunYuanVisionTransformer {
         let mut layers = vec![];
         let vb_layers = vb.pp("layers");
         for i in 0..config.num_hidden_layers {
-            let layer_i = HunYuanVisionBlock::new(vb_layers.pp(i), config)?;
+            let layer_i = NaiveAttnTwoLinearMLPBlock::new(
+                vb_layers.pp(i),
+                config.hidden_size,
+                config.num_attention_heads,
+                None,
+                None,
+                true,
+                "self_attn",
+                None,
+                config.intermediate_size,
+                config.hidden_act,
+                true,
+                "mlp",
+                "dense_h_to_4h",
+                "dense_4h_to_h",
+                config.rms_norm_eps,
+                "input_layernorm",
+                "post_attention_layernorm",
+            )?;
             layers.push(layer_i);
         }
         let perceive = HunYuanVisionPatchMerger::new(vb.pp("perceive"), config)?;
@@ -274,7 +232,7 @@ impl HunYuanVisionTransformer {
     pub fn forward(&self, xs: &Tensor, grid_thw: &Tensor) -> Result<Tensor> {
         let mut hidden_states = self.embeddings.forward(xs, grid_thw)?;
         for layer in &self.layers {
-            hidden_states = layer.forward(&hidden_states)?;
+            hidden_states = layer.forward(&hidden_states, None, None, None, false)?;
         }
         let mut cu_seqlens = vec![];
         for i in 0..grid_thw.dim(0)? {

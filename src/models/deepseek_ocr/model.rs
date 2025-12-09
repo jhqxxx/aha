@@ -1,8 +1,8 @@
 use anyhow::Result;
 use candle_core::{D, IndexOp, Tensor};
 use candle_nn::{
-    Activation, Conv2d, Conv2dConfig, Embedding, Init, LayerNorm, LayerNormConfig, Linear, Module,
-    RmsNorm, VarBuilder, conv2d, conv2d_no_bias, embedding, layer_norm, linear, linear_no_bias,
+    Activation, Conv2d, Embedding, Init, LayerNorm, Linear, Module, RmsNorm, VarBuilder, embedding,
+    linear, linear_no_bias,
     ops::{sigmoid, softmax},
     rms_norm,
 };
@@ -10,7 +10,10 @@ use candle_transformers::models::segment_anything::LayerNorm2d;
 
 use crate::{
     models::{
-        common::{GateUpDownMLP, NaiveAttention, TwoLinearMLP, eager_attention_forward},
+        common::{
+            GateUpDownMLP, NaiveAttention, TwoLinearMLP, eager_attention_forward, get_conv2d,
+            get_layer_norm,
+        },
         deepseek_ocr::config::{DeepseekOCRConfig, DeepseekV2Config},
     },
     position_embed::rope::RoPE,
@@ -33,14 +36,17 @@ impl PatchEmbed {
         stride: usize,
         padding: usize,
     ) -> Result<Self> {
-        let cfg = Conv2dConfig {
+        let proj = get_conv2d(
+            vb.pp("proj"),
+            in_chans,
+            embed_dim,
+            kernel_size,
             padding,
             stride,
-            dilation: 1,
-            groups: 1,
-            cudnn_fwd_algo: None,
-        };
-        let proj = conv2d(in_chans, embed_dim, kernel_size, cfg, vb.pp("proj"))?;
+            1,
+            1,
+            true,
+        )?;
         Ok(Self { proj })
     }
 
@@ -249,12 +255,7 @@ impl Block {
         window_size: usize,
         input_size: Option<(usize, usize)>,
     ) -> Result<Self> {
-        let ln_config = LayerNormConfig {
-            eps,
-            remove_mean: true, // true for layernorm, false for RMSNorm
-            affine: true,      // true for with bias, false for without bias
-        };
-        let norm1 = layer_norm(dim, ln_config, vb.pp("norm1"))?;
+        let norm1 = get_layer_norm(vb.pp("norm1"), eps, dim)?;
         let input_size = if window_size == 0 {
             input_size
         } else {
@@ -268,7 +269,7 @@ impl Block {
             use_rel_pos,
             input_size,
         )?;
-        let norm2 = layer_norm(dim, ln_config, vb.pp("norm2"))?;
+        let norm2 = get_layer_norm(vb.pp("norm2"), eps, dim)?;
         let mlp_dim = (dim as f32 * mlp_ratio) as usize;
         let mlp = TwoLinearMLP::new(vb.pp("mlp"), dim, mlp_dim, act, true, "lin1", "lin2")?;
         Ok(Self {
@@ -369,23 +370,9 @@ pub struct Neck {
 
 impl Neck {
     pub fn new(vb: VarBuilder, embed_dim: usize, out_chans: usize) -> Result<Self> {
-        let cfg = Conv2dConfig {
-            padding: 0,
-            stride: 1,
-            dilation: 1,
-            groups: 1,
-            cudnn_fwd_algo: None,
-        };
-        let conv2d_0 = conv2d_no_bias(embed_dim, out_chans, 1, cfg, vb.pp("0"))?;
+        let conv2d_0 = get_conv2d(vb.pp("0"), embed_dim, out_chans, 1, 0, 1, 1, 1, false)?;
         let layernorm_1 = LayerNorm2d::new(out_chans, 0.000001, vb.pp("1"))?;
-        let cfg = Conv2dConfig {
-            padding: 1,
-            stride: 1,
-            dilation: 1,
-            groups: 1,
-            cudnn_fwd_algo: None,
-        };
-        let conv2d_2 = conv2d_no_bias(out_chans, out_chans, 3, cfg, vb.pp("2"))?;
+        let conv2d_2 = get_conv2d(vb.pp("2"), out_chans, out_chans, 3, 1, 1, 1, 1, false)?;
         let layernorm_3 = LayerNorm2d::new(out_chans, 0.000001, vb.pp("3"))?;
         Ok(Self {
             conv2d_0,
@@ -476,15 +463,9 @@ impl ImageEncoderViT {
         }
 
         let neck = Neck::new(vb.pp("neck"), embed_dim, out_chans)?;
-        let cfg = Conv2dConfig {
-            padding: 1,
-            stride: 2,
-            dilation: 1,
-            groups: 1,
-            cudnn_fwd_algo: None,
-        };
-        let net_2 = conv2d_no_bias(256, 512, 3, cfg, vb.pp("net_2"))?;
-        let net_3 = conv2d_no_bias(512, 1024, 3, cfg, vb.pp("net_3"))?;
+
+        let net_2 = get_conv2d(vb.pp("net_2"), 256, 512, 3, 1, 2, 1, 1, false)?;
+        let net_3 = get_conv2d(vb.pp("net_3"), 512, 1024, 3, 1, 2, 1, 1, false)?;
         Ok(Self {
             // img_size,
             patch_embed,
@@ -548,19 +529,17 @@ impl CLIPVisionEmbeddings {
     ) -> Result<Self> {
         let class_embedding =
             vb.get_with_hints(hidden_size, "class_embedding", Init::Const(0.0))?;
-        let cfg = Conv2dConfig {
-            padding: 0,
-            stride: patch_size,
-            dilation: 1,
-            groups: 1,
-            cudnn_fwd_algo: None,
-        };
-        let patch_embedding = conv2d_no_bias(
+
+        let patch_embedding = get_conv2d(
+            vb.pp("patch_embedding"),
             num_channels,
             hidden_size,
             patch_size,
-            cfg,
-            vb.pp("patch_embedding"),
+            0,
+            patch_size,
+            1,
+            1,
+            false,
         )?;
 
         let num_patches = (image_size / patch_size).pow(2);
@@ -698,13 +677,8 @@ impl NoTPTransformerBlock {
     ) -> Result<Self> {
         let self_attn = NoTPAttention::new(vb.pp("self_attn"), hidden_size, num_heads)?;
         let mlp = NoTPFeedForward::new(vb.pp("mlp"), hidden_size, ffn_hidden_size)?;
-        let ln_config = LayerNormConfig {
-            eps,
-            remove_mean: true, // true for layernorm, false for RMSNorm
-            affine: true,      // true for with bias, false for without bias
-        };
-        let layer_norm1 = layer_norm(hidden_size, ln_config, vb.pp("layer_norm1"))?;
-        let layer_norm2 = layer_norm(hidden_size, ln_config, vb.pp("layer_norm2"))?;
+        let layer_norm1 = get_layer_norm(vb.pp("layer_norm1"), eps, hidden_size)?;
+        let layer_norm2 = get_layer_norm(vb.pp("layer_norm2"), eps, hidden_size)?;
         Ok(Self {
             self_attn,
             mlp,
@@ -793,12 +767,7 @@ impl VitModel {
             ffn_hidden_size,
             eps,
         )?;
-        let ln_config = LayerNormConfig {
-            eps,
-            remove_mean: true, // true for layernorm, false for RMSNorm
-            affine: true,      // true for with bias, false for without bias
-        };
-        let pre_layrnorm = layer_norm(hidden_size, ln_config, vb.pp("pre_layrnorm"))?;
+        let pre_layrnorm = get_layer_norm(vb.pp("pre_layrnorm"), eps, hidden_size)?;
         Ok(Self {
             embeddings,
             transformer,
@@ -813,10 +782,6 @@ impl VitModel {
         Ok(output)
     }
 }
-
-// pub struct DeepseekV2MLP {
-
-// }
 
 pub struct MoEGate {
     top_k: usize,
@@ -1128,10 +1093,6 @@ impl DeepseekV2Model {
         }
     }
 }
-
-// pub struct MlpProjector {
-//     layers: Linear,
-// }
 
 pub struct DeepseekOCRModel {
     // config: DeepseekOCRConfig,

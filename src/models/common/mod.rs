@@ -1,8 +1,8 @@
 use anyhow::Result;
 use candle_core::{D, Tensor};
 use candle_nn::{
-    Activation, Conv2d, Conv2dConfig, LayerNorm, LayerNormConfig, Linear, Module, VarBuilder,
-    conv2d, conv2d_no_bias, layer_norm, linear, linear_no_bias,
+    Activation, Conv2d, Conv2dConfig, LayerNorm, LayerNormConfig, Linear, Module, RmsNorm,
+    VarBuilder, conv2d, conv2d_no_bias, layer_norm, linear, linear_no_bias, rms_norm,
 };
 
 use crate::{position_embed::rope::apply_rotary_pos_emb, utils::tensor_utils::repeat_kv};
@@ -110,7 +110,6 @@ pub struct NaiveAttention {
     kv_cache: Option<(Tensor, Tensor)>,
 }
 
-// impl AttentionNobias {
 impl NaiveAttention {
     pub fn new(
         vb: VarBuilder,
@@ -257,6 +256,166 @@ impl NaiveAttention {
 
     pub fn clear_kv_cache(&mut self) {
         self.kv_cache = None
+    }
+}
+
+pub struct NaiveAttnTwoLinearMLPBlock {
+    self_attn: NaiveAttention,
+    mlp: TwoLinearMLP,
+    input_layernorm: LayerNorm,
+    post_attention_layernorm: LayerNorm,
+}
+
+impl NaiveAttnTwoLinearMLPBlock {
+    pub fn new(
+        vb: VarBuilder,
+        hidden_size: usize,
+        num_attention_heads: usize,
+        num_key_value_heads: Option<usize>,
+        head_dim: Option<usize>,
+        attn_bias: bool,
+        attn_pp_name: &str,
+        o_proj_pp_name: Option<&str>,
+        intermediate_size: usize,
+        hidden_act: Activation,
+        mlp_bias: bool,
+        mlp_pp_name: &str,
+        linear1_pp_name: &str,
+        linear2_pp_name: &str,
+        norm_eps: f64,
+        input_norm_pp_name: &str,
+        post_norm_pp_name: &str,
+    ) -> Result<Self> {
+        let num_key_value_heads = match num_key_value_heads {
+            Some(heads) => heads,
+            None => num_attention_heads,
+        };
+        let self_attn = NaiveAttention::new(
+            vb.pp(attn_pp_name),
+            hidden_size,
+            num_attention_heads,
+            num_key_value_heads,
+            head_dim,
+            attn_bias,
+            o_proj_pp_name,
+        )?;
+        let mlp = TwoLinearMLP::new(
+            vb.pp(mlp_pp_name),
+            hidden_size,
+            intermediate_size,
+            hidden_act,
+            mlp_bias,
+            linear1_pp_name,
+            linear2_pp_name,
+        )?;
+
+        let input_layernorm = get_layer_norm(vb.pp(input_norm_pp_name), norm_eps, hidden_size)?;
+        let post_attention_layernorm =
+            get_layer_norm(vb.pp(post_norm_pp_name), norm_eps, hidden_size)?;
+        Ok(Self {
+            self_attn,
+            mlp,
+            input_layernorm,
+            post_attention_layernorm,
+        })
+    }
+
+    pub fn forward(
+        &self,
+        xs: &Tensor,
+        cos: Option<&Tensor>,
+        sin: Option<&Tensor>,
+        attention_mask: Option<&Tensor>,
+        tof32: bool,
+    ) -> Result<Tensor> {
+        let residual = xs.clone();
+        let xs = self.input_layernorm.forward(xs)?;
+        let xs = self
+            .self_attn
+            .forward(&xs, cos, sin, attention_mask, tof32)?;
+        let residual = residual.add(&xs)?;
+        let xs = self.post_attention_layernorm.forward(&residual)?;
+        let xs = self.mlp.forward(&xs)?;
+        let xs = residual.add(&xs)?;
+        Ok(xs)
+    }
+}
+
+pub struct NaiveAttnGateUpDownMLPBlock {
+    self_attn: NaiveAttention,
+    mlp: GateUpDownMLP,
+    input_layernorm: RmsNorm,
+    post_attention_layernorm: RmsNorm,
+}
+
+impl NaiveAttnGateUpDownMLPBlock {
+    pub fn new(
+        vb: VarBuilder,
+        hidden_size: usize,
+        num_attention_heads: usize,
+        num_key_value_heads: Option<usize>,
+        head_dim: Option<usize>,
+        attn_bias: bool,
+        attn_pp_name: &str,
+        o_proj_pp_name: Option<&str>,
+        intermediate_size: usize,
+        hidden_act: Activation,
+        mlp_bias: bool,
+        mlp_pp_name: &str,
+        norm_eps: f64,
+        input_norm_pp_name: &str,
+        post_norm_pp_name: &str,
+    ) -> Result<Self> {
+        let num_key_value_heads = match num_key_value_heads {
+            Some(heads) => heads,
+            None => num_attention_heads,
+        };
+        let self_attn = NaiveAttention::new(
+            vb.pp(attn_pp_name),
+            hidden_size,
+            num_attention_heads,
+            num_key_value_heads,
+            head_dim,
+            attn_bias,
+            o_proj_pp_name,
+        )?;
+        let mlp = GateUpDownMLP::new(
+            vb.pp(mlp_pp_name),
+            hidden_size,
+            intermediate_size,
+            hidden_act,
+            mlp_bias,
+        )?;
+        let input_layernorm = rms_norm(hidden_size, norm_eps, vb.pp(input_norm_pp_name))?;
+        let post_attention_layernorm = rms_norm(hidden_size, norm_eps, vb.pp(post_norm_pp_name))?;
+        Ok(Self {
+            self_attn,
+            mlp,
+            input_layernorm,
+            post_attention_layernorm,
+        })
+    }
+
+    pub fn forward(
+        &mut self,
+        xs: &Tensor,
+        cos: &Tensor,
+        sin: &Tensor,
+        attention_mask: Option<&Tensor>,
+    ) -> Result<Tensor> {
+        let residual = xs.clone();
+        let xs = self.input_layernorm.forward(xs)?;
+        let xs = self
+            .self_attn
+            .forward_with_cache(&xs, cos, sin, attention_mask, false)?;
+        let residual = residual.add(&xs)?;
+        let xs = self.post_attention_layernorm.forward(&residual)?;
+        let xs = self.mlp.forward(&xs)?;
+        let xs = residual.add(&xs)?;
+        Ok(xs)
+    }
+    pub fn clear_kv_cache(&mut self) {
+        self.self_attn.clear_kv_cache()
     }
 }
 

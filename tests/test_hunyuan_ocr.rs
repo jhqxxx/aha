@@ -24,7 +24,7 @@ fn hunyuan_ocr_generate() -> Result<()> {
                     },              
                     {
                         "type": "text", 
-                        "text": "检测并识别图片中的文字，将文本坐标格式化输出。"
+                        "text": "识别图片中的文字"
                     }
                 ]
             }
