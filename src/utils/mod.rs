@@ -11,7 +11,7 @@ use aha_openai_dive::v1::resources::{
         ChatCompletionParameters, ChatCompletionResponse, ChatMessage, ChatMessageContent,
         ChatMessageContentPart, DeltaChatMessage, DeltaFunction, DeltaToolCall, Function, ToolCall,
     },
-    shared::FinishReason,
+    shared::{FinishReason, Usage},
 };
 use anyhow::Result;
 use candle_core::{DType, Device};
@@ -137,8 +137,24 @@ pub fn ceil_by_factor(num: f32, factor: u32) -> u32 {
     ceil * factor
 }
 
-pub fn build_completion_response(res: String, model_name: &str) -> ChatCompletionResponse {
+pub fn build_completion_response(res: String, model_name: &str, num_tokens: Option<u32>) -> ChatCompletionResponse {
     let id = uuid::Uuid::new_v4().to_string();
+    let usage = match num_tokens {
+        Some(num) => {
+            Some(Usage {
+                input_tokens: None,
+                input_tokens_details: None,
+                output_tokens: None,
+                output_tokens_details: None,
+                prompt_tokens: None,
+                completion_tokens: None,
+                total_tokens: num,
+                prompt_tokens_details: None,
+                completion_tokens_details: None
+            })
+        },
+        None => None,
+    };
     let mut response = ChatCompletionResponse {
         id: Some(id),
         choices: vec![],
@@ -147,7 +163,7 @@ pub fn build_completion_response(res: String, model_name: &str) -> ChatCompletio
         service_tier: None,
         system_fingerprint: None,
         object: "chat.completion".to_string(),
-        usage: None,
+        usage
     };
     let choice = if res.contains("<tool_call>") {
         let mes: Vec<&str> = res.split("<tool_call>").collect();

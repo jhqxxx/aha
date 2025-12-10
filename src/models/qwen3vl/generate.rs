@@ -120,9 +120,10 @@ impl<'a> GenerateModel for Qwen3VLGenerateModel<'a> {
             pixel_values = None;
             pixel_values_video = None;
         }
+        let num_token = generate.len() as u32;
         let res = self.tokenizer.token_decode(generate)?;
         self.qwen3_vl.clear_kv_cache();
-        let response = build_completion_response(res, &self.model_name);
+        let response = build_completion_response(res, &self.model_name, Some(num_token));
         Ok(response)
     }
 
@@ -174,18 +175,18 @@ impl<'a> GenerateModel for Qwen3VLGenerateModel<'a> {
             let mut tool_call_id = None;
             let mut tool_call_content = String::new();
             for _ in 0..sample_len {
-            let logits = self.qwen3_vl.forward(
-                &input_ids,
-                pixel_values,
-                image_grid_thw,
-                pixel_values_video,
-                video_grid_thw,
-                Some(&cache_position),
-                seqlen_offset,
-            )?;
-            let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
-            let next_token = logit_processor.sample(&logits)?;
-            let mut decode_ids = Vec::new();
+                let logits = self.qwen3_vl.forward(
+                    &input_ids,
+                    pixel_values,
+                    image_grid_thw,
+                    pixel_values_video,
+                    video_grid_thw,
+                    Some(&cache_position),
+                    seqlen_offset,
+                )?;
+                let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
+                let next_token = logit_processor.sample(&logits)?;
+                let mut decode_ids = Vec::new();
                 if !error_tokens.is_empty() {
                     decode_ids.extend_from_slice(&error_tokens);
                 }
@@ -206,27 +207,54 @@ impl<'a> GenerateModel for Qwen3VLGenerateModel<'a> {
                 }
                 error_tokens.clear();
 
-                if decoded_token.as_str() == "<tool_call>" {
-                    tool_call_id = Some(uuid::Uuid::new_v4().to_string());
-                    continue;
-                } else {
-                    if decoded_token.as_str() == "</tool_call>" {
-                        let chunk = build_completion_chunk_response(decoded_token, &self.model_name, tool_call_id.clone(), Some(tool_call_content.clone()));
+                // 处理特殊标记和工具调用
+                match decoded_token.as_str() {
+                    "<tool_call>" => {
+                        // 开始工具调用
+                        tool_call_id = Some(uuid::Uuid::new_v4().to_string());
+                        seqlen_offset += seq_len;
+                        seq_len = 1;
+                        input_ids = Tensor::from_vec(vec![next_token], (1, 1), &self.device)?;
+                        cache_position = Tensor::from_vec(vec![seqlen_offset as u32], 1, &self.device)?;
+                        pixel_values = None;
+                        pixel_values_video = None;
+                        continue;
+                    }
+                    "</tool_call>" => {
+                        // 结束工具调用
+                        let chunk = build_completion_chunk_response(
+                            decoded_token,
+                            &self.model_name,
+                            tool_call_id.clone(),
+                            Some(tool_call_content.clone())
+                        );
                         tool_call_id = None;
                         tool_call_content = String::new();
                         yield Ok(chunk);
                     }
-                    else {
+                    _ => {
                         if tool_call_id.is_some() {
+                            // 在工具调用过程中，收集工具调用内容
                             tool_call_content.push_str(&decoded_token);
+                            seqlen_offset += seq_len;
+                            seq_len = 1;
+                            input_ids = Tensor::from_vec(vec![next_token], (1, 1), &self.device)?;
+                            cache_position = Tensor::from_vec(vec![seqlen_offset as u32], 1, &self.device)?;
+                            pixel_values = None;
+                            pixel_values_video = None;
                             continue;
-                        }
-                        else {
-                            let chunk = build_completion_chunk_response(decoded_token, &self.model_name, None, None);
+                        } else {
+                            // 正常文本输出
+                            let chunk = build_completion_chunk_response(
+                                decoded_token,
+                                &self.model_name,
+                                None,
+                                None
+                            );
                             yield Ok(chunk);
                         }
                     }
-                }                
+                }
                 if next_token == self.eos_token_id1 || next_token == self.eos_token_id2 {
                     break;
                 }

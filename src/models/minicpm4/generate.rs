@@ -78,9 +78,10 @@ impl<'a> GenerateModel for MiniCPMGenerateModel<'a> {
             seq_len = 1;
             input_ids = Tensor::from_vec(vec![next_token], (1, 1), &self.device)?;
         }
+        let num_token = generate.len() as u32;
         let res = self.tokenizer.token_decode(generate)?;
         self.minicpm.clear_kv_cache();
-        let response = build_completion_response(res, &self.model_name);
+        let response = build_completion_response(res, &self.model_name, Some(num_token));
         Ok(response)
     }
     fn generate_stream(

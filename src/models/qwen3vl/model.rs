@@ -730,7 +730,6 @@ impl Qwen3VLTextModel {
         deepstack_visual_embeds: Option<Vec<Tensor>>,
     ) -> Result<Tensor> {
         let (b_size, seq_len, _) = inputs_embeds.dims3()?;
-
         let position_ids = match position_ids {
             Some(ids) => ids.clone(),
             None => Tensor::arange(

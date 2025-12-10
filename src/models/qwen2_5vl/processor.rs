@@ -72,6 +72,9 @@ impl Qwen2_5VLProcessor {
                     if let ChatMessageContentPart::Image(img_part) = part {
                         let img_url = img_part.image_url;
                         vision_map.get_mut("image").unwrap().push(img_url.url);
+                    // } else if let ChatMessageContentPart::Video(video_part) = part {
+                    //     let video_url = video_part.video_url;
+                    //     vision_map.get_mut("video").unwrap().push(video_url.url);
                     }
                 }
             }

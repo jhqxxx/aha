@@ -119,9 +119,10 @@ impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
             pixel_values = None;
             image_grid_thw = None;
         }
+        let num_token = generate.len() as u32;
         let res = self.tokenizer.token_decode(generate)?;
         self.hunyuan_vl.clear_kv_cache();
-        let response = build_completion_response(res, &self.model_name);
+        let response = build_completion_response(res, &self.model_name, Some(num_token));
         Ok(response)
     }
 

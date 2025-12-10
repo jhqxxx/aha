@@ -127,9 +127,10 @@ impl GenerateModel for DeepseekOCRGenerateModel {
             images_seq_mask = None;
             images_spatial_crop_t = None;
         }
+        let num_token = generate.len() as u32;
         let res = self.tokenizer.token_decode(generate)?;
         self.deepseekocr_model.clear_kv_cache();
-        let response = build_completion_response(res, &self.model_name);
+        let response = build_completion_response(res, &self.model_name, Some(num_token));
         Ok(response)
     }
 

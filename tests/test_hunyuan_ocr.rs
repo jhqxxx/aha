@@ -40,8 +40,15 @@ fn hunyuan_ocr_generate() -> Result<()> {
     let i_start = Instant::now();
     let res = model.generate(mes)?;
     let i_duration = i_start.elapsed();
-    println!("Time elapsed in generate is: {:?}", i_duration);
     println!("generate: \n {:?}", res);
+    if res.usage.is_some() {
+        let num_token = res.usage.as_ref().unwrap().total_tokens;
+        let duration_secs = i_duration.as_secs_f64();
+        let tps = num_token as f64 / duration_secs;
+        println!("Tokens per second (TPS): {:.2}", tps);
+    }
+    println!("Time elapsed in generate is: {:?}", i_duration);
+    
     Ok(())
 }
 
