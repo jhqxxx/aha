@@ -1,10 +1,10 @@
 [package]
 name = "aha"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 repository = "https://github.com/jhqxxx/aha"
 license = "Apache-2.0"
-description = "aha model inference library, now supports Qwen2.5VL, MiniCPM4, VoxCPM, Qwen3VL, DeepSeek-OCR, Hunyuan-OCR, and PaddleOCR-VL"
+description = "aha model inference library, now supports Qwen2.5VL, MiniCPM4, VoxCPM, Qwen3VL, DeepSeek-OCR, Hunyuan-OCR, PaddleOCR-VL, VoxCPM1.5"
 
 [dependencies]
 candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.9.1", tag = "0.9.1"}

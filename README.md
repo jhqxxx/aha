@@ -241,6 +241,9 @@ cargo test -F cuda voxcpm_generate -r -- --nocapture
 2. 提交新的 Issue，包含详细描述和复现步骤
 
 ## 更新日志
+### v0.1.5
+* 支持VoxCPM1.5 模型
+
 ### v0.1.4
 * 添加PaddleOCR-VL 模型
 
