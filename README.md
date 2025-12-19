@@ -14,12 +14,16 @@
 ### 当前已实现
 * [Qwen2.5VL](https://huggingface.co/collections/Qwen/qwen25-vl) - 阿里通义千问 2.5 多模态大语言模型
     - 模型：[Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct) 开源协议：[Qwen RESEARCH LICENSE AGREEMENT](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/blob/main/LICENSE)
+    - 模型：[Qwen/Qwen2.5-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
 * [MiniCPM4](https://huggingface.co/collections/openbmb/minicpm4) - 面壁智能 MiniCPM 系列语言模型
     - 模型：[MiniCPM4-0.5B](https://huggingface.co/openbmb/MiniCPM4-0.5B) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
 * [VoxCPM](https://huggingface.co/collections/openbmb/voxcpm) - 面壁智能语音生成模型
     - 模型：[VoxCPM-0.5B](https://huggingface.co/openbmb/VoxCPM-0.5B) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
 * [Qwen3VL](https://huggingface.co/collections/Qwen/qwen3-vl) - 阿里通义千问 3 多模态大语言模型
     - 模型：[Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
+    - 模型：[Qwen3-VL-4B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
+    - 模型：[Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
+    - 模型：[Qwen3-VL-32B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
 * DeepSeek-OCR - 深度求索光学文字识别模型
     - 模型：[DeepSeek-OCR](https://huggingface.co/deepseek-ai/DeepSeek-OCR) 开源协议：[MIT](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/mit.md)
 * Hunyuan-OCR - 腾讯混元光学文字识别模型
