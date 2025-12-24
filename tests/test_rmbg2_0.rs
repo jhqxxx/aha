@@ -42,7 +42,6 @@ fn rmbg2_0_generate() -> Result<()> {
     for (i, img) in result.iter().enumerate() {
         let _ = img.save(format!("rmbg_{i}.png"));
     }
-    
 
     Ok(())
 }
