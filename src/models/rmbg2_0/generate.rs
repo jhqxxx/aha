@@ -45,30 +45,36 @@ impl RMBG2_0 {
         })
     }
 
+    #[cfg(test)]
     pub fn h(&self) -> u32 {
         self.h
     }
 
+    #[cfg(test)]
     pub fn w(&self) -> u32 {
         self.w
     }
 
+    #[cfg(test)]
     pub fn img_mean(&self) -> &Tensor {
         &self.img_mean
     }
 
+    #[cfg(test)]
     pub fn img_std(&self) -> &Tensor {
         &self.img_std
     }
 
+    #[cfg(test)]
     pub fn device(&self) -> &Device {
         &self.device
     }
-
+    #[cfg(test)]
     pub fn dtype(&self) -> DType {
         self.dtype
     }
 
+    #[cfg(test)]
     pub fn model(&self) -> &BiRefNet {
         &self.model
     }
@@ -118,8 +124,8 @@ impl RMBG2_0 {
             .map(|(i, (img, height, width))| {
                 let rmbg_tensor = batch_output.i(i)?;
                 let alpha_img = float_tensor_to_dynamic_image(&rmbg_tensor)?;
-                let alpha_img = alpha_img
-                    .resize_exact(width, height, image::imageops::FilterType::CatmullRom);
+                let alpha_img =
+                    alpha_img.resize_exact(width, height, image::imageops::FilterType::CatmullRom);
                 let alpha_gray = alpha_img.to_luma8();
 
                 let rgb_img = img.to_rgb8();

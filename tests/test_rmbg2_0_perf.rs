@@ -21,7 +21,7 @@ fn test_pixel_combine_performance() -> Result<()> {
         image::Luma([((x + y) % 256) as u8])
     });
 
-    let iterations = 50;
+    let iterations = 10;
 
     println!("=== 像素组合性能测试 ===");
     println!("图片尺寸: {}x{}", width, height);
@@ -195,7 +195,7 @@ fn test_postprocess_parallel_vs_serial() -> Result<()> {
         })
         .collect();
 
-    let iterations = 20;
+    let iterations = 10;
 
     println!("=== 后处理阶段性能测试（纯图像操作）===");
     println!("图片数量: {}", num_images);

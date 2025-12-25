@@ -79,16 +79,15 @@ pub fn get_image(file: &str) -> Result<DynamicImage> {
     Err(anyhow!("get image from message failed".to_string()))
 }
 
-pub fn extract_image_url(mes: &ChatCompletionParameters) -> Vec<String> {
+pub fn extract_image_url(mes: &ChatCompletionParameters) -> Vec<&String> {
     let mut img_vec = Vec::new();
-    // 使用引用避免 clone
     for chat_mes in &mes.messages {
         if let ChatMessage::User { content, .. } = chat_mes
             && let ChatMessageContent::ContentPart(part_vec) = content
         {
             for part in part_vec {
                 if let ChatMessageContentPart::Image(img_part) = part {
-                    img_vec.push(img_part.image_url.url.clone());
+                    img_vec.push(&img_part.image_url.url);
                 }
             }
         }
