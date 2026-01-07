@@ -511,7 +511,7 @@ pub fn load_audio_with_resample(
 ) -> Result<Tensor> {
     let audio_path = get_audio_path(path)?;
     // hound 只支持wav文件
-    // let (mut audio, sr) = load_audio_use_hound(audio_path, device)?; 
+    // let (mut audio, sr) = load_audio_use_hound(audio_path, device)?;
     let (mut audio, sr) = load_audio_use_symphonia(audio_path, device)?;
     if let Some(target_sample_rate) = target_sample_rate
         && target_sample_rate != sr
