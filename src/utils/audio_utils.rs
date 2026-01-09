@@ -78,6 +78,15 @@ pub fn get_sinc_resample_kernel(
             "Low pass filter width should be positive".to_string()
         ));
     }
+    // 24k
+    // 16k
+    // 8k
+    // 3 / 2
+    // conv: 6
+    // out_channel: 2
+    // in_channel: 1
+    // ks= 23 / stride = 3
+    // [2, 1, 23]
 
     let orig_freq = orig_freq / gcd_val;
     let new_freq = new_freq / gcd_val;
@@ -166,7 +175,8 @@ pub fn apply_sinc_resample_kernel(
         groups: 1,
         cudnn_fwd_algo: None,
     };
-
+    // (len -k +padding ) / stride +1
+    // out: 2
     let conv1d = Conv1d::new(kernel.clone(), None, config);
     // 执行卷积
     // kernel形状: [new_freq_reduced, 1, kernel_len]
@@ -350,7 +360,6 @@ pub fn get_audio_bytes_vec(path_str: &str) -> Result<Vec<u8>> {
         Err(anyhow::anyhow!("get audio path error {}", path_str))
     }
 }
-
 
 pub fn load_audio_use_hound(audio_path: PathBuf, device: &Device) -> Result<(Tensor, usize)> {
     let mut reader = WavReader::open(audio_path)?;
