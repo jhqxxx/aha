@@ -3,8 +3,8 @@ use candle_core::{D, Tensor};
 use candle_nn::{
     Activation, BatchNorm, BatchNormConfig, Conv1d, Conv1dConfig, Conv2d, Conv2dConfig, Embedding,
     LayerNorm, LayerNormConfig, Linear, Module, RmsNorm, VarBuilder, batch_norm, conv1d,
-    conv1d_no_bias, conv2d, conv2d_no_bias, embedding, layer_norm, linear_b,
-    linear_no_bias, rms_norm,
+    conv1d_no_bias, conv2d, conv2d_no_bias, embedding, layer_norm, linear_b, linear_no_bias,
+    rms_norm,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
