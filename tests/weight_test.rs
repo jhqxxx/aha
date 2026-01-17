@@ -164,7 +164,8 @@ fn fun_asr_nano_weight() -> Result<()> {
     let mut dict_to_hashmap = HashMap::new();
     // let mut dtype = candle_core::DType::F32;
     for m in model_list {
-        let dict = read_all_with_key(m, Some("state_dict"))?;
+        // let dict = read_all_with_key(m, Some("state_dict"))?;
+        let dict = read_all_with_key(m, None)?;
         // dtype = dict[0].1.dtype();
         for (k, v) in dict {
             if k.contains("model") {

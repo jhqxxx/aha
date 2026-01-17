@@ -54,7 +54,24 @@ impl FunAsrNanoGenerateModel {
         let model_list = find_type_files(path, "pt")?;
         let mut dict_to_hashmap = HashMap::new();
         for m in model_list {
-            let dict = read_all_with_key(m, Some("state_dict"))?;
+            let dict = match read_all_with_key(m.clone(), Some("state_dict")) {
+                Ok(dict) => dict,
+                Err(e) => {
+                    println!(
+                        "model read_all_with_key {} get state_dict err: {}, use None try again",
+                        &m, e
+                    );
+                    match read_all_with_key(m.clone(), None) {
+                        Ok(dict) => dict,
+                        Err(e) => {
+                            return Err(anyhow!(format!(
+                                "model read_all_with_key({}, None): e: {}",
+                                &m, e
+                            )));
+                        }
+                    }
+                }
+            };
             for (k, v) in dict {
                 dict_to_hashmap.insert(k, v);
             }
