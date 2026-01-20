@@ -1,7 +1,7 @@
 use std::{net::IpAddr, str::FromStr, time::Duration};
 
 use aha::{models::WhichModel, utils::get_default_save_dir};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use modelscope::ModelScope;
 use rocket::{
     Config,
@@ -14,26 +14,109 @@ use crate::api::init;
 mod api;
 
 #[derive(Parser, Debug)]
+#[command(name = "aha")]
 #[command(version, about, long_about = None)]
-struct Args {
+struct Cli {
+    /// Service listen address
     #[arg(short, long, default_value = "127.0.0.1")]
-    address: String,
+    address: Option<String>,
 
-    #[arg(short, long, default_value_t = 10100)]
-    port: u16,
-
+    /// Service listen port
     #[arg(short, long)]
-    model: WhichModel,
+    port: Option<u16>,
 
+    /// Model type (required for backward compatibility)
+    #[arg(short, long)]
+    model: Option<WhichModel>,
+
+    /// Local model weight path
     #[arg(long)]
     weight_path: Option<String>,
 
+    /// Model download save directory
     #[arg(long)]
     save_dir: Option<String>,
 
+    /// Download retry count
+    #[arg(long)]
+    download_retries: Option<u32>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Download model and start service (default)
+    Cli(CliArgs),
+    /// Start service only (requires --weight-path)
+    Serv(ServArgs),
+    /// Download model only
+    Download(DownloadArgs),
+}
+
+/// Common/shared arguments for server operations
+#[derive(Args, Debug)]
+struct CommonArgs {
+    /// Service listen address
+    #[arg(short, long, default_value = "127.0.0.1")]
+    address: String,
+
+    /// Service listen port
+    #[arg(short, long, default_value_t = 10100)]
+    port: u16,
+
+    /// Model type (required)
+    #[arg(short, long)]
+    model: WhichModel,
+}
+
+/// Arguments for the 'cli' subcommand (download + serve)
+#[derive(Args, Debug)]
+struct CliArgs {
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Local model weight path (skip download if provided)
+    #[arg(long)]
+    weight_path: Option<String>,
+
+    /// Model download save directory
+    #[arg(long)]
+    save_dir: Option<String>,
+
+    /// Download retry count
     #[arg(long)]
     download_retries: Option<u32>,
 }
+
+/// Arguments for the 'serv' subcommand (serve only)
+#[derive(Args, Debug)]
+struct ServArgs {
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Local model weight path (required)
+    #[arg(long, required = true)]
+    weight_path: String,
+}
+
+/// Arguments for the 'download' subcommand (download only)
+#[derive(Args, Debug)]
+struct DownloadArgs {
+    /// Model type (required)
+    #[arg(short, long)]
+    model: WhichModel,
+
+    /// Model download save directory
+    #[arg(short, long)]
+    save_dir: Option<String>,
+
+    /// Download retry count
+    #[arg(long)]
+    download_retries: Option<u32>,
+}
+
 async fn download_model(model_id: &str, save_dir: &str, max_retries: u32) -> anyhow::Result<()> {
     let mut attempts = 0u32;
     loop {
@@ -67,10 +150,9 @@ async fn download_model(model_id: &str, save_dir: &str, max_retries: u32) -> any
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-    let model_id = match &args.model {
+/// Get the ModelScope model ID for a given WhichModel variant
+fn get_model_id(model: WhichModel) -> &'static str {
+    match model {
         WhichModel::MiniCPM4_0_5B => "OpenBMB/MiniCPM4-0.5B",
         WhichModel::Qwen2_5vl3B => "Qwen/Qwen2.5-VL-3B-Instruct",
         WhichModel::Qwen2_5vl7B => "Qwen/Qwen2.5-VL-7B-Instruct",
@@ -87,30 +169,89 @@ async fn main() -> anyhow::Result<()> {
         WhichModel::VoxCPM1_5 => "OpenBMB/VoxCPM1.5",
         WhichModel::GlmASRNano2512 => "ZhipuAI/GLM-ASR-Nano-2512",
         WhichModel::FunASRNano2512 => "FunAudioLLM/Fun-ASR-Nano-2512",
-    };
-    let model_path = match &args.weight_path {
-        Some(path) => path.clone(),
+    }
+}
+
+/// Run the 'cli' subcommand: download model (if needed) and start service
+async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
+    let CliArgs { common, weight_path, save_dir, download_retries } = args;
+    let model_id = get_model_id(common.model);
+
+    let model_path = match weight_path {
+        Some(path) => path,
         None => {
-            let save_dir = match &args.save_dir {
-                Some(dir) => dir.clone(),
+            let save_dir = match save_dir {
+                Some(dir) => dir,
                 None => get_default_save_dir().expect("Failed to get home directory"),
             };
-            let max_retries = args.download_retries.unwrap_or(3);
+            let max_retries = download_retries.unwrap_or(3);
             download_model(model_id, &save_dir, max_retries).await?;
             save_dir + "/" + model_id
         }
     };
-    // println!("-------------------download path: {}", model_path);
-    init(args.model, model_path)?;
-    start_http_server(&args).await?;
+
+    init(common.model, model_path)?;
+    start_http_server(common.address, common.port).await?;
 
     Ok(())
 }
 
-pub(crate) async fn start_http_server(args: &Args) -> anyhow::Result<()> {
+/// Run the 'serv' subcommand: start service only (no download)
+async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
+    let ServArgs { common, weight_path } = args;
+
+    init(common.model, weight_path)?;
+    start_http_server(common.address, common.port).await?;
+
+    Ok(())
+}
+
+/// Run the 'download' subcommand: download model only (no server)
+async fn run_download(args: DownloadArgs) -> anyhow::Result<()> {
+    let DownloadArgs { model, save_dir, download_retries } = args;
+    let model_id = get_model_id(model);
+
+    let save_dir = match save_dir {
+        Some(dir) => dir,
+        None => get_default_save_dir().expect("Failed to get home directory"),
+    };
+    let max_retries = download_retries.unwrap_or(3);
+
+    download_model(model_id, &save_dir, max_retries).await?;
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Some(Commands::Cli(args)) => run_cli(args).await,
+        Some(Commands::Serv(args)) => run_serv(args).await,
+        Some(Commands::Download(args)) => run_download(args).await,
+        None => {
+            // Backward compatibility: when no subcommand is provided, use 'cli' behavior
+            let model = cli.model.expect("Model is required (use -m or --model)");
+            let args = CliArgs {
+                common: CommonArgs {
+                    address: cli.address.unwrap_or_else(|| "127.0.0.1".to_string()),
+                    port: cli.port.unwrap_or(10100),
+                    model,
+                },
+                weight_path: cli.weight_path,
+                save_dir: cli.save_dir,
+                download_retries: cli.download_retries,
+            };
+            run_cli(args).await
+        }
+    }
+}
+
+pub(crate) async fn start_http_server(address: String, port: u16) -> anyhow::Result<()> {
     let mut builder = rocket::build().configure(Config {
-        address: IpAddr::from_str(&args.address)?,
-        port: args.port,
+        address: IpAddr::from_str(&address)?,
+        port,
         limits: Limits::default()
             .limit("string", ByteUnit::Mebibyte(5))
             .limit("json", ByteUnit::Mebibyte(5))
@@ -128,7 +269,3 @@ pub(crate) async fn start_http_server(args: &Args) -> anyhow::Result<()> {
     builder.launch().await?;
     Ok(())
 }
-
-// fn main() {
-//     println!("Hello, world!");
-// }
