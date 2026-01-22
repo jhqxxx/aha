@@ -10,6 +10,10 @@ build:
 	@echo "Building project..."
 	@cargo build
 
+build_mac:
+	@echo "Building project for macOS..."
+	@cargo build --features metal  --release
+
 test:
 	@echo "Running tests..."
 	@cargo test

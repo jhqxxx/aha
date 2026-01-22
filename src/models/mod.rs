@@ -29,37 +29,37 @@ use crate::models::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum WhichModel {
-    #[value(name = "minicpm4-0.5b")]
+    #[value(name = "minicpm4-0.5b", hide = true)]
     MiniCPM4_0_5B,
-    #[value(name = "qwen2.5vl-3b")]
+    #[value(name = "qwen2.5vl-3b", hide = true)]
     Qwen2_5vl3B,
-    #[value(name = "qwen2.5vl-7b")]
+    #[value(name = "qwen2.5vl-7b", hide = true)]
     Qwen2_5vl7B,
-    #[value(name = "qwen3-0.6b")]
+    #[value(name = "qwen3-0.6b", hide = true)]
     Qwen3_0_6B,
-    #[value(name = "qwen3vl-2b")]
+    #[value(name = "qwen3vl-2b", hide = true)]
     Qwen3vl2B,
-    #[value(name = "qwen3vl-4b")]
+    #[value(name = "qwen3vl-4b", hide = true)]
     Qwen3vl4B,
-    #[value(name = "qwen3vl-8b")]
+    #[value(name = "qwen3vl-8b", hide = true)]
     Qwen3vl8B,
-    #[value(name = "qwen3vl-32b")]
+    #[value(name = "qwen3vl-32b", hide = true)]
     Qwen3vl32B,
-    #[value(name = "deepseek-ocr")]
+    #[value(name = "deepseek-ocr", hide = true)]
     DeepSeekOCR,
-    #[value(name = "hunyuan-ocr")]
+    #[value(name = "hunyuan-ocr", hide = true)]
     HunyuanOCR,
-    #[value(name = "paddleocr-vl")]
+    #[value(name = "paddleocr-vl", hide = true)]
     PaddleOCRVL,
-    #[value(name = "RMBG2.0")]
+    #[value(name = "RMBG2.0", hide = true)]
     RMBG2_0,
-    #[value(name = "voxcpm")]
+    #[value(name = "voxcpm", hide = true)]
     VoxCPM,
-    #[value(name = "voxcpm1.5")]
+    #[value(name = "voxcpm1.5", hide = true)]
     VoxCPM1_5,
-    #[value(name = "glm-asr-nano-2512")]
+    #[value(name = "glm-asr-nano-2512", hide = true)]
     GlmASRNano2512,
-    #[value(name = "fun-asr-nano-2512")]
+    #[value(name = "fun-asr-nano-2512", hide = true)]
     FunASRNano2512,
 }
 
