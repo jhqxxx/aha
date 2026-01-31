@@ -19,12 +19,12 @@ pub fn get_template(path: String) -> Result<String> {
     // 修复模板中的问题行
     let fixed_template = chat_template
         .replace(
-            "message.content.startswith('<tool_response>')",
-            "message.content is startingwith('<tool_response>')", // 使用minijinja中的 is startingwith 替换
+            "content.startswith('<tool_response>')",
+            "content is startingwith('<tool_response>')", // 使用minijinja中的 is startingwith 替换
         )
         .replace(
-            "message.content.endswith('</tool_response>')",
-            "message.content is endingwith('</tool_response>')", // 使用minijinja中的 is endingwith 替换
+            "content.endswith('</tool_response>')",
+            "content is endingwith('</tool_response>')", // 使用minijinja中的 is endingwith 替换
         )
         .replace(
             "content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n')",

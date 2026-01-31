@@ -6,6 +6,58 @@ use anyhow::Result;
 use rocket::futures::StreamExt;
 
 #[test]
+fn qwen3vl_thinking_generate() -> Result<()> {
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda qwen3vl_thinking_generate -r -- --nocapture
+
+    let save_dir =
+        aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
+    let model_path = format!("{}/Qwen/Qwen3-VL-2B-Thinking/", save_dir);
+
+    let message = r#"
+    {
+        "model": "qwen3vl-thinking",
+        "messages": [
+            {
+                "role": "user",
+                "content": [ 
+                    {
+                        "type": "image",
+                        "image_url": 
+                        {
+                            "url": "file://./assets/img/ocr_test1.png"
+                        }
+                    },             
+                    {
+                        "type": "text", 
+                        "text": "请分析图片并提取所有可见文本内容，按从左到右、从上到下的布局，返回纯文本"
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 10240
+    }
+    "#;
+    let mes: ChatCompletionParameters = serde_json::from_str(message)?;
+    let i_start = Instant::now();
+    let mut qwen3vl = Qwen3VLGenerateModel::init(&model_path, None, None)?;
+    let i_duration = i_start.elapsed();
+    println!("Time elapsed in load model is: {:?}", i_duration);
+
+    let i_start = Instant::now();
+    let res = qwen3vl.generate(mes)?;
+    let i_duration = i_start.elapsed();
+    println!("generate: \n {:?}", res);
+    if res.usage.is_some() {
+        let num_token = res.usage.as_ref().unwrap().total_tokens;
+        let duration_secs = i_duration.as_secs_f64();
+        let tps = num_token as f64 / duration_secs;
+        println!("Tokens per second (TPS): {:.2}", tps);
+    }
+    println!("Time elapsed in generate is: {:?}", i_duration);
+    Ok(())
+}
+
+#[test]
 fn qwen3vl_generate() -> Result<()> {
     // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda,ffmpeg qwen3vl_generate -r -- --nocapture
 
