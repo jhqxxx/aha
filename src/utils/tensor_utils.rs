@@ -1043,3 +1043,19 @@ pub fn statistics_pooling(xs: &Tensor, dim: D, keepdim: bool) -> Result<Tensor> 
     }
     Ok(stats)
 }
+pub fn float_range_normalize(t: &Tensor) -> Result<Tensor> {
+    let peak = t
+        .to_dtype(DType::F32)?
+        .abs()?
+        .max_all()?
+        .to_scalar::<f32>()?;
+    if peak == 0.0 {
+        return Ok(t.clone());
+    }
+    let mut t = t.clone();
+    if peak > 1.0 {
+        t = t.affine(1.0 / peak as f64, 0.0)?;
+    }
+    t = t.clamp(-1.0, 1.0)?;
+    Ok(t)
+}

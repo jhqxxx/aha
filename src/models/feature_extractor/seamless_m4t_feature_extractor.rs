@@ -7,7 +7,7 @@ use crate::utils::{
 };
 
 pub struct SeamlessM4TFeatureExtractor {
-    feature_size: usize,
+    // feature_size: usize,
     num_mel_bins: usize,
     padding_side: PaddingSide,
     padding_value: f32,
@@ -19,7 +19,7 @@ pub struct SeamlessM4TFeatureExtractor {
 
 impl SeamlessM4TFeatureExtractor {
     pub fn new(
-        feature_size: usize,
+        // feature_size: usize,
         num_mel_bins: usize,
         padding_side: PaddingSide,
         padding_value: f32,
@@ -40,7 +40,7 @@ impl SeamlessM4TFeatureExtractor {
         )?;
         let window = create_povey_window(400, candle_core::DType::F32, device)?;
         Ok(Self {
-            feature_size,
+            // feature_size,
             num_mel_bins,
             padding_side,
             padding_value,

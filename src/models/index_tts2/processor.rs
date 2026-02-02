@@ -45,7 +45,7 @@ impl IndexTTS2Processor {
         dtype: DType,
     ) -> Result<Self> {
         let feature_extractor = SeamlessM4TFeatureExtractor::new(
-            80,
+            // 80,
             80,
             crate::utils::tensor_utils::PaddingSide::Right,
             1.0,

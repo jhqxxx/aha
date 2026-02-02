@@ -32,7 +32,7 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
 use crate::utils::get_default_save_dir;
-use crate::utils::tensor_utils::{linspace, log10, pad_reflect_last_dim, pad_replicate_last_dim};
+use crate::utils::tensor_utils::{linspace, log10, pad_reflect_last_dim, pad_replicate_last_dim, split_tensor};
 
 // 重采样方法枚举
 #[derive(Debug, Clone, Copy)]
@@ -1605,4 +1605,23 @@ pub fn spectrogram(
         }
     }
     Ok(spectrogram)
+}
+
+pub fn split_audio_into_chunks(wav: &Tensor, sr: usize, max_chunk_sec: f32) -> Result<Vec<Tensor>> {
+    // wav: (1, len)
+    let total_len = wav.dim(1)?;
+    let total_sec = total_len as f32 / sr as f32;
+    let mut wavs = vec![];
+    if total_sec <= max_chunk_sec {
+        wavs.push(wav.clone());
+    } else {
+        let max_len = (max_chunk_sec * sr as f32).round() as usize;
+        let split_len = total_len / max_len;
+        let mut splits = vec![max_len; split_len];
+        let remain_len = total_len % max_len;
+        splits.push(remain_len);
+        let split_wav = split_tensor(wav, &splits, 1)?;
+        wavs.extend_from_slice(&split_wav);
+    }
+    Ok(wavs)
 }

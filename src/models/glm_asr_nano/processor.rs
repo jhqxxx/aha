@@ -5,7 +5,10 @@ use anyhow::Result;
 use candle_core::{D, DType, Device, IndexOp, Tensor};
 
 use crate::{
-    models::glm_asr_nano::config::GlmAsrNanoProcessorConfig,
+    models::{
+        feature_extractor::feature_extraction_whisper::WhisperFeatureExtractor,
+        glm_asr_nano::config::GlmAsrNanoProcessorConfig,
+    },
     utils::{
         audio_utils::{
             apply_stft, create_hann_window, extract_audios, extract_frames, mel_filter_bank,
@@ -28,6 +31,7 @@ pub struct GlmAsrNanoProcessor {
     max_audio_len: usize,
     // default_transcription_prompt: String,
     device: Device,
+    whisper_feature_extrator: WhisperFeatureExtractor,
 }
 
 impl GlmAsrNanoProcessor {
@@ -67,6 +71,16 @@ impl GlmAsrNanoProcessor {
             device,
         )?
         .t()?;
+        let whisper_feature_extrator = WhisperFeatureExtractor::new(
+            processor_cfg.feature_extractor.feature_size,
+            processor_cfg.feature_extractor.hop_length,
+            processor_cfg.feature_extractor.chunk_length,
+            processor_cfg.feature_extractor.n_fft,
+            processor_cfg.feature_extractor.dither,
+            processor_cfg.feature_extractor.padding_value,
+            processor_cfg.feature_extractor.sampling_rate,
+            device,
+        )?;
         Ok(Self {
             sampling_rate,
             chunk_length,
@@ -80,34 +94,35 @@ impl GlmAsrNanoProcessor {
             max_audio_len,
             // default_transcription_prompt,
             device: device.clone(),
+            whisper_feature_extrator,
         })
     }
 
-    pub fn extract_fbank_features(&self, waveform: &Tensor) -> Result<Tensor> {
-        let pad = self.n_fft / 2;
-        let waveform = pad_reflect_last_dim(waveform, (pad, pad))?;
-        let (_, samples) = waveform.dims2()?;
+    // pub fn extract_fbank_features(&self, waveform: &Tensor) -> Result<Tensor> {
+    //     let pad = self.n_fft / 2;
+    //     let waveform = pad_reflect_last_dim(waveform, (pad, pad))?;
+    //     let (_, samples) = waveform.dims2()?;
 
-        // // (bs, n_frames, n_fft)
-        // let frames = extract_frames(&waveform, self.n_fft, self.hop_length)?;
-        // // 应用汉明窗口
-        // let result = frames.broadcast_mul(&self.window)?;
-        // // 傅立叶变换
-        // let magnitudes = apply_stft(&result)?.transpose(D::Minus1, D::Minus2)?;
-        let magnitudes = torch_stft(&waveform, self.n_fft, self.hop_length, &self.window)?
-            .transpose(D::Minus1, D::Minus2)?;
-        let n_frames = (samples - self.n_fft) / self.hop_length + 1;
-        let magnitudes = magnitudes.narrow(D::Minus1, 0, n_frames - 1)?;
-        let mel_spec = self.mel_filters.broadcast_matmul(&magnitudes)?;
-        let mel_spec = mel_spec.clamp(1e-10f32, f32::INFINITY)?;
-        // let ln_spec = mel_spec.log()?;
-        // let log10_spec = ln_spec.broadcast_div(&Tensor::new(f32::ln(10.0), mel_spec.device())?)?;
-        let log10_spec = log10(&mel_spec)?;
-        let max_val = log10_spec.max_all()?.affine(1.0, -8.0)?;
-        let log10_spec = log10_spec.broadcast_maximum(&max_val)?;
-        let log_spec = log10_spec.affine(1.0, 4.0)?.affine(1.0 / 4.0, 0.0)?;
-        Ok(log_spec)
-    }
+    //     // // (bs, n_frames, n_fft)
+    //     // let frames = extract_frames(&waveform, self.n_fft, self.hop_length)?;
+    //     // // 应用汉明窗口
+    //     // let result = frames.broadcast_mul(&self.window)?;
+    //     // // 傅立叶变换
+    //     // let magnitudes = apply_stft(&result)?.transpose(D::Minus1, D::Minus2)?;
+    //     let magnitudes = torch_stft(&waveform, self.n_fft, self.hop_length, &self.window)?
+    //         .transpose(D::Minus1, D::Minus2)?;
+    //     let n_frames = (samples - self.n_fft) / self.hop_length + 1;
+    //     let magnitudes = magnitudes.narrow(D::Minus1, 0, n_frames - 1)?;
+    //     let mel_spec = self.mel_filters.broadcast_matmul(&magnitudes)?;
+    //     let mel_spec = mel_spec.clamp(1e-10f32, f32::INFINITY)?;
+    //     // let ln_spec = mel_spec.log()?;
+    //     // let log10_spec = ln_spec.broadcast_div(&Tensor::new(f32::ln(10.0), mel_spec.device())?)?;
+    //     let log10_spec = log10(&mel_spec)?;
+    //     let max_val = log10_spec.max_all()?.affine(1.0, -8.0)?;
+    //     let log10_spec = log10_spec.broadcast_maximum(&max_val)?;
+    //     let log_spec = log10_spec.affine(1.0, 4.0)?.affine(1.0 / 4.0, 0.0)?;
+    //     Ok(log_spec)
+    // }
 
     pub fn feature_extractor(&self, raw_speech: Vec<Tensor>) -> Result<(Tensor, Tensor)> {
         let mut pad_audio = vec![];
@@ -132,7 +147,10 @@ impl GlmAsrNanoProcessor {
         }
         let input_features = Tensor::cat(&pad_audio, 0)?;
         let input_features_mask = Tensor::new(input_features_mask, input_features.device())?;
-        let input_features = self.extract_fbank_features(&input_features)?;
+        // let input_features = self.extract_fbank_features(&input_features)?;
+        let (input_features, _) =
+            self.whisper_feature_extrator
+                .call(&input_features, self.sampling_rate, false)?;
         let (_, audio_len) = input_features_mask.dims2()?;
         let mask_idx: Vec<u32> = (0..audio_len)
             .step_by(self.hop_length)

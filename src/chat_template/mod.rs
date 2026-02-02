@@ -6,16 +6,33 @@ use crate::utils::string_to_static_str;
 
 pub fn get_template(path: String) -> Result<String> {
     let tokenizer_config_file = path.clone() + "/tokenizer_config.json";
-    assert!(
-        std::path::Path::new(&tokenizer_config_file).exists(),
-        "tokenizer_config.json not exists in model path"
-    );
-    let tokenizer_config: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(tokenizer_config_file)?)
-            .map_err(|e| anyhow!(format!("load tokenizer_config file error:{}", e)))?;
-    let chat_template = tokenizer_config["chat_template"]
-        .as_str()
-        .ok_or(anyhow!(format!("chat_template to str error")))?;
+    let chat_template = if std::path::Path::new(&tokenizer_config_file).exists() {
+        let tokenizer_config: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(tokenizer_config_file)?)
+                .map_err(|e| anyhow!(format!("load tokenizer_config file error:{}", e)))?;
+        let chat_template = tokenizer_config["chat_template"]
+            .as_str()
+            .map(|s| s.to_string());
+        match chat_template {
+            Some(tem) => Some(tem),
+            None => {
+                let chat_template_file = path.clone() + "/chat_template.json";
+                if std::path::Path::new(&chat_template_file).exists() {
+                    let chat_template_config: serde_json::Value =
+                        serde_json::from_slice(&std::fs::read(chat_template_file)?)
+                            .map_err(|e| anyhow!(format!("load chat_template file error:{}", e)))?;
+                    chat_template_config["chat_template"]
+                        .as_str()
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                }
+            }
+        }
+    } else {
+        None
+    };
+    let chat_template = chat_template.ok_or(anyhow!(format!("chat_template is none")))?;
     // 修复模板中的问题行
     let fixed_template = chat_template
         .replace(

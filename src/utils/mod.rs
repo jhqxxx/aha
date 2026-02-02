@@ -712,6 +712,25 @@ pub fn extract_user_text(mes: &ChatCompletionParameters) -> Result<String> {
     Ok(ret)
 }
 
+pub fn extract_user_text_vec(mes: &ChatCompletionParameters) -> Result<Vec<String>> {
+    let mut ret = vec![];
+    for chat_mes in mes.messages.clone() {
+        if let ChatMessage::User { content, .. } = chat_mes.clone()
+            && let ChatMessageContent::ContentPart(part_vec) = content
+        {
+            for part in part_vec {
+                if let ChatMessageContentPart::Text(text_part) = part {
+                    let text = text_part.text;
+                    if text.chars().count() > 0 {
+                        ret.push(text);
+                    }
+                }
+            }
+        }
+    }
+    Ok(ret)
+}
+
 pub fn get_default_save_dir() -> Option<String> {
     home_dir().map(|mut path| {
         path.push(".aha");
@@ -771,4 +790,15 @@ pub fn get_file_path(file: &str) -> Result<PathBuf> {
         }
     };
     Ok(path)
+}
+
+pub fn capitalize_first_letter(input: &str) -> String {
+    if input.is_empty() {
+        return input.to_string();
+    }
+
+    let mut chars = input.chars();
+    let first_char = chars.next().unwrap().to_uppercase().collect::<String>();
+    let remaining = chars.as_str().to_lowercase();
+    format!("{}{}", first_char, remaining)
 }

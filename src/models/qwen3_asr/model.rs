@@ -11,7 +11,7 @@ use crate::{
         qwen3::{config::Qwen3Config, model::Qwen3Model},
     },
     position_embed::sinusoidal_pe::SinusoidalPositionEncoderCat,
-    utils::tensor_utils::{get_equal_mask, mask_filled, masked_scatter_dim0},
+    utils::tensor_utils::{get_equal_mask, attn_masked_fill, masked_scatter_dim0},
 };
 
 pub struct MultiHeadedAttentionSANM {
@@ -124,9 +124,9 @@ impl MultiHeadedAttentionSANM {
             };
             // mask: rank = 2
             let mask = get_equal_mask(&mask, 0)?;
-            let scores = mask_filled(scores, &mask, f32::NEG_INFINITY)?;
+            let scores = attn_masked_fill(scores, &mask, f32::NEG_INFINITY)?;
             let attn = softmax_last_dim(&scores)?;
-            mask_filled(&attn, &mask, 0.0)?
+            attn_masked_fill(&attn, &mask, 0.0)?
         } else {
             softmax_last_dim(scores)?
         };
