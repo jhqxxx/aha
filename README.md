@@ -52,6 +52,9 @@
     - 模型:[Fun-ASR-Nano-2512](https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512) 开源协议未标明
 * [Qwen3](https://huggingface.co/collections/Qwen/qwen3) - 通义千问 Qwen3系列语言模型
     - 模型:[Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) 开源协议: [Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
+* [Qwen3-ASR](https://huggingface.co/collections/Qwen/qwen3-asr) - 通义千问 Qwen3语音识别模型
+    - 模型:[Qwen3-ASR-0.6B](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)    
+    - 模型:[Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) 开源协议：[Apache license 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
 
 ## 计划支持
 我们持续扩展支持的模型列表，欢迎贡献！
@@ -74,9 +77,14 @@
 cargo build -r --features flash-attn
 ```
 
-* cuda: 为 candle 核心组件启用 CUDA 支持，实现 GPU 加速计算：
+* cuda: 为 candle 核心组件启用 CUDA 支持，实现 Nvidia GPU 加速计算：
 ```bash
 cargo build -r --features cuda
+```
+
+* cuda: 为 candle 核心组件启用 Metal 支持，利用 Apple GPU 加速计算（适用于 macOS/iOS 平台）：
+```bash
+cargo build -r --features metal
 ```
 
 * ffmpeg: 启用 FFmpeg 支持，提供多媒体处理功能：
@@ -88,10 +96,29 @@ cargo build -r --features ffmpeg
 ```bash
 # 同时启用 CUDA 和 Flash Attention 以获得最佳性能
 cargo build -r --features "cuda,flash-attn"
-
-# 启用所有功能特性
-cargo build -r --features "cuda,flash-attn,ffmpeg"
 ```
+## 命令行工具 (CLI)
+项目提供命令行工具，支持模型下载、服务启动和直接推理等多种操作。
+
+### 快速开始
+```bash
+# 下载模型并启动服务
+aha -m qwen3asr-0.6b
+
+# 直接运行推理（无需启动服务）
+aha run -m qwen3asr-0.6b -i "audio.wav" --weight-path /path/to/model
+
+# 仅下载模型
+aha download -m qwen3asr-0.6b
+```
+### 主要功能
+* 模型管理 - 自动下载、本地模型加载
+* 服务模式 - 启动 HTTP API 服务
+* 直接推理 - 命令行直接执行推理任务
+* 多模型支持 - 支持aha已实现的模型类型
+
+### 详细使用说明
+请参阅 [CLI_USAGE.md](./docs/CLI_USAGE.md) 获取完整的命令行工具使用说明、参数详解和支持的模型列表。
 
 ## 安装及使用
 
@@ -123,6 +150,8 @@ cargo run -F cuda -r -- [参数]
     * qwen2.5vl-3b：Qwen/Qwen2.5-VL-3B-Instruct 模型
     * qwen2.5vl-7b：Qwen/Qwen2.5-VL-7B-Instruct 模型
     * qwen3-0.6b: Qwen/Qwen3-0.6B 模型
+    * qwen3asr-0.6b: Qwen/Qwen3-ASR-0.6B 模型
+    * qwen3asr-1.7b: Qwen/Qwen3-ASR-1.7B 模型
     * qwen3vl-2b：Qwen/Qwen3-VL-2B-Instruct 模型
     * qwen3vl-4b：Qwen/Qwen3-VL-4B-Instruct 模型
     * qwen3vl-8b：Qwen/Qwen3-VL-8B-Instruct 模型
@@ -307,6 +336,8 @@ cargo test -F cuda voxcpm_generate -r -- --nocapture
 2. 提交新的 Issue，包含详细描述和复现步骤
 
 ## 更新日志
+### [Unreleased] - 2025-02-04
+* 支持Qwen3-ASR 模型
 ### v0.1.8
 * 支持Fun-ASR-Nano-2512, Qwen3 模型
 

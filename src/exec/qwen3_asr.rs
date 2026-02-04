@@ -19,7 +19,7 @@ impl ExecModel for Qwen3ASRExec {
         println!("Time elapsed in load model is: {:?}", i_duration);
 
         // Create ChatCompletionParameters for ASR
-        let url = &input[1];
+        let url = &input[0];
         let input_url = if url.starts_with("http://")
             || url.starts_with("https://")
             || url.starts_with("file://")

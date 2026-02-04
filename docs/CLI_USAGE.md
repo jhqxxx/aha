@@ -106,6 +106,9 @@ aha run -m qwen3-0.6b -i "你好" --weight-path /path/to/model
 
 # qwen2.5vl 图像理解（两个输入：提示文本 + 图片文件）
 aha run -m qwen2.5vl-3b -i "请分析图片并提取所有可见文本内容，按从左到右、从上到下的布局，返回纯文本" -i "image.jpg"  --weight-path /path/to/model
+
+# Qwen3-ASR 语音识别（单个输入：音频文件）
+aha run -m qwen3asr-0.6b -i "audio.wav" --weight-path /path/to/model
 ```
 
 ### serv - 启动服务
