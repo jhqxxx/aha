@@ -50,7 +50,7 @@ struct Cli {
 enum Commands {
     /// Download model and start service (default)
     Cli(CliArgs),
-    /// Start service only (requires --weight-path)
+    /// Start service only (--weight-path is optional, defaults to ~/.aha/{model_id})
     Serv(ServArgs),
     /// Download model only
     Download(DownloadArgs),
@@ -101,9 +101,9 @@ struct ServArgs {
     #[command(flatten)]
     common: CommonArgs,
 
-    /// Local model weight path (required)
-    #[arg(long, required = true)]
-    weight_path: String,
+    /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
+    #[arg(long)]
+    weight_path: Option<String>,
 }
 
 /// Arguments for the 'download' subcommand (download only)
@@ -137,9 +137,17 @@ struct RunArgs {
     #[arg(short, long)]
     output: Option<String>,
 
-    /// Local model weight path (required)
-    #[arg(long, required = true)]
-    weight_path: String,
+    /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
+    #[arg(long)]
+    weight_path: Option<String>,
+}
+
+/// Get the default weight path for a given model
+/// Returns ~/.aha/{model_id} e.g., ~/.aha/OpenBMB/VoxCPM1.5
+fn get_default_weight_path(model: WhichModel) -> String {
+    let model_id = get_model_id(model);
+    let save_dir = get_default_save_dir().expect("Failed to get home directory");
+    format!("{}/{}", save_dir, model_id)
 }
 
 /// Get the ModelScope model ID for a given WhichModel variant
@@ -239,7 +247,12 @@ async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
         weight_path,
     } = args;
 
-    init(common.model, weight_path)?;
+    let model_path = match weight_path {
+        Some(path) => path,
+        None => get_default_weight_path(common.model),
+    };
+
+    init(common.model, model_path)?;
     start_http_server(common.address, common.port).await?;
 
     Ok(())
@@ -275,6 +288,12 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         output,
         weight_path,
     } = args;
+
+    // Use default weight path if not specified
+    let weight_path = match weight_path {
+        Some(path) => path,
+        None => get_default_weight_path(model),
+    };
 
     match model {
         WhichModel::MiniCPM4_0_5B => {

@@ -33,6 +33,7 @@ lint:
 help:
 	@echo "Available commands:"
 	@echo "  build         - Build the project"
+	@echo "  build_mac     - Build the project for macOS"
 	@echo "  test          - Run tests"
 	@echo "  clean         - Clean the project"
 	@echo "  fmt           - Format the code"
