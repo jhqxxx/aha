@@ -145,33 +145,9 @@ struct RunArgs {
 /// Get the default weight path for a given model
 /// Returns ~/.aha/{model_id} e.g., ~/.aha/OpenBMB/VoxCPM1.5
 fn get_default_weight_path(model: WhichModel) -> String {
-    let model_id = get_model_id(model);
+    let model_id = model.model_id();
     let save_dir = get_default_save_dir().expect("Failed to get home directory");
     format!("{}/{}", save_dir, model_id)
-}
-
-/// Get the ModelScope model ID for a given WhichModel variant
-fn get_model_id(model: WhichModel) -> &'static str {
-    match model {
-        WhichModel::MiniCPM4_0_5B => "OpenBMB/MiniCPM4-0.5B",
-        WhichModel::Qwen2_5vl3B => "Qwen/Qwen2.5-VL-3B-Instruct",
-        WhichModel::Qwen2_5vl7B => "Qwen/Qwen2.5-VL-7B-Instruct",
-        WhichModel::Qwen3_0_6B => "Qwen/Qwen3-0.6B",
-        WhichModel::Qwen3ASR0_6B => "Qwen/Qwen3-ASR-0.6B",
-        WhichModel::Qwen3ASR1_7B => "Qwen/Qwen3-ASR-1.7B",
-        WhichModel::Qwen3vl2B => "Qwen/Qwen3-VL-2B-Instruct",
-        WhichModel::Qwen3vl4B => "Qwen/Qwen3-VL-4B-Instruct",
-        WhichModel::Qwen3vl8B => "Qwen/Qwen3-VL-8B-Instruct",
-        WhichModel::Qwen3vl32B => "Qwen/Qwen3-VL-32B-Instruct",
-        WhichModel::DeepSeekOCR => "deepseek-ai/DeepSeek-OCR",
-        WhichModel::HunyuanOCR => "Tencent-Hunyuan/HunyuanOCR",
-        WhichModel::PaddleOCRVL => "PaddlePaddle/PaddleOCR-VL",
-        WhichModel::RMBG2_0 => "AI-ModelScope/RMBG-2.0",
-        WhichModel::VoxCPM => "OpenBMB/VoxCPM-0.5B",
-        WhichModel::VoxCPM1_5 => "OpenBMB/VoxCPM1.5",
-        WhichModel::GlmASRNano2512 => "ZhipuAI/GLM-ASR-Nano-2512",
-        WhichModel::FunASRNano2512 => "FunAudioLLM/Fun-ASR-Nano-2512",
-    }
 }
 
 /// List all supported models
@@ -204,7 +180,7 @@ fn run_list() -> anyhow::Result<()> {
     for model in models {
         let possible_value = model.to_possible_value().unwrap();
         let name = possible_value.get_name();
-        let id = get_model_id(model);
+        let id = model.model_id();
         println!("{:<30} {}", name, id);
     }
 
@@ -219,7 +195,7 @@ async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         save_dir,
         download_retries,
     } = args;
-    let model_id = get_model_id(common.model);
+    let model_id = common.model.model_id();
 
     let model_path = match weight_path {
         Some(path) => path,
@@ -265,7 +241,7 @@ async fn run_download(args: DownloadArgs) -> anyhow::Result<()> {
         save_dir,
         download_retries,
     } = args;
-    let model_id = get_model_id(model);
+    let model_id = model.model_id();
 
     let save_dir = match save_dir {
         Some(dir) => dir,
@@ -416,8 +392,10 @@ pub(crate) async fn start_http_server(address: String, port: u16) -> anyhow::Res
     builder = builder.mount("/chat", routes![api::chat]);
     // /images/remove_background
     builder = builder.mount("/images", routes![api::remove_background]);
-    // /images/speech
+    // /audio/speech
     builder = builder.mount("/audio", routes![api::speech]);
+    // Health check and model info endpoints
+    builder = builder.mount("/", routes![api::health, api::models]);
 
     builder.launch().await?;
     Ok(())

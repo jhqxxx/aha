@@ -57,6 +57,92 @@ Error responses:
 
 ## Endpoints
 
+### Health Check
+
+Check the service health status. This endpoint is useful for container orchestration (Kubernetes), load balancers, and monitoring systems.
+
+#### Endpoint
+```
+GET /health
+```
+
+#### Response
+
+**Healthy (HTTP 200):**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+**Unhealthy (HTTP 503):**
+
+```json
+{
+  "status": "unhealthy",
+  "error": "model not initialized"
+}
+```
+
+#### Example
+
+```bash
+curl http://127.0.0.1:10100/health
+```
+
+### Models
+
+Get information about the currently loaded model (OpenAI API compatible format).
+
+#### Endpoint
+```
+GET /models
+```
+
+#### Response
+
+**Success (HTTP 200):**
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "qwen3-0.6b",
+      "object": "model",
+      "created": null,
+      "owned_by": "Qwen"
+    }
+  ]
+}
+```
+
+**Not Initialized (HTTP 503):**
+
+```json
+{
+  "error": "model not initialized"
+}
+```
+
+#### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `object` | string | Fixed value: "list" |
+| `data` | array | Array of model objects (currently contains one loaded model) |
+| `id` | string | Model identifier in kebab-case (e.g., "qwen3-0.6b") |
+| `object` | string | Fixed value: "model" |
+| `created` | integer\|null | Unix timestamp (currently null) |
+| `owned_by` | string | Model owner/organization name |
+
+#### Example
+
+```bash
+curl http://127.0.0.1:10100/models
+```
+
 ### Chat Completions
 
 Generate chat completions or text responses.
