@@ -56,6 +56,8 @@ enum Commands {
     Serv(ServArgs),
     /// List all running aha services
     Ps(ServListArgs),
+    /// Delete a downloaded model from the default location (~/.aha/{model_id})
+    Delete(DeleteArgs),
     /// Download model only
     Download(DownloadArgs),
     /// Run model inference directly
@@ -156,6 +158,14 @@ struct RunArgs {
     /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
     #[arg(long)]
     weight_path: Option<String>,
+}
+
+/// Arguments for the 'delete' subcommand (delete model from default location)
+#[derive(Args, Debug)]
+struct DeleteArgs {
+    /// Model type (required)
+    #[arg(short, long)]
+    model: WhichModel,
 }
 
 /// Get the default weight path for a given model
@@ -408,6 +418,94 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Run the 'delete' subcommand: delete model from default location
+fn run_delete(args: DeleteArgs) -> anyhow::Result<()> {
+    let DeleteArgs { model } = args;
+    let model_id = model.model_id();
+    let save_dir = get_default_save_dir().expect("Failed to get home directory");
+    let model_path = format!("{}/{}", save_dir, model_id);
+
+    let path = std::path::Path::new(&model_path);
+
+    if !path.exists() {
+        println!("Model not found: {} does not exist", model_path);
+        return Ok(());
+    }
+
+    // Show model info
+    println!("Model ID: {}", model_id);
+    println!("Location: {}", model_path);
+
+    // Calculate size if possible
+    if let Ok(metadata) = std::fs::metadata(path) {
+        if metadata.is_dir() {
+            if let Ok(total_size) = dir_size(path) {
+                println!("Size: {}", bytes_to_human(total_size));
+            }
+        }
+    }
+
+    // Confirm deletion
+    print!("Are you sure you want to delete this model? (y/N): ");
+    use std::io::Write;
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    let input = input.trim().to_lowercase();
+    if input != "y" && input != "yes" {
+        println!("Deletion cancelled.");
+        return Ok(());
+    }
+
+    // Delete the directory
+    std::fs::remove_dir_all(path)?;
+
+    println!("Model deleted successfully: {}", model_path);
+
+    Ok(())
+}
+
+/// Calculate total size of a directory recursively
+fn dir_size(path: &std::path::Path) -> anyhow::Result<u64> {
+    let mut total = 0;
+    if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                total += dir_size(&entry_path)?;
+            } else {
+                total += entry.metadata()?.len();
+            }
+        }
+    } else {
+        total = std::fs::metadata(path)?.len();
+    }
+    Ok(total)
+}
+
+/// Convert bytes to human readable format
+fn bytes_to_human(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes >= TB {
+        format!("{:.2} TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -416,6 +514,7 @@ async fn main() -> anyhow::Result<()> {
         Some(Commands::Cli(args)) => run_cli(args).await,
         Some(Commands::Serv(args)) => run_serv(args).await,
         Some(Commands::Ps(args)) => run_ps(args),
+        Some(Commands::Delete(args)) => run_delete(args),
         Some(Commands::Download(args)) => run_download(args).await,
         Some(Commands::Run(args)) => run_run(args),
         Some(Commands::List) => run_list(),

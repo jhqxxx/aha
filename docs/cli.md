@@ -223,6 +223,37 @@ aha download -m qwen3vl-2b --download-retries 5
 aha download -m minicpm4-0.5b -s models
 ```
 
+### delete - Delete downloaded model
+
+Delete a downloaded model from the default location (`~/.aha/{model_id}`).
+
+**Syntax:**
+```bash
+aha delete [OPTIONS] --model <MODEL>
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-m, --model <MODEL>` | Model type (required) | - |
+
+**Examples:**
+
+```bash
+# Delete RMBG2.0 model from default location
+aha delete -m rmbg2.0
+
+# Delete Qwen3-VL-2B model
+aha delete --model qwen3vl-2b
+```
+
+**Behavior:**
+- Displays model information (ID, location, size) before deletion
+- Requires confirmation (y/N) before proceeding
+- Shows "Model not found" message if the model directory doesn't exist
+- Shows "Model deleted successfully" message after completion
+
 ## Supported Models
 
 | Model ID | Model Name | Description |

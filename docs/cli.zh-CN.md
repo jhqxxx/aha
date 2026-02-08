@@ -223,6 +223,37 @@ aha download -m qwen3vl-2b --download-retries 5
 aha download -m minicpm4-0.5b -s models
 ```
 
+### delete - 删除已下载的模型
+
+删除默认位置（`~/.aha/{model_id}`）的已下载模型。
+
+**语法：**
+```bash
+aha delete [OPTIONS] --model <MODEL>
+```
+
+**选项：**
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `-m, --model <MODEL>` | 模型类型（必选） | - |
+
+**示例：**
+
+```bash
+# 删除 RMBG2.0 模型
+aha delete -m rmbg2.0
+
+# 删除 Qwen3-VL-2B 模型
+aha delete --model qwen3vl-2b
+```
+
+**行为说明：**
+- 删除前会显示模型信息（ID、位置、大小）
+- 需要用户确认（y/N）才会执行删除
+- 如果模型目录不存在，显示"模型未找到"消息
+- 删除完成后显示"删除成功"消息
+
 ## 支持的模型
 
 | 模型标识 | 模型名称 | 说明 |
