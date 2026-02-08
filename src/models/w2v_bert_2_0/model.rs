@@ -7,9 +7,7 @@ use candle_nn::{
 
 use crate::{
     models::{
-        common::{
-            GLU, TwoLinearMLP, eager_attention_forward, get_conv1d, get_layer_norm,
-        },
+        common::{GLU, TwoLinearMLP, eager_attention_forward, get_conv1d, get_layer_norm},
         w2v_bert_2_0::config::W2VBert2_0Config,
     },
     position_embed::rope::{RoPE, apply_rotary_pos_emb},
@@ -488,7 +486,7 @@ impl Wav2Vec2BertEncoder {
         for (i, layer) in (&self.layers).iter().enumerate() {
             if output_hidden_states {
                 hidden_states.push(xs.clone());
-            } 
+            }
             if let Some(id) = layer_id
                 && id == i
             {
@@ -500,7 +498,7 @@ impl Wav2Vec2BertEncoder {
                 sin.as_ref(),
                 attention_mask.as_ref(),
                 conv_attention_mask,
-            )?;                      
+            )?;
         }
         let hidden_states = if hidden_states.len() > 0 {
             Some(hidden_states)

@@ -11,8 +11,6 @@ pub struct GlmAsrNanoProcessorConfig {
     pub max_audio_len: usize,
 }
 
-
-
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct GlmAsrNanoConfig {
     pub audio_config: GlmAsrAudioConfig,

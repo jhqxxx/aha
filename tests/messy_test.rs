@@ -2,9 +2,9 @@
 
 use std::time::Instant;
 
-use aha::utils::{tensor_utils::interpolate_nearest_1d};
+use aha::utils::tensor_utils::interpolate_nearest_1d;
 use anyhow::Result;
-use candle_core::{Tensor};
+use candle_core::Tensor;
 // use symphonia::core::io::MediaSourceStream;
 
 #[test]
@@ -16,8 +16,11 @@ fn messy_test() -> Result<()> {
     let i_start = Instant::now();
     let t_inter = interpolate_nearest_1d(&t, 20)?;
     let i_duration = i_start.elapsed();
-    println!("Time elapsed in interpolate_nearest_1d is: {:?}", i_duration);
-    println!("t_inter: {}", t_inter);    
+    println!(
+        "Time elapsed in interpolate_nearest_1d is: {:?}",
+        i_duration
+    );
+    println!("t_inter: {}", t_inter);
     // let url = "https://sis-sample-audio.obs.cn-north-1.myhuaweicloud.com/16k16bit.mp3";
     // let client = reqwest::blocking::Client::new();
     // let response = client.get(url).send()?;

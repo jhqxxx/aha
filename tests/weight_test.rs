@@ -202,8 +202,8 @@ fn qwen3_weight() -> Result<()> {
 fn index_tts2_weight() -> Result<()> {
     let save_dir: String =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir); 
-    let s2mel_path = model_path+ "/s2mel.pth";
+    let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir);
+    let s2mel_path = model_path + "/s2mel.pth";
     // let wac2vec2_path = model_path+ "/wav2vec2bert_stats.pt";
     // let model_path = format!("{}/iic/speech_campplus_sv_zh-cn_16k-common/", save_dir);
     // let campplus_path = model_path+ "/campplus_cn_common.bin";
@@ -229,7 +229,7 @@ fn index_tts2_weight() -> Result<()> {
     // let model_list = vec![semantic_codec_path];
     // for m in model_list {
     //     let weights = safetensors::load(m, &device)?;
-    //     for (key, tensor) in weights.iter() {            
+    //     for (key, tensor) in weights.iter() {
     //         println!("=== {} === {:?}", key, tensor.shape());
     //     }
     // }

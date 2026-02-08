@@ -350,7 +350,7 @@ impl Qwen3VLTextRotaryEmbedding {
 
         // for dim in 1..3 {
         for (dim, offset) in (1..3).enumerate() {
-            let dim = dim +1;
+            let dim = dim + 1;
             let length = mrope_section[dim];
             let idx = Tensor::arange_step(offset as u32, length as u32, 3, freqs.device())?;
             let src = freqs.i(dim)?.contiguous()?; // (bs, seq_len, head_dim //2)

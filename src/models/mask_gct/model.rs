@@ -116,10 +116,28 @@ impl FactorizedVectorQuantize {
         use_l2_normlize: bool,
     ) -> Result<Self> {
         let (in_project, out_project) = if input_dim != codebook_dim {
-            let in_project =
-                WNConv1d::new(vb.pp("in_project"), input_dim, codebook_dim, 1, 1, 0, 1, 1, true)?;
-            let out_project =
-                WNConv1d::new(vb.pp("out_project"), codebook_dim, input_dim, 1, 1, 0, 1, 1, true)?;
+            let in_project = WNConv1d::new(
+                vb.pp("in_project"),
+                input_dim,
+                codebook_dim,
+                1,
+                1,
+                0,
+                1,
+                1,
+                true,
+            )?;
+            let out_project = WNConv1d::new(
+                vb.pp("out_project"),
+                codebook_dim,
+                input_dim,
+                1,
+                1,
+                0,
+                1,
+                1,
+                true,
+            )?;
             (Some(in_project), Some(out_project))
         } else {
             (None, None)

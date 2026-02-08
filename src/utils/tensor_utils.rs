@@ -111,7 +111,7 @@ pub fn split_tensor_with_size<D: Dim>(
     //     "input tensor dim size % splits_size must be equal to 0"
     // );
     for (i, split) in (0..dim_size).step_by(splits_size).enumerate() {
-        let size = splits_size.min(dim_size - i*splits_size);
+        let size = splits_size.min(dim_size - i * splits_size);
         split_res.push(t.narrow(dim, split, size)?);
     }
     Ok(split_res)

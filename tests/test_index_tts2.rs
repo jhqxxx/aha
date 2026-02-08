@@ -1,8 +1,8 @@
 use std::time::Instant;
-use anyhow::Result;
 
 use aha::models::index_tts2::{generate::IndexTTS2Generate, utils::download_index_tts2_need_model};
 use aha_openai_dive::v1::resources::chat::ChatCompletionParameters;
+use anyhow::Result;
 
 #[tokio::test]
 async fn index_tts2_generate() -> Result<()> {

@@ -19,7 +19,7 @@ impl IndexTTS2Generate {
         let device = get_device(device);
         let dtype = get_dtype(dtype, "bf16");
         let processor = IndexTTS2Processor::new(path, &save_dir, &config, &device, dtype)?;
-        
+
         Ok(Self { config, processor })
     }
     pub fn generate(&mut self, mes: ChatCompletionParameters) -> Result<()> {

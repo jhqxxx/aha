@@ -25,7 +25,11 @@ impl Shortcut {
     ) -> Result<Self> {
         let conv_0 = get_conv2d(vb.pp("0"), in_c, out_c, ks, padding, 1, 1, 1, bias)?;
         let bn_1 = get_batch_norm(vb.pp("1"), 1e-5, out_c, true)?;
-        Ok(Self { conv_0, bn_1, stride })
+        Ok(Self {
+            conv_0,
+            bn_1,
+            stride,
+        })
     }
 
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
@@ -36,7 +40,7 @@ impl Shortcut {
             let indices = Tensor::arange(0u32, half_h as u32, x.device())?.affine(2.0, 0.0)?;
             x = x.index_select(&indices, 2)?;
         }
-        x = self.bn_1.forward_t(&x, false)?;        
+        x = self.bn_1.forward_t(&x, false)?;
         Ok(x)
     }
 }
@@ -106,7 +110,7 @@ impl BasicResBlock {
         } else {
             xs = xs.add(&residual)?;
         }
-        xs = xs.relu()?;       
+        xs = xs.relu()?;
         Ok(xs)
     }
 }
