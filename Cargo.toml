@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2024"
 repository = "https://github.com/jhqxxx/aha"
 license = "Apache-2.0"
-description = "aha model inference library, now supports Qwen2.5VL, MiniCPM4, VoxCPM, Qwen3VL, DeepSeek-OCR, Hunyuan-OCR, PaddleOCR-VL, VoxCPM1.5, RMBG2.0, GLM-ASR-Nano-2512, Fun-ASR-Nano-2512, Qwen3"
+description = "aha model inference library, now supports Qwen2.5VL, MiniCPM4, VoxCPM, Qwen3VL, DeepSeek-OCR, Hunyuan-OCR, PaddleOCR-VL, VoxCPM1.5, RMBG2.0, GLM-ASR-Nano-2512, Fun-ASR-Nano-2512, Qwen3, Qwen3-ASR"
 
 [dependencies]
 candle-core = { version = "0.9.1" }
