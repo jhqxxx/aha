@@ -14,7 +14,7 @@ pub fn masked_fill_zeros(hidden_states: &Tensor, mask: &Tensor) -> Result<Tensor
     let mask = mask
         .unsqueeze(D::Minus1)?
         .broadcast_as(hidden_states.shape())?;
-    let hidden_states = mask.where_cond(&hidden_states, &on_false)?;
+    let hidden_states = mask.where_cond(hidden_states, &on_false)?;
     Ok(hidden_states)
 }
 
@@ -431,19 +431,25 @@ pub fn compute_1d_coords(
     output_size: usize,
     align_corner: Option<bool>,
 ) -> Result<Vec<f32>> {
+    if input_size == 0 {
+        return Err(anyhow!("input_size must be > 0"));
+    }
+    if output_size == 0 {
+        return Err(anyhow!("output_size must be > 0"));
+    }
     if input_size == 1 {
-        Ok(vec![0f32; output_size])
-    } else if let Some(align_) = align_corner
-        && align_
-    {
-        Ok((0..output_size)
-            .map(|i| i as f32 * (input_size - 1) as f32 / (output_size - 1) as f32)
-            .collect())
+        return Ok(vec![0f32; output_size]);
+    }
+    let align_corners = align_corner.unwrap_or(false);
+    if align_corners {
+        let scale = (input_size - 1) as f32 / (output_size - 1) as f32;
+        Ok((0..output_size).map(|i| i as f32 * scale).collect())
     } else {
+        let scale = input_size as f32 / output_size as f32;
         Ok((0..output_size)
             .map(|i| {
-                (i as f32 + 0.5) * (input_size as f32 / output_size as f32) - 0.5
-                // coord.max(0.0).min((input_size - 1) as f32)
+                let coord = (i as f32 + 0.5) * scale - 0.5;
+                coord.clamp(0.0, (input_size - 1) as f32)
             })
             .collect())
     }
@@ -500,34 +506,27 @@ pub fn interpolate_nearest_1d(t: &Tensor, target_size: usize) -> Result<Tensor> 
             "Input rank must have equal to 3 dimensions"
         ));
     }
-    let shape = t.dims();
-    let orig_size = shape[shape.len() - 1];
+
+    let (bs, channels, orig_size) = t.dims3()?;
     if orig_size == target_size {
         return Ok(t.clone());
     }
-
-    let (bs, channels, _) = t.dims3()?;
-    let mut output = Tensor::zeros((bs, channels, target_size), t.dtype(), t.device())?;
     let coords = compute_1d_coords(orig_size, target_size, None)?;
-
+    let input_data = t.to_vec3::<f32>()?;
+    let mut output_data = vec![vec![vec![0.0f32; target_size]; channels]; bs];
     for b in 0..bs {
         for c in 0..channels {
-            let input_slice = t.i((b, c))?;
-            let mut out_i = Vec::new();
-
-            for &coord in coords.iter().take(target_size) {
+            for (i, &coord) in coords.iter().enumerate() {
                 // Nearest neighbor: round to nearest integer coordinate
-                let nearest_idx = coord.floor() as usize;
+                let nearest_idx = coord.round() as usize;
                 let clamped_idx = nearest_idx.min(orig_size - 1);
 
-                let value = input_slice.get(clamped_idx)?;
-                out_i.push(value);
+                let value = input_data[b][c][clamped_idx];
+                output_data[b][c][i] = value;
             }
-            let out_i = Tensor::stack(&out_i, 0)?.unsqueeze(0)?.unsqueeze(0)?;
-            output = output.slice_assign(&[(b..b + 1), (c..c + 1), (0..target_size)], &out_i)?;
         }
     }
-    output = output.contiguous()?;
+    let output = Tensor::new(output_data, t.device())?.to_dtype(t.dtype())?;
     Ok(output)
 }
 
@@ -1067,4 +1066,15 @@ pub fn sequence_mask(length: &Tensor, max_length: Option<u32>) -> Result<Tensor>
     let length = length.unsqueeze(1)?;
     let mask = x.broadcast_lt(&length)?;
     Ok(mask)
+}
+
+pub fn cosine_similarity(query_vector: &Tensor, matrix: &Tensor) -> Result<Tensor> {
+    // query_vector: (n, dim)
+    // matrix: (m, dim)
+    let query_norm = l2_normalize(query_vector, query_vector.rank() - 1)?;
+    let matrix_norm = l2_normalize(matrix, matrix.rank() - 1)?;
+    let similarity = query_norm
+        .matmul(&matrix_norm.transpose(D::Minus1, D::Minus2)?)?
+        .squeeze(D::Minus1)?;
+    Ok(similarity)
 }

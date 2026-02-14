@@ -5,7 +5,7 @@ use crate::models::mask_gct::config::SemanticCodec;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct IndexTTS2Config {
     pub dataset: Dataset,
-    pub gpt: Gpt,
+    pub gpt: GptConfig,
     pub semantic_codec: SemanticCodec,
     pub s2mel: S2MelConfig,
     pub gpt_checkpoint: String,
@@ -39,7 +39,7 @@ pub struct Mel {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-pub struct Gpt {
+pub struct GptConfig {
     pub model_dim: usize,
     pub max_mel_tokens: usize,
     pub max_text_tokens: usize,
@@ -206,7 +206,7 @@ impl DiTModelArgs {
             has_cross_attention: false,
             context_dim: 0,
             uvit_skip_connection: config.uvit_skip_connection,
-            time_as_token: config.uvit_skip_connection,
+            time_as_token: config.time_as_token,
         }
     }
 }

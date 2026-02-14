@@ -82,10 +82,7 @@ impl Qwen3AsrProcessor {
 
     pub fn process_audio(&self, mes: &ChatCompletionParameters) -> Result<Vec<Tensor>> {
         let audio_tensors = extract_audios(mes, &self.device, Some(self.sample_rate))?;
-        audio_tensors
-            .iter()
-            .map(|audio| float_range_normalize(&audio))
-            .collect()
+        audio_tensors.iter().map(float_range_normalize).collect()
     }
 
     pub fn validate_language(&self, lang: &String) -> bool {
@@ -93,10 +90,9 @@ impl Qwen3AsrProcessor {
     }
 
     fn replace_special_tokens(&self, text: &str, token_len: usize) -> String {
-        let replace = "<|audio_placeholder|>".repeat(token_len as usize);
+        let replace = "<|audio_placeholder|>".repeat(token_len);
         let text = text.replacen(&self.audio_token, &replace, 1);
-        let text = text.replace("<|audio_placeholder|>", &self.audio_token);
-        text
+        text.replace("<|audio_placeholder|>", &self.audio_token)
     }
 
     pub fn process_info(
@@ -162,11 +158,10 @@ pub struct AudioData {
 
 pub fn get_feat_extract_output_lengths(audio_len: usize) -> usize {
     let input_len_leave = audio_len % 100;
-    let output_len = if input_len_leave > 0 {
+    if input_len_leave > 0 {
         let feat_lengths = (input_len_leave - 1) / 2 + 1;
         ((feat_lengths - 1) / 2 + 1 - 1) / 2 + 1 + (audio_len / 100) * 13
     } else {
         (audio_len / 100) * 13
-    };
-    output_len
+    }
 }

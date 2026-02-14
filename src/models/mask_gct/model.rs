@@ -48,7 +48,7 @@ impl ConvNeXtBlock {
         let xs = self.pwconv1.forward(&xs)?.gelu()?;
         let mut xs = self.pwconv2.forward(&xs)?;
         if let Some(gamma) = &self.gamma {
-            xs = xs.broadcast_mul(&gamma)?;
+            xs = xs.broadcast_mul(gamma)?;
         }
         let xs = xs.transpose(1, 2)?;
         let xs = residual.add(&xs)?;
@@ -116,10 +116,28 @@ impl FactorizedVectorQuantize {
         use_l2_normlize: bool,
     ) -> Result<Self> {
         let (in_project, out_project) = if input_dim != codebook_dim {
-            let in_project =
-                WNConv1d::new(vb.pp("in_project"), input_dim, codebook_dim, 1, 1, 0, 1, 1, true)?;
-            let out_project =
-                WNConv1d::new(vb.pp("out_project"), codebook_dim, input_dim, 1, 1, 0, 1, 1, true)?;
+            let in_project = WNConv1d::new(
+                vb.pp("in_project"),
+                input_dim,
+                codebook_dim,
+                1,
+                1,
+                0,
+                1,
+                1,
+                true,
+            )?;
+            let out_project = WNConv1d::new(
+                vb.pp("out_project"),
+                codebook_dim,
+                input_dim,
+                1,
+                1,
+                0,
+                1,
+                1,
+                true,
+            )?;
             (Some(in_project), Some(out_project))
         } else {
             (None, None)
@@ -166,6 +184,14 @@ impl FactorizedVectorQuantize {
         }
         Ok((z_q, indices))
     }
+
+    pub fn vq2emb(&self, xs: &Tensor) -> Result<Tensor> {
+        let mut emb = self.codebook.forward(xs)?.transpose(1, 2)?;
+        if let Some(out_proj) = &self.out_project {
+            emb = out_proj.forward(&emb)?;
+        }
+        Ok(emb)
+    }
 }
 
 pub struct ResidualVQ {
@@ -210,7 +236,7 @@ impl ResidualVQ {
         let n_quantizers = n_quantizers.unwrap_or(self.num_quantizers);
         let mut residual = xs.clone();
         let mut quantized_out = Tensor::new(0.0f32, xs.device())?.to_dtype(xs.dtype())?;
-        for (i, quantizer) in (&self.quantizers).iter().enumerate() {
+        for (i, quantizer) in self.quantizers.iter().enumerate() {
             if i >= n_quantizers {
                 break;
             }
@@ -224,8 +250,17 @@ impl ResidualVQ {
         let all_quantized = Tensor::stack(&all_quantized, 0)?;
         Ok((quantized_out, all_indices, all_quantized))
     }
+
+    pub fn vq2emb(&self, xs: &Tensor) -> Result<Tensor> {
+        let mut quantized_out = xs.clone();
+        for quantizer in &self.quantizers {
+            quantized_out = quantizer.vq2emb(xs)?;
+        }
+        Ok(quantized_out)
+    }
 }
 
+#[allow(unused)]
 pub struct RepCodec {
     downsample_scale: usize,
     down: Option<Conv1d>,
@@ -234,7 +269,7 @@ pub struct RepCodec {
     encoder_1: Linear,
     decoder_0: VocosBackbone,
     decoder_1: Linear,
-    quantizer: ResidualVQ,
+    pub quantizer: ResidualVQ,
 }
 
 impl RepCodec {

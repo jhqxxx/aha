@@ -85,7 +85,7 @@ cargo build --release --features ffmpeg
 ```bash
 # 安装构建依赖
 sudo apt-get update
-sudo apt-get install -y build-essential pkg-config git clang
+sudo apt-get install -y build-essential pkg-config git clang cmake
 
 # FFmpeg 功能所需
 sudo apt-get install -y ffmpeg libavutil-dev libavcodec-dev \
@@ -165,7 +165,7 @@ cargo build --release
 # 在 WSL2 中按照 Linux 说明操作
 wsl
 sudo apt-get update
-sudo apt-get install -y build-essential pkg-config git clang
+sudo apt-get install -y build-essential pkg-config git clang cmake
 ```
 
 ## 功能特性

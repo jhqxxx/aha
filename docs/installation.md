@@ -85,7 +85,7 @@ cargo build --release --features ffmpeg
 ```bash
 # Install build dependencies
 sudo apt-get update
-sudo apt-get install -y build-essential pkg-config git clang
+sudo apt-get install -y build-essential pkg-config git clang cmake
 
 # For FFmpeg feature
 sudo apt-get install -y ffmpeg libavutil-dev libavcodec-dev \
@@ -166,7 +166,7 @@ cargo build --release
 # Follow Linux instructions inside WSL2
 wsl
 sudo apt-get update
-sudo apt-get install -y build-essential pkg-config git clang
+sudo apt-get install -y build-essential pkg-config git clang cmake
 ```
 
 ## Feature Flags

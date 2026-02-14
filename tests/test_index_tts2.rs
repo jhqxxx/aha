@@ -1,8 +1,11 @@
 use std::time::Instant;
-use anyhow::Result;
 
-use aha::models::index_tts2::{generate::IndexTTS2Generate, utils::download_index_tts2_need_model};
+use aha::{
+    models::index_tts2::{generate::IndexTTS2Generate, utils::download_index_tts2_need_model},
+    utils::audio_utils::extract_and_save_audio_from_response,
+};
 use aha_openai_dive::v1::resources::chat::ChatCompletionParameters;
+use anyhow::Result;
 
 #[tokio::test]
 async fn index_tts2_generate() -> Result<()> {
@@ -24,10 +27,10 @@ async fn index_tts2_generate() -> Result<()> {
                         {
                             "url": "file:///home/jhq/Videos/voice_01.wav"
                         }
-                    },              
+                    },            
                     {
                         "type": "text", 
-                        "text": "你好啊"
+                        "text": "你好啊，吃饭了吗"
                     }
                 ]
             }
@@ -42,6 +45,10 @@ async fn index_tts2_generate() -> Result<()> {
 
     let i_start = Instant::now();
     let generate = voxcpm_generate.generate(mes)?;
+    let save_path = extract_and_save_audio_from_response(&generate, "./")?;
+    for path in save_path {
+        println!("save audio: {}", path);
+    }
     let i_duration = i_start.elapsed();
     println!("Time elapsed in generate is: {:?}", i_duration);
     Ok(())

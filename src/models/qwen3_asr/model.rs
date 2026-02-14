@@ -338,7 +338,7 @@ impl Qwen3ASRThinker {
     ) -> Result<Tensor> {
         let mut input_embeds = self.model.embed_tokens.forward(input_ids)?;
         if let Some(input_features) = input_features {
-            let audio_feature = self.audio_tower.forward(&input_features)?;
+            let audio_feature = self.audio_tower.forward(input_features)?;
             // println!("audio_feature: {}", audio_feature);
             let audio_mask = get_equal_mask(input_ids, self.audio_token_id)?;
             let n_audio_tokens = audio_mask.sum_all()?.to_scalar::<u32>()?;

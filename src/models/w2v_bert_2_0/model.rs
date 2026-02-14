@@ -45,6 +45,7 @@ impl Wav2Vec2BertFeatureProjection {
     }
 }
 
+#[allow(unused)]
 pub struct Wav2Vec2BertSelfAttention {
     q_proj: Linear,
     k_proj: Linear,
@@ -203,17 +204,12 @@ impl Wav2Vec2BertSelfAttention {
                 .affine(scale, 0.0)?;
             if let Some(mask) = attention_mask {
                 // let mask = mask.unsqueeze(1)?.unsqueeze(D::Minus1)?;
-                Some(relative_position_attn_weights.broadcast_add(&mask)?)
+                Some(relative_position_attn_weights.broadcast_add(mask)?)
             } else {
                 Some(relative_position_attn_weights)
             }
         } else {
-            if let Some(mask) = attention_mask {
-                // let mask = mask.unsqueeze(1)?.unsqueeze(D::Minus1)?;
-                Some(mask.clone())
-            } else {
-                None
-            }
+            attention_mask.cloned()
         };
 
         let attn_output = eager_attention_forward(
@@ -476,7 +472,8 @@ impl Wav2Vec2BertEncoder {
             let attention_mask = attention_mask
                 .where_cond(&attention_mask_f, &neg_inf_t)?
                 .to_dtype(xs.dtype())?
-                .affine(1.0, -1.0)?;
+                .affine(1.0, -1.0)?
+                .repeat((1, 1, seq_len, 1))?;
             (xs, Some(attention_mask))
         } else {
             (xs.clone(), None)
@@ -490,7 +487,7 @@ impl Wav2Vec2BertEncoder {
         let mut hidden_states: Vec<Tensor> = vec![];
         let mut specify_layer_id_hidden_state = None;
 
-        for (i, layer) in (&self.layers).iter().enumerate() {
+        for (i, layer) in self.layers.iter().enumerate() {
             if output_hidden_states {
                 hidden_states.push(xs.clone());
             }
@@ -507,7 +504,7 @@ impl Wav2Vec2BertEncoder {
                 conv_attention_mask,
             )?;
         }
-        let hidden_states = if hidden_states.len() > 0 {
+        let hidden_states = if !hidden_states.is_empty() {
             Some(hidden_states)
         } else {
             None
@@ -521,9 +518,9 @@ impl Wav2Vec2BertEncoder {
 }
 
 pub struct W2VBert2_0Model {
-    config: W2VBert2_0Config,
+    // config: W2VBert2_0Config,
     feature_projection: Wav2Vec2BertFeatureProjection,
-    masked_spec_embed: Option<Tensor>,
+    // masked_spec_embed: Option<Tensor>,
     encoder: Wav2Vec2BertEncoder,
     // config.add_adapter is false, adapter is None, Wav2Vec2BertAdapter not complish
     // adapter: Option<Wav2Vec2BertAdapter>,
@@ -543,21 +540,21 @@ impl W2VBert2_0Model {
     pub fn new(vb: VarBuilder, config: &W2VBert2_0Config) -> Result<Self> {
         let feature_projection =
             Wav2Vec2BertFeatureProjection::new(vb.pp("feature_projection"), config)?;
-        let masked_spec_embed = if config.mask_time_prob > 0.0 || config.mask_time_prob > 0.0 {
-            Some(
-                vb.get_with_hints(config.hidden_size, "masked_spec_embed", Init::Uniform {
-                    lo: 0.0,
-                    up: 1.0,
-                })?,
-            )
-        } else {
-            None
-        };
+        // let masked_spec_embed = if config.mask_time_prob > 0.0 || config.mask_time_prob > 0.0 {
+        //     Some(
+        //         vb.get_with_hints(config.hidden_size, "masked_spec_embed", Init::Uniform {
+        //             lo: 0.0,
+        //             up: 1.0,
+        //         })?,
+        //     )
+        // } else {
+        //     None
+        // };
         let encoder = Wav2Vec2BertEncoder::new(vb.pp("encoder"), config)?;
         Ok(Self {
-            config: config.clone(),
+            // config: config.clone(),
             feature_projection,
-            masked_spec_embed,
+            // masked_spec_embed,
             encoder,
         })
     }

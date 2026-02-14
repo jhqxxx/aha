@@ -2,8 +2,8 @@ use anyhow::{Result, anyhow};
 use candle_core::{D, IndexOp, Tensor};
 use candle_nn::{
     Activation, BatchNorm, BatchNormConfig, Conv1d, Conv1dConfig, Conv2d, Conv2dConfig,
-    ConvTranspose1d, ConvTranspose1dConfig, Embedding, GroupNorm, Init, LayerNorm, LayerNormConfig,
-    Linear, Module, ModuleT, RmsNorm, VarBuilder, batch_norm, conv1d, conv1d_no_bias, conv2d,
+    ConvTranspose1d, ConvTranspose1dConfig, Embedding, Init, LayerNorm, LayerNormConfig, Linear,
+    Module, ModuleT, RmsNorm, VarBuilder, batch_norm, conv1d, conv1d_no_bias, conv2d,
     conv2d_no_bias, embedding, layer_norm, linear_b, linear_no_bias, ops::sigmoid, rms_norm,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -700,11 +700,7 @@ pub fn get_layer_norm(vb: VarBuilder, eps: f64, dim: usize, affine: bool) -> Res
     Ok(norm)
 }
 
-pub fn get_layer_norm_without_weight(
-    vb: VarBuilder,
-    eps: f64,
-    dim: usize,
-) -> Result<LayerNorm> {
+pub fn get_layer_norm_without_weight(vb: VarBuilder, eps: f64, dim: usize) -> Result<LayerNorm> {
     let weight = Tensor::ones(dim, vb.dtype(), vb.device())?;
     let bias = Tensor::zeros(dim, vb.dtype(), vb.device())?;
     Ok(LayerNorm::new(weight, bias, eps))
@@ -1027,11 +1023,25 @@ impl GLU {
         Ok(Self { dim })
     }
     pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
-        let half_dim = xs.dim(self.dim)? / 2;
-        let a = xs.narrow(self.dim, 0, half_dim)?;
-        let b = xs.narrow(self.dim, half_dim, half_dim)?;
-        let b = sigmoid(&b)?;
-        let xs = a.mul(&b)?;
+        let x_ = xs.chunk(2, self.dim)?;
+        let x_1 = sigmoid(x_[1].as_ref())?;
+        let xs = x_1.mul(x_[0].as_ref())?;
+        Ok(xs)
+    }
+}
+
+pub struct GEGLU {
+    dim: usize,
+}
+
+impl GEGLU {
+    pub fn new(dim: usize) -> Result<Self> {
+        Ok(Self { dim })
+    }
+    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
+        let x_ = xs.chunk(2, self.dim)?;
+        let x_1 = x_[1].as_ref().gelu()?;
+        let xs = x_1.mul(x_[0].as_ref())?;
         Ok(xs)
     }
 }
@@ -1103,8 +1113,8 @@ impl WNConvTranspose1d {
         let normalized_weight = weight_v.broadcast_div(&weight_norm)?;
         let scaled_weight = normalized_weight.broadcast_mul(&weight_g)?;
         let config = ConvTranspose1dConfig {
-            padding: padding,
-            output_padding: output_padding,
+            padding,
+            output_padding,
             stride,
             dilation,
             groups,
@@ -1183,4 +1193,237 @@ pub fn mish(xs: &Tensor) -> Result<Tensor> {
     let tanh = xs.exp()?.affine(1.0, 1.0)?.log()?.tanh()?;
     let xs = xs.mul(&tanh)?;
     Ok(xs)
+}
+
+pub struct GPT2Attention {
+    num_heads: usize,
+    head_dim: usize,
+    c_attn: Linear,
+    c_proj: Linear,
+    kv_cache: Option<(Tensor, Tensor)>,
+}
+
+impl GPT2Attention {
+    pub fn new(vb: VarBuilder, hidden_size: usize, num_heads: usize) -> Result<Self> {
+        let c_attn_weight = vb
+            .get_with_hints(
+                (hidden_size, 3 * hidden_size),
+                "c_attn.weight",
+                Init::Const(1.0),
+            )?
+            .t()?;
+        let c_attn_bias = vb.get_with_hints(3 * hidden_size, "c_attn.bias", Init::Const(0.0))?;
+        let c_attn = Linear::new(c_attn_weight, Some(c_attn_bias));
+        // let c_attn = linear_b(3 * hidden_size, hidden_size, true, vb.pp("c_attn"))?;
+        let c_proj_weight = vb
+            .get_with_hints(
+                (hidden_size, hidden_size),
+                "c_proj.weight",
+                Init::Const(1.0),
+            )?
+            .t()?;
+        let c_proj_bias = vb.get_with_hints(hidden_size, "c_proj.bias", Init::Const(0.0))?;
+        let c_proj = Linear::new(c_proj_weight, Some(c_proj_bias));
+        // let c_proj = linear_b(hidden_size, hidden_size, true, vb.pp("c_proj"))?;
+        let head_dim = hidden_size / num_heads;
+        Ok(Self {
+            num_heads,
+            head_dim,
+            c_attn,
+            c_proj,
+            kv_cache: None,
+        })
+    }
+
+    pub fn forward(&mut self, xs: &Tensor, attention_mask: Option<&Tensor>) -> Result<Tensor> {
+        let (b, seq_len, _) = xs.dims3()?;
+        let xs = self.c_attn.forward(xs)?;
+        let xs_splits = xs.chunk(3, 2)?;
+        let query_states = xs_splits[0]
+            .as_ref()
+            .reshape((b, seq_len, self.num_heads, self.head_dim))?
+            .transpose(1, 2)?;
+        let key_states = xs_splits[1]
+            .as_ref()
+            .reshape((b, seq_len, self.num_heads, self.head_dim))?
+            .transpose(1, 2)?;
+        let value_states = xs_splits[2]
+            .as_ref()
+            .reshape((b, seq_len, self.num_heads, self.head_dim))?
+            .transpose(1, 2)?;
+        let (key_states, value_states) = match &self.kv_cache {
+            None => (key_states, value_states),
+            Some((prev_k, prev_v)) => {
+                let key_states = Tensor::cat(&[prev_k, &key_states], 2)?;
+                let value_states = Tensor::cat(&[prev_v, &value_states], 2)?;
+                (key_states, value_states)
+            }
+        };
+
+        self.kv_cache = Some((key_states.clone(), value_states.clone()));
+        let scale = 1f64 / f64::sqrt(self.head_dim as f64);
+        let attn_output = eager_attention_forward(
+            &query_states,
+            &key_states,
+            &value_states,
+            None,
+            attention_mask,
+            scale,
+        )?;
+        let attn_output = attn_output.reshape((b, seq_len, self.num_heads * self.head_dim))?;
+        let attn_output = attn_output.apply(&self.c_proj)?;
+        Ok(attn_output)
+    }
+
+    pub fn clear_kv_cache(&mut self) {
+        self.kv_cache = None
+    }
+}
+
+pub struct GPT2MLP {
+    linear1: Linear,
+    linear2: Linear,
+    act: Activation,
+}
+
+impl GPT2MLP {
+    pub fn new(
+        vb: VarBuilder,
+        in_dim: usize,
+        middle_dim: usize,
+        out_dim: usize,
+        act: Activation,
+    ) -> Result<Self> {
+        let c_fc_weight = vb
+            .get_with_hints((in_dim, middle_dim), "c_fc.weight", Init::Const(1.0))?
+            .t()?;
+        let c_fc_bias = vb.get_with_hints(middle_dim, "c_fc.bias", Init::Const(0.0))?;
+        let c_fc = Linear::new(c_fc_weight, Some(c_fc_bias));
+
+        let c_proj_weight = vb
+            .get_with_hints((middle_dim, out_dim), "c_proj.weight", Init::Const(1.0))?
+            .t()?;
+        let c_proj_bias = vb.get_with_hints(out_dim, "c_proj.bias", Init::Const(0.0))?;
+        let c_proj = Linear::new(c_proj_weight, Some(c_proj_bias));
+
+        Ok(Self {
+            linear1: c_fc,
+            linear2: c_proj,
+            act,
+        })
+    }
+    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
+        let xs = xs
+            .apply(&self.linear1)?
+            .apply(&self.act)?
+            .apply(&self.linear2)?;
+        Ok(xs)
+    }
+}
+
+pub struct GPT2Block {
+    ln_1: LayerNorm,
+    attn: GPT2Attention,
+    ln_2: LayerNorm,
+    mlp: GPT2MLP,
+}
+
+impl GPT2Block {
+    pub fn new(
+        vb: VarBuilder,
+        hidden_size: usize,
+        num_heads: usize,
+        inner_dim: Option<usize>,
+    ) -> Result<Self> {
+        let inner_dim = inner_dim.unwrap_or(4 * hidden_size);
+        let ln_1 = get_layer_norm(vb.pp("ln_1"), 1e-5, hidden_size, true)?;
+        let attn = GPT2Attention::new(vb.pp("attn"), hidden_size, num_heads)?;
+        let ln_2 = get_layer_norm(vb.pp("ln_2"), 1e-5, hidden_size, true)?;
+        let mlp = GPT2MLP::new(
+            vb.pp("mlp"),
+            hidden_size,
+            inner_dim,
+            hidden_size,
+            Activation::NewGelu,
+        )?;
+        Ok(Self {
+            ln_1,
+            attn,
+            ln_2,
+            mlp,
+        })
+    }
+
+    pub fn forward(&mut self, xs: &Tensor, attention_mask: Option<&Tensor>) -> Result<Tensor> {
+        let residual = xs.clone();
+        let xs = self.ln_1.forward(xs)?;
+        let xs = self.attn.forward(&xs, attention_mask)?;
+        let residual = xs.add(&residual)?;
+        let xs = self.ln_2.forward(&residual)?;
+        let xs = self.mlp.forward(&xs)?;
+        let xs = xs.add(&residual)?;
+        Ok(xs)
+    }
+    pub fn clear_kv_cache(&mut self) {
+        self.attn.clear_kv_cache()
+    }
+}
+
+#[allow(unused)]
+pub struct GPT2Model {
+    wte: Embedding,
+    // wpe: Embedding,
+    h: Vec<GPT2Block>,
+    ln_f: LayerNorm,
+}
+
+#[allow(unused)]
+impl GPT2Model {
+    pub fn new(
+        vb: VarBuilder,
+        hidden_size: usize,
+        num_heads: usize,
+        num_hidden_layers: usize,
+        wte_embeddings: &Tensor,
+    ) -> Result<Self> {
+        // let wte = embedding(vocab_size, hidden_size, vb.pp("wte"))?;
+        let wte = Embedding::new(wte_embeddings.clone(), hidden_size);
+        // let wpe = embedding(max_position_embeddings, hidden_size, vb.pp("wpe"))?;
+        let vb_layers = vb.pp("h");
+        let mut h = vec![];
+        for i in 0..num_hidden_layers {
+            let block = GPT2Block::new(vb_layers.pp(i), hidden_size, num_heads, None)?;
+            h.push(block);
+        }
+        let ln_f = get_layer_norm(vb.pp("ln_f"), 1e-5, hidden_size, true)?;
+        Ok(Self { wte, h, ln_f })
+    }
+
+    pub fn forward(&mut self, inputs_embeds: &Tensor) -> Result<Tensor> {
+        let (b_size, seq_len, _) = inputs_embeds.dims3()?;
+        let mut xs = inputs_embeds.clone();
+        let attention_mask: Option<Tensor> = {
+            if seq_len <= 1 {
+                None
+            } else {
+                Some(prepare_causal_attention_mask(
+                    b_size,
+                    seq_len,
+                    0,
+                    xs.device(),
+                )?)
+            }
+        };
+        for block in &mut self.h {
+            xs = block.forward(&xs, attention_mask.as_ref())?;
+        }
+        xs = self.ln_f.forward(&xs)?;
+        Ok(xs)
+    }
+
+    pub fn clear_kv_cache(&mut self) {
+        for layer in self.h.iter_mut() {
+            layer.clear_kv_cache()
+        }
+    }
 }

@@ -3,7 +3,8 @@ pub mod img_utils;
 pub mod tensor_utils;
 pub mod video_utils;
 
-use std::io::Read;
+use std::fs::File;
+use std::io::{Cursor, Read};
 use std::{collections::HashMap, fs, path::PathBuf, process::Command, time::Duration};
 
 use aha_openai_dive::v1::resources::{
@@ -27,6 +28,7 @@ use dirs::home_dir;
 use half::{bf16, f16, slice::HalfFloatSliceExt};
 use modelscope::ModelScope;
 use tokio::time::sleep;
+use zip::ZipArchive;
 
 pub fn get_device(device: Option<&Device>) -> Device {
     match device {
@@ -274,16 +276,14 @@ pub fn read_pth_tensor_info_cycle<P: AsRef<std::path::Path>>(
                     }
                 }
                 current_obj
+            } else if let Object::Dict(key_values) = obj {
+                key_values
+                    .into_iter()
+                    .find(|(k, _)| *k == Object::Unicode(key.to_owned()))
+                    .map(|(_, v)| v)
+                    .ok_or_else(|| anyhow!(format!("key {key} not found")))?
             } else {
-                if let Object::Dict(key_values) = obj {
-                    key_values
-                        .into_iter()
-                        .find(|(k, _)| *k == Object::Unicode(key.to_owned()))
-                        .map(|(_, v)| v)
-                        .ok_or_else(|| anyhow!(format!("key {key} not found")))?
-                } else {
-                    obj
-                }
+                obj
             }
         } else {
             obj
@@ -309,7 +309,7 @@ pub fn read_pth_tensor_info_cycle<P: AsRef<std::path::Path>>(
     let tensor_names = tensor_infos.keys();
     let mut tensors = Vec::with_capacity(tensor_names.len());
     for name in tensor_names {
-        let _ = match tensor_infos.get(name) {
+        match tensor_infos.get(name) {
             None => {}
             Some(tensor_info) => {
                 let zip_reader = std::io::BufReader::new(std::fs::File::open(&path)?);
@@ -805,4 +805,34 @@ pub fn capitalize_first_letter(input: &str) -> String {
     let first_char = chars.next().unwrap().to_uppercase().collect::<String>();
     let remaining = chars.as_str().to_lowercase();
     format!("{}{}", first_char, remaining)
+}
+
+pub fn load_tensor_from_pt(
+    path: &str,
+    zip_name: &str,
+    shape: Shape,
+    device: &Device,
+) -> Result<Tensor> {
+    let file = File::open(path)?;
+    let mut archive = ZipArchive::new(file)?;
+    // // 列出所有文件（调试用）
+    // for i in 0..archive.len() {
+    //     let file = archive.by_index(i)?;
+    //     println!("File: {} ({} bytes)", file.name(), file.size());
+    // }
+    // 读取原始字节数据
+    let mut data_file = archive.by_name(zip_name)?;
+    let mut buffer = Vec::new();
+    data_file.read_to_end(&mut buffer)?;
+    // 将字节转换为 f32 (little endian)
+    let mut cursor = Cursor::new(buffer);
+    let num_elements = shape.elem_count();
+    let mut data = Vec::with_capacity(num_elements);
+
+    for _ in 0..num_elements {
+        let val = cursor.read_f32::<LittleEndian>()?;
+        data.push(val);
+    }
+    let t = Tensor::from_vec(data, shape, device)?;
+    Ok(t)
 }

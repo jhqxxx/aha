@@ -167,13 +167,13 @@ pub struct Qwen3ASRTextConfig {
 pub fn qwen3asr_text_config2qwen3_config(cfg: &Qwen3ASRTextConfig) -> Qwen3Config {
     Qwen3Config {
         attention_bias: cfg.attention_bias,
-        attention_dropout: cfg.attention_dropout as f64,
-        bos_token_id: cfg.bos_token_id.unwrap_or(151643) as u32,
-        eos_token_id: cfg.eos_token_id.unwrap_or(151645) as u32,
+        attention_dropout: cfg.attention_dropout,
+        bos_token_id: cfg.bos_token_id.unwrap_or(151643),
+        eos_token_id: cfg.eos_token_id.unwrap_or(151645),
         head_dim: cfg.head_dim,
         hidden_act: cfg.hidden_act,
         hidden_size: cfg.hidden_size,
-        initializer_range: cfg.initializer_range as f64,
+        initializer_range: cfg.initializer_range,
         intermediate_size: cfg.intermediate_size,
         max_position_embeddings: cfg.max_position_embeddings,
         max_window_layers: 0,

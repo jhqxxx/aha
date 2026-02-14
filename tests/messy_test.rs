@@ -1,27 +1,112 @@
 // use std::io::Cursor;
 
-use std::time::Instant;
-
-use aha::utils::tensor_utils::interpolate_nearest_1d;
-use anyhow::{Result, anyhow};
-use candle_core::Tensor;
-use sentencepiece::SentencePieceProcessor;
+use std::fs::File;
 // use symphonia::core::io::MediaSourceStream;
+use std::io::{Read, Seek};
+use std::{io::Cursor, time::Instant};
+
+use aha::utils::{load_tensor_from_pt, tensor_utils::interpolate_nearest_1d};
+use aha_openai_dive::v1::resources::chat::ChatCompletionParameters;
+use anyhow::{Result, anyhow};
+use byteorder::{LittleEndian, ReadBytesExt};
+use candle_core::{Shape, Tensor};
+use sentencepiece::SentencePieceProcessor;
+use zip::ZipArchive;
 
 #[test]
 fn messy_test() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -F cuda messy_test -r -- --nocapture
     let device = &candle_core::Device::Cpu;
-    let save_dir =
+    let save_dir: String =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/IndexTeam/IndexTTS-2", save_dir);
-    let bpe_path = model_path.to_string() + "/bpe.model";
-    let tokenizer = SentencePieceProcessor::open(bpe_path)
-        .map_err(|e| anyhow!(format!("load bpe.model file error:{}", e)))?;
-    let tokens = tokenizer
-        .encode("你好啊")
-        .map_err(|e| anyhow!(format!("tokenizer encode error:{}", e)))?;
-    println!("tokens: {:?}", tokens);
+    let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir);
+    let emo_matrix_path = model_path.clone() + "/feat2.pt";
+    let t_emo = load_tensor_from_pt(
+        &emo_matrix_path,
+        "feat2/data/0",
+        Shape::from_dims(&[73, 1280]),
+        &device,
+    )?;
+    println!("t_emo: {}", t_emo);
+    let skp_matrix_path = model_path + "/feat1.pt";
+    let t_skp = load_tensor_from_pt(
+        &skp_matrix_path,
+        "feat1/data/0",
+        Shape::from_dims(&[73, 192]),
+        &device,
+    )?;
+    println!("t_skp: {}", t_skp);
+    // let file = File::open(emo_matrix_path)?;
+    // let mut archive = ZipArchive::new(file)?;
+    // // 列出所有文件（调试用）
+    // for i in 0..archive.len() {
+    //     let file = archive.by_index(i)?;
+    //     println!("File: {} ({} bytes)", file.name(), file.size());
+    // }
+    // // 读取原始字节数据
+    // let mut data_file = archive.by_name("feat2/data/0")?;
+    // let mut buffer = Vec::new();
+    // data_file.read_to_end(&mut buffer)?;
+    // // 将字节转换为 f32 (little endian)
+    // let mut cursor = Cursor::new(buffer);
+    // let num_elements = 73 * 1280; // 93,440
+    // let mut data = Vec::with_capacity(num_elements);
+
+    // for _ in 0..num_elements {
+    //     let val = cursor.read_f32::<LittleEndian>()?;
+    //     data.push(val);
+    // }
+    // let t = Tensor::from_vec(data, (73, 1280), device)?;
+    // println!("t: {}", t);
+    // let message = r#"
+    // {
+    //     "model": "index-tts2",
+    //     "messages": [
+    //         {
+    //             "role": "user",
+    //             "content": [
+    //                 {
+    //                     "type": "audio",
+    //                     "audio_url":
+    //                     {
+    //                         "url": "file:///home/jhq/Videos/voice_01.wav"
+    //                     }
+    //                 },
+    //                 {
+    //                     "type": "text",
+    //                     "text": "你好啊"
+    //                 }
+    //             ]
+    //         }
+    //     ],
+    //     "metadata": {"emo_vector": "[0, 0, 0, 0, 0, 0, 0.45, 0]"}
+    // }
+    // "#;
+    // let mes: ChatCompletionParameters = serde_json::from_str(message)?;
+
+    // if let Some(map) = &mes.metadata
+    //     && let Some(emo_vector_str) = map.get("emo_vector")
+    // {
+    //     match serde_json::from_str::<Vec<f32>>(emo_vector_str) {
+    //         Ok(emo_vector) => {
+    //             println!("Parsed emo_vector: {:?}", emo_vector);
+    //             // 现在 emo_vector 是 Vec<f32>: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.45, 0.0]
+    //         }
+    //         Err(e) => {
+    //             eprintln!("Failed to parse emo_vector: {}", e);
+    //         }
+    //     }
+    // }
+    // let save_dir =
+    //     aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
+    // let model_path = format!("{}/IndexTeam/IndexTTS-2", save_dir);
+    // let bpe_path = model_path.to_string() + "/bpe.model";
+    // let tokenizer = SentencePieceProcessor::open(bpe_path)
+    //     .map_err(|e| anyhow!(format!("load bpe.model file error:{}", e)))?;
+    // let tokens = tokenizer
+    //     .encode("你好啊")
+    //     .map_err(|e| anyhow!(format!("tokenizer encode error:{}", e)))?;
+    // println!("tokens: {:?}", tokens);
     // let t = Tensor::arange(0.0f32, 40.0, device)?.broadcast_as((1, 40, 40))?;
     // println!("t: {}", t);
     // let i_start = Instant::now();

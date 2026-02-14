@@ -1,3 +1,4 @@
+pub mod bigvgan;
 pub mod campplus;
 pub mod common;
 pub mod deepseek_ocr;

@@ -5,14 +5,13 @@ use std::time::Instant;
 use anyhow::{Ok, Result};
 
 use crate::exec::ExecModel;
+use crate::models::GenerateModel;
 use crate::models::qwen3_asr::generate::Qwen3AsrGenerateModel;
-use crate::models::{GenerateModel};
 
 pub struct Qwen3ASRExec;
 
 impl ExecModel for Qwen3ASRExec {
     fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
-        
         let i_start = Instant::now();
         let mut model = Qwen3AsrGenerateModel::init(weight_path, None, None)?;
         let i_duration = i_start.elapsed();

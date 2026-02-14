@@ -82,7 +82,7 @@ impl SeamlessM4TFeatureExtractor {
             0.97,
             Some(&self.mel_filters),
             Some("log"),
-            1.192092955078125e-07,
+            1.192_092_9e-7,
             true,
         )?
         .transpose(D::Minus1, D::Minus2)?;

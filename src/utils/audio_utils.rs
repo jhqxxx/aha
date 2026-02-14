@@ -32,7 +32,9 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
 use crate::utils::get_default_save_dir;
-use crate::utils::tensor_utils::{linspace, log10, pad_reflect_last_dim, pad_replicate_last_dim, split_tensor};
+use crate::utils::tensor_utils::{
+    linspace, log10, pad_reflect_last_dim, pad_replicate_last_dim, split_tensor,
+};
 
 // 重采样方法枚举
 #[derive(Debug, Clone, Copy)]
@@ -42,12 +44,12 @@ pub enum ResamplingMethod {
 }
 
 // 零阶修正贝塞尔函数 I0
-fn i0(x: f32) -> f32 {
+pub fn i0(x: f32) -> f32 {
     let mut result = 1.0;
     let mut term = 1.0;
     let half_x_sq = x * x / 4.0;
 
-    for k in 1..50 {
+    for k in 1..100 {
         term = term * half_x_sq / (k * k) as f32;
         result += term;
 
@@ -1013,6 +1015,40 @@ pub fn crate_hamming_window(
     Ok(Tensor::from_vec(window, window_size, device)?.to_dtype(dtype)?)
 }
 
+pub fn crate_kaiser_window(
+    window_size: usize,
+    periodic: bool,
+    beta: f32,
+    dtype: DType,
+    device: &Device,
+) -> Result<Tensor> {
+    if window_size < 1 {
+        return Err(anyhow::anyhow!("window_size must bigger than 0"));
+    }
+    if window_size == 1 {
+        return Ok(Tensor::new(1.0f32, device)?.to_dtype(dtype)?);
+    }
+
+    let n = if periodic {
+        window_size as f32
+    } else {
+        (window_size - 1) as f32
+    };
+
+    let n_half = n / 2.0;
+    let denominator = i0(beta);
+
+    let window = (0..window_size)
+        .map(|i| {
+            let x = (i as f32 - n_half) / n_half;
+            let sqrt_term = (1.0 - x * x).max(0.0).sqrt();
+            let numerator = i0(beta * sqrt_term);
+            numerator / denominator
+        })
+        .collect();
+    Ok(Tensor::from_vec(window, window_size, device)?.to_dtype(dtype)?)
+}
+
 /// 梅尔频率刻度类型
 #[derive(Debug, Clone, Copy)]
 pub enum MelScale {
@@ -1205,7 +1241,7 @@ pub fn torch_stft(
 ) -> Result<Tensor> {
     // waveform: already padding
     // (bs, n_frames, n_fft)
-    let frames = extract_frames(&waveform, n_fft, hop_length)?;
+    let frames = extract_frames(waveform, n_fft, hop_length)?;
     // 应用汉明窗口
     let result = frames.broadcast_mul(window)?;
     // 傅立叶变换
@@ -1575,7 +1611,7 @@ pub fn spectrogram(
         )?;
         frames = Tensor::cat(&[buffer_0, buffer_], D::Minus1)?;
     }
-    let mut frames = frames.broadcast_mul(&window)?;
+    let mut frames = frames.broadcast_mul(window)?;
     let pad_len = fft_length - frame_length;
     if pad_len > 0 {
         // (bs, nframes, frame_length) -> (bs, nframes, fft_length)
@@ -1624,4 +1660,74 @@ pub fn split_audio_into_chunks(wav: &Tensor, sr: usize, max_chunk_sec: f32) -> R
         wavs.extend_from_slice(&split_wav);
     }
     Ok(wavs)
+}
+
+pub fn sinc(x: &Tensor) -> Result<Tensor> {
+    let pi_x = x.affine(PI, 0.0)?;
+
+    let epsilon = 1e-8;
+    let mask = x.abs()?.lt(&Tensor::new(epsilon, x.device())?)?;
+
+    let raw_sinc = pi_x.sin()?.div(&pi_x)?;
+
+    // 在接近 0 的位置填充 1.0
+    let ones = Tensor::ones_like(x)?;
+    let res = mask.where_cond(&ones, &raw_sinc)?;
+    Ok(res)
+}
+
+pub fn kaiser_sinc_filter1d(
+    cutoff: f32,
+    half_width: f32,
+    kernel_size: usize,
+    device: &Device,
+    dtype: DType,
+) -> Result<Tensor> {
+    let even = kernel_size.is_multiple_of(2);
+    let half_size = (kernel_size / 2) as i32;
+
+    // 计算 Kaiser 窗参数 beta
+    let delta_f = 4.0 * half_width;
+    let a = 2.285 * (half_size as f32 - 1.0) * std::f32::consts::PI * delta_f + 7.95;
+
+    let beta = if a > 50.0 {
+        0.1102 * (a - 8.7)
+    } else if a >= 21.0 {
+        0.5842 * (a - 21.0).powf(0.4) + 0.07886 * (a - 21.0)
+    } else {
+        0.0
+    };
+
+    // 生成 Kaiser 窗
+    let window = crate_kaiser_window(kernel_size, false, beta, dtype, device)?;
+
+    // 生成时间序列
+    let time: Vec<f32> = if even {
+        ((-half_size)..half_size).map(|i| i as f32 + 0.5).collect()
+    } else {
+        (0..kernel_size)
+            .map(|i| i as f32 - half_size as f32)
+            .collect()
+    };
+    let time = Tensor::new(time, device)?;
+
+    // 生成滤波器
+    let filter_ = if cutoff == 0.0 {
+        Tensor::zeros((kernel_size,), DType::F32, device)?
+    } else {
+        // 2 * cutoff * window * sinc(2 * cutoff * time)
+        let two_cutoff = (2.0 * cutoff) as f64;
+        let sinc_input = time.affine(two_cutoff, 0.0)?;
+        let sinc_vals = sinc(&sinc_input)?;
+
+        let mut filter_val = window.mul(&sinc_vals)?;
+        filter_val = filter_val.affine(two_cutoff, 0.0)?;
+
+        // 归一化使和为 1
+        let sum_val = filter_val.sum_all()?;
+        filter_val.div(&sum_val)?
+    };
+
+    // reshape 为 [1, 1, kernel_size]
+    Ok(filter_.reshape((1, 1, kernel_size))?)
 }

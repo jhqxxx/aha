@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::{Result, anyhow};
 use regex::Regex;
 
@@ -15,9 +13,12 @@ pub async fn download_index_tts2_need_model(save_dir: Option<&str>) -> Result<()
     let mask_gct = "amphion/MaskGCT";
     // let campplus= "funasr/campplus"; // huggingface
     let campplus = "iic/speech_campplus_sv_zh-cn_16k-common"; // modelscope
+    // let bigvgan = "nvidia/bigvgan_v2_22khz_80band_256x"; // huggingface
+    let bigvgan = "nv-community/bigvgan_v2_22khz_80band_256x"; // modelscope
     download_model(w2v_bert2_0, &save_dir, 3).await?;
     download_model(mask_gct, &save_dir, 3).await?;
     download_model(campplus, &save_dir, 3).await?;
+    download_model(bigvgan, &save_dir, 3).await?;
 
     Ok(())
 }

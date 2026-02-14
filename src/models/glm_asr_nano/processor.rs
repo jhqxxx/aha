@@ -1,4 +1,3 @@
-
 use aha_openai_dive::v1::resources::chat::ChatCompletionParameters;
 use anyhow::Result;
 use candle_core::{D, DType, Device, IndexOp, Tensor};
@@ -27,6 +26,7 @@ pub struct GlmAsrNanoProcessor {
     whisper_feature_extrator: WhisperFeatureExtractor,
 }
 
+#[allow(unused)]
 impl GlmAsrNanoProcessor {
     pub fn new(path: &str, device: &Device, dtype: DType) -> Result<Self> {
         let path = path.to_string();

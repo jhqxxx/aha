@@ -58,19 +58,17 @@ impl TokenizerModel {
 
                     if let Value::Object(tokens_map) = added_tokens_decoder {
                         for (_, token_info) in tokens_map {
-                            if let Value::Object(token_obj) = token_info {
-                                if let Some(content_val) = token_obj.get("content") {
-                                    if let Some(content) = content_val.as_str() {
-                                        let special = token_obj
-                                            .get("special")
-                                            .and_then(|v| v.as_bool())
-                                            .unwrap_or(false);
+                            if let Value::Object(token_obj) = token_info
+                                && let Some(content_val) = token_obj.get("content")
+                                && let Some(content) = content_val.as_str()
+                            {
+                                let special = token_obj
+                                    .get("special")
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false);
 
-                                        let added_token =
-                                            AddedToken::from(content.to_string(), special);
-                                        special_tokens.push(added_token);
-                                    }
-                                }
+                                let added_token = AddedToken::from(content.to_string(), special);
+                                special_tokens.push(added_token);
                             }
                         }
                     }
