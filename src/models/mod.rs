@@ -6,7 +6,6 @@ pub mod feature_extractor;
 pub mod fun_asr_nano;
 pub mod glm_asr_nano;
 pub mod hunyuan_ocr;
-pub mod index_tts2;
 pub mod mask_gct;
 pub mod minicpm4;
 pub mod paddleocr_vl;
