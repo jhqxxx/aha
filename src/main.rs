@@ -1,7 +1,9 @@
-use std::{net::IpAddr, str::FromStr};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use aha::{
     models::WhichModel,
+    process::{cleanup_pid_file, create_pid_file},
     utils::{download_model, get_default_save_dir},
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -10,8 +12,9 @@ use rocket::{
     data::{ByteUnit, Limits},
     routes,
 };
+use serde::Serialize;
 
-use crate::api::init;
+use crate::api::{init, set_server_port};
 mod api;
 
 #[derive(Parser, Debug)]
@@ -52,12 +55,16 @@ enum Commands {
     Cli(CliArgs),
     /// Start service only (--weight-path is optional, defaults to ~/.aha/{model_id})
     Serv(ServArgs),
+    /// List all running aha services
+    Ps(ServListArgs),
+    /// Delete a downloaded model from the default location (~/.aha/{model_id})
+    Delete(DeleteArgs),
     /// Download model only
     Download(DownloadArgs),
     /// Run model inference directly
     Run(RunArgs),
     /// List all supported models
-    List,
+    List(ListArgs),
 }
 
 /// Common/shared arguments for server operations
@@ -74,6 +81,10 @@ struct CommonArgs {
     /// Model type (required)
     #[arg(short, long)]
     model: WhichModel,
+
+    /// Allow remote shutdown requests (default: local only, use with caution)
+    #[arg(long)]
+    allow_remote_shutdown: bool,
 }
 
 /// Arguments for the 'cli' subcommand (download + serve)
@@ -95,7 +106,7 @@ struct CliArgs {
     download_retries: Option<u32>,
 }
 
-/// Arguments for the 'serv' subcommand (serve only)
+/// Arguments for the 'serv start' subcommand
 #[derive(Args, Debug)]
 struct ServArgs {
     #[command(flatten)]
@@ -104,6 +115,14 @@ struct ServArgs {
     /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
     #[arg(long)]
     weight_path: Option<String>,
+}
+
+/// Arguments for the 'serv list' subcommand
+#[derive(Args, Debug)]
+struct ServListArgs {
+    /// Compact output format
+    #[arg(short, long)]
+    compact: bool,
 }
 
 /// Arguments for the 'download' subcommand (download only)
@@ -142,40 +161,41 @@ struct RunArgs {
     weight_path: Option<String>,
 }
 
+/// Arguments for the 'delete' subcommand (delete model from default location)
+#[derive(Args, Debug)]
+struct DeleteArgs {
+    /// Model type (required)
+    #[arg(short, long)]
+    model: WhichModel,
+}
+
+/// Arguments for the 'list' subcommand (list all supported models)
+#[derive(Args, Debug)]
+struct ListArgs {
+    /// Output models in JSON format (includes name, model_id, and type fields)
+    #[arg(short, long)]
+    json: bool,
+}
+
 /// Get the default weight path for a given model
 /// Returns ~/.aha/{model_id} e.g., ~/.aha/OpenBMB/VoxCPM1.5
 fn get_default_weight_path(model: WhichModel) -> String {
-    let model_id = get_model_id(model);
+    let model_id = model.model_id();
     let save_dir = get_default_save_dir().expect("Failed to get home directory");
     format!("{}/{}", save_dir, model_id)
 }
 
-/// Get the ModelScope model ID for a given WhichModel variant
-fn get_model_id(model: WhichModel) -> &'static str {
-    match model {
-        WhichModel::MiniCPM4_0_5B => "OpenBMB/MiniCPM4-0.5B",
-        WhichModel::Qwen2_5vl3B => "Qwen/Qwen2.5-VL-3B-Instruct",
-        WhichModel::Qwen2_5vl7B => "Qwen/Qwen2.5-VL-7B-Instruct",
-        WhichModel::Qwen3_0_6B => "Qwen/Qwen3-0.6B",
-        WhichModel::Qwen3ASR0_6B => "Qwen/Qwen3-ASR-0.6B",
-        WhichModel::Qwen3ASR1_7B => "Qwen/Qwen3-ASR-1.7B",
-        WhichModel::Qwen3vl2B => "Qwen/Qwen3-VL-2B-Instruct",
-        WhichModel::Qwen3vl4B => "Qwen/Qwen3-VL-4B-Instruct",
-        WhichModel::Qwen3vl8B => "Qwen/Qwen3-VL-8B-Instruct",
-        WhichModel::Qwen3vl32B => "Qwen/Qwen3-VL-32B-Instruct",
-        WhichModel::DeepSeekOCR => "deepseek-ai/DeepSeek-OCR",
-        WhichModel::HunyuanOCR => "Tencent-Hunyuan/HunyuanOCR",
-        WhichModel::PaddleOCRVL => "PaddlePaddle/PaddleOCR-VL",
-        WhichModel::RMBG2_0 => "AI-ModelScope/RMBG-2.0",
-        WhichModel::VoxCPM => "OpenBMB/VoxCPM-0.5B",
-        WhichModel::VoxCPM1_5 => "OpenBMB/VoxCPM1.5",
-        WhichModel::GlmASRNano2512 => "ZhipuAI/GLM-ASR-Nano-2512",
-        WhichModel::FunASRNano2512 => "FunAudioLLM/Fun-ASR-Nano-2512",
-    }
+/// Model information for JSON output
+#[derive(Serialize)]
+struct ModelInfo {
+    name: String,
+    model_id: String,
+    #[serde(rename = "type")]
+    model_type: String,
 }
 
 /// List all supported models
-fn run_list() -> anyhow::Result<()> {
+fn run_list(args: ListArgs) -> anyhow::Result<()> {
     let models = [
         WhichModel::MiniCPM4_0_5B,
         WhichModel::Qwen2_5vl3B,
@@ -197,15 +217,32 @@ fn run_list() -> anyhow::Result<()> {
         WhichModel::FunASRNano2512,
     ];
 
-    println!("Available models:");
-    println!();
-    println!("{:<30} ModelScope ID", "Model Name");
-    println!("{}", "-".repeat(80));
-    for model in models {
-        let possible_value = model.to_possible_value().unwrap();
-        let name = possible_value.get_name();
-        let id = get_model_id(model);
-        println!("{:<30} {}", name, id);
+    if args.json {
+        // JSON output
+        let model_infos: Vec<ModelInfo> = models
+            .iter()
+            .map(|model| {
+                let possible_value = model.to_possible_value().unwrap();
+                ModelInfo {
+                    name: possible_value.get_name().to_string(),
+                    model_id: model.model_id().to_string(),
+                    model_type: model.model_type().to_string(),
+                }
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&model_infos)?);
+    } else {
+        // Table output (default)
+        println!("Available models:");
+        println!();
+        println!("{:<30} ModelScope ID", "Model Name");
+        println!("{}", "-".repeat(80));
+        for model in models {
+            let possible_value = model.to_possible_value().unwrap();
+            let name = possible_value.get_name();
+            let id = model.model_id();
+            println!("{:<30} {}", name, id);
+        }
     }
 
     Ok(())
@@ -219,7 +256,7 @@ async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         save_dir,
         download_retries,
     } = args;
-    let model_id = get_model_id(common.model);
+    let model_id = common.model.model_id();
 
     let model_path = match weight_path {
         Some(path) => path,
@@ -235,7 +272,7 @@ async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
     };
 
     init(common.model, model_path)?;
-    start_http_server(common.address, common.port).await?;
+    start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
 
     Ok(())
 }
@@ -253,7 +290,48 @@ async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
     };
 
     init(common.model, model_path)?;
-    start_http_server(common.address, common.port).await?;
+    start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
+
+    Ok(())
+}
+
+/// Run the 'ps' subcommand: list running AHA services
+fn run_ps(args: ServListArgs) -> anyhow::Result<()> {
+    use aha::process::find_aha_services;
+
+    let services = find_aha_services()?;
+
+    if services.is_empty() {
+        println!("No aha services found running.");
+        return Ok(());
+    }
+
+    if args.compact {
+        // Compact format: one service per line
+        for svc in services {
+            println!("{}", svc.service_id);
+        }
+    } else {
+        // Table format
+        println!(
+            "{:<20} {:<10} {:<20} {:<10} {:<15} {:<10}",
+            "Service ID", "PID", "Model", "Port", "Address", "Status"
+        );
+        println!("{}", "-".repeat(85));
+
+        for svc in services {
+            let model = svc.model.as_deref().unwrap_or("N/A");
+            let status = match svc.status {
+                aha::process::ServiceStatus::Running => "Running",
+                aha::process::ServiceStatus::Stopping => "Stopping",
+                aha::process::ServiceStatus::Unknown => "Unknown",
+            };
+            println!(
+                "{:<20} {:<10} {:<20} {:<10} {:<15} {:<10}",
+                svc.service_id, svc.pid, model, svc.port, svc.address, status,
+            );
+        }
+    }
 
     Ok(())
 }
@@ -265,7 +343,7 @@ async fn run_download(args: DownloadArgs) -> anyhow::Result<()> {
         save_dir,
         download_retries,
     } = args;
-    let model_id = get_model_id(model);
+    let model_id = model.model_id();
 
     let save_dir = match save_dir {
         Some(dir) => dir,
@@ -373,6 +451,93 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Run the 'delete' subcommand: delete model from default location
+fn run_delete(args: DeleteArgs) -> anyhow::Result<()> {
+    let DeleteArgs { model } = args;
+    let model_id = model.model_id();
+    let save_dir = get_default_save_dir().expect("Failed to get home directory");
+    let model_path = format!("{}/{}", save_dir, model_id);
+
+    let path = std::path::Path::new(&model_path);
+
+    if !path.exists() {
+        println!("Model not found: {} does not exist", model_path);
+        return Ok(());
+    }
+
+    // Show model info
+    println!("Model ID: {}", model_id);
+    println!("Location: {}", model_path);
+
+    // Calculate size if possible
+    if let Ok(metadata) = std::fs::metadata(path)
+        && metadata.is_dir()
+        && let Ok(total_size) = dir_size(path)
+    {
+        println!("Size: {}", bytes_to_human(total_size));
+    }
+
+    // Confirm deletion
+    print!("Are you sure you want to delete this model? (y/N): ");
+    use std::io::Write;
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    let input = input.trim().to_lowercase();
+    if input != "y" && input != "yes" {
+        println!("Deletion cancelled.");
+        return Ok(());
+    }
+
+    // Delete the directory
+    std::fs::remove_dir_all(path)?;
+
+    println!("Model deleted successfully: {}", model_path);
+
+    Ok(())
+}
+
+/// Calculate total size of a directory recursively
+fn dir_size(path: &std::path::Path) -> anyhow::Result<u64> {
+    let mut total = 0;
+    if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                total += dir_size(&entry_path)?;
+            } else {
+                total += entry.metadata()?.len();
+            }
+        }
+    } else {
+        total = std::fs::metadata(path)?.len();
+    }
+    Ok(total)
+}
+
+/// Convert bytes to human readable format
+fn bytes_to_human(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes >= TB {
+        format!("{:.2} TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -380,9 +545,11 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Some(Commands::Cli(args)) => run_cli(args).await,
         Some(Commands::Serv(args)) => run_serv(args).await,
+        Some(Commands::Ps(args)) => run_ps(args),
+        Some(Commands::Delete(args)) => run_delete(args),
         Some(Commands::Download(args)) => run_download(args).await,
         Some(Commands::Run(args)) => run_run(args),
-        Some(Commands::List) => run_list(),
+        Some(Commands::List(args)) => run_list(args),
         None => {
             // Backward compatibility: when no subcommand is provided, use 'cli' behavior
             let model = cli.model.expect("Model is required (use -m or --model)");
@@ -391,6 +558,7 @@ async fn main() -> anyhow::Result<()> {
                     address: cli.address.unwrap_or_else(|| "127.0.0.1".to_string()),
                     port: cli.port.unwrap_or(10100),
                     model,
+                    allow_remote_shutdown: false,
                 },
                 weight_path: cli.weight_path,
                 save_dir: cli.save_dir,
@@ -401,7 +569,35 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-pub(crate) async fn start_http_server(address: String, port: u16) -> anyhow::Result<()> {
+pub(crate) async fn start_http_server(
+    address: String,
+    port: u16,
+    allow_remote_shutdown: bool,
+) -> anyhow::Result<()> {
+    // Set server port for shutdown endpoint
+    set_server_port(port, allow_remote_shutdown);
+
+    // Create PID file for service tracking
+    let pid = std::process::id();
+    create_pid_file(pid, port)?;
+
+    // Set up shutdown flag
+    let shutdown_flag = Arc::new(AtomicBool::new(false));
+    let shutdown_flag_clone = shutdown_flag.clone();
+
+    // Configure Ctrl+C handler for graceful shutdown
+    let port_for_cleanup = port;
+    let shutdown_handler = tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        println!("Received shutdown signal, gracefully shutting down...");
+        shutdown_flag_clone.store(true, Ordering::SeqCst);
+        // Give time for existing requests to complete
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        // Cleanup PID file
+        let _ = cleanup_pid_file(port_for_cleanup);
+        std::process::exit(0);
+    });
+
     let mut builder = rocket::build().configure(Config {
         address: IpAddr::from_str(&address)?,
         port,
@@ -416,9 +612,19 @@ pub(crate) async fn start_http_server(address: String, port: u16) -> anyhow::Res
     builder = builder.mount("/chat", routes![api::chat]);
     // /images/remove_background
     builder = builder.mount("/images", routes![api::remove_background]);
-    // /images/speech
+    // /audio/speech
     builder = builder.mount("/audio", routes![api::speech]);
+    // Health check and model info endpoints
+    builder = builder.mount("/", routes![api::health, api::models]);
+    // Shutdown endpoint
+    builder = builder.manage(shutdown_flag);
+    builder = builder.mount("/", routes![api::shutdown]);
 
-    builder.launch().await?;
+    let _rocket = builder.launch().await?;
+
+    // Cleanup PID file when server exits
+    cleanup_pid_file(port)?;
+    shutdown_handler.abort();
+
     Ok(())
 }

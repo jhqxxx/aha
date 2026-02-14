@@ -1,12 +1,8 @@
 use std::collections::HashMap;
 
-use aha::utils::{find_type_files, get_device, read_pth_tensor_info_cycle};
+use aha::utils::{find_type_files, get_device};
 use anyhow::Result;
-use candle_core::{
-    Device,
-    pickle::{read_all_with_key, read_pth_tensor_info},
-    safetensors,
-};
+use candle_core::{Device, pickle::read_all_with_key, safetensors};
 use candle_nn::VarBuilder;
 
 #[test]
@@ -207,7 +203,7 @@ fn index_tts2_weight() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -F cuda index_tts2_weight -r -- --nocapture
     let save_dir: String =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir);
+    // let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir);
     let bigvgan_path = format!(
         "{}/nv-community/bigvgan_v2_22khz_80band_256x/bigvgan_generator.pt",
         save_dir

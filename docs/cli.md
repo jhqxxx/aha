@@ -113,11 +113,11 @@ aha run -m qwen3asr-0.6b -i "audio.wav" --weight-path /path/to/model
 
 ### serv - Start service
 
-Start HTTP service only, without downloading models. Must specify local model path via `--weight-path`.
+Start HTTP service with a model. The `--weight-path` is optional - if not specified, it defaults to `~/.aha/{model_id}`.
 
 **Syntax:**
 ```bash
-aha serv [OPTIONS] --model <MODEL> --weight-path <WEIGHT_PATH>
+aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>]
 ```
 
 **Options:**
@@ -127,20 +127,68 @@ aha serv [OPTIONS] --model <MODEL> --weight-path <WEIGHT_PATH>
 | `-a, --address <ADDRESS>` | Service listen address | 127.0.0.1 |
 | `-p, --port <PORT>` | Service listen port | 10100 |
 | `-m, --model <MODEL>` | Model type (required) | - |
-| `--weight-path <WEIGHT_PATH>` | Local model weight path (required) | - |
+| `--weight-path <WEIGHT_PATH>` | Local model weight path (optional) | ~/.aha/{model_id} |
+| `--allow-remote-shutdown` | Allow remote shutdown requests (not recommended) | false |
 
 **Examples:**
 
 ```bash
+# Start service with default model path (~/.aha/{model_id})
+aha serv -m qwen3vl-2b
+
 # Start service with local model
 aha serv -m qwen3vl-2b --weight-path /path/to/model
 
 # Start with specified port
-aha serv -m qwen3vl-2b --weight-path /path/to/model -p 8080
+aha serv -m qwen3vl-2b -p 8080
 
 # Specify listen address
-aha serv -m qwen3vl-2b --weight-path /path/to/model -a 0.0.0.0
+aha serv -m qwen3vl-2b -a 0.0.0.0
+
+# Enable remote shutdown (not recommended for production)
+aha serv -m qwen3vl-2b --allow-remote-shutdown
 ```
+
+### ps - List running services
+
+List all currently running AHA services with their process IDs, ports, and status.
+
+**Syntax:**
+```bash
+aha ps [OPTIONS]
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-c, --compact` | Compact output format (show service IDs only) | false |
+
+**Examples:**
+
+```bash
+# List all running services (table format)
+aha ps
+
+# Compact output (service IDs only)
+aha ps -c
+```
+
+**Output Format:**
+
+```
+Service ID           PID        Model                Port       Address         Status
+-------------------------------------------------------------------------------------
+56860@10100          56860      N/A                  10100      127.0.0.1       Running
+```
+
+**Fields:**
+- `Service ID`: Unique identifier in format `pid@port`
+- `PID`: Process ID
+- `Model`: Model name (N/A if not detected)
+- `Port`: Service port number
+- `Address`: Service listen address
+- `Status`: Service status (Running, Stopping, Unknown)
 
 ### download - Download model
 
@@ -174,6 +222,94 @@ aha download -m qwen3vl-2b --download-retries 5
 # Download MiniCPM4-0.5B model
 aha download -m minicpm4-0.5b -s models
 ```
+
+### delete - Delete downloaded model
+
+Delete a downloaded model from the default location (`~/.aha/{model_id}`).
+
+**Syntax:**
+```bash
+aha delete [OPTIONS] --model <MODEL>
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-m, --model <MODEL>` | Model type (required) | - |
+
+**Examples:**
+
+```bash
+# Delete RMBG2.0 model from default location
+aha delete -m rmbg2.0
+
+# Delete Qwen3-VL-2B model
+aha delete --model qwen3vl-2b
+```
+
+**Behavior:**
+- Displays model information (ID, location, size) before deletion
+- Requires confirmation (y/N) before proceeding
+- Shows "Model not found" message if the model directory doesn't exist
+- Shows "Model deleted successfully" message after completion
+
+### list - List all supported models
+
+List all supported models with their ModelScope IDs.
+
+**Syntax:**
+```bash
+aha list [OPTIONS]
+```
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-j, --json` | Output in JSON format (includes name, model_id, and type fields) | false |
+
+**Examples:**
+
+```bash
+# List models in table format (default)
+aha list
+
+# List models in JSON format
+aha list --json
+
+# Short form
+aha list -j
+```
+
+**JSON Output Format:**
+
+When using `--json`, the output includes:
+- `name`: Model identifier used with `-m` flag
+- `model_id`: Full ModelScope model ID
+- `type`: Model category (`llm`, `ocr`, `asr`, or `image`)
+
+Example:
+```json
+[
+  {
+    "name": "qwen3vl-2b",
+    "model_id": "Qwen/Qwen3-VL-2B-Instruct",
+    "type": "llm"
+  },
+  {
+    "name": "deepseek-ocr",
+    "model_id": "deepseek-ai/DeepSeek-OCR",
+    "type": "ocr"
+  }
+]
+```
+
+**Model Types:**
+- `llm`: Language models (text generation, chat, etc.)
+- `ocr`: Optical Character Recognition models
+- `asr`: Automatic Speech Recognition models
+- `image`: Image processing models
 
 ## Supported Models
 
@@ -253,6 +389,13 @@ After the service starts, the following API endpoints are available:
 - **Supported Models**: VoxCPM, VoxCPM1.5
 - **Format**: OpenAI Chat Completion format
 - **Streaming Support**: No
+
+### Shutdown Endpoint
+- **Endpoint**: `POST /shutdown`
+- **Function**: Gracefully shut down the server
+- **Security**: Localhost only by default, use `--allow-remote-shutdown` flag to enable remote access (not recommended)
+- **Format**: JSON response
+
 
 ## Backward Compatibility
 

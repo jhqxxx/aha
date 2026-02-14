@@ -74,6 +74,56 @@ pub enum WhichModel {
     FunASRNano2512,
 }
 
+impl WhichModel {
+    /// Get the ModelScope model ID for this model variant
+    pub fn model_id(self) -> &'static str {
+        match self {
+            WhichModel::MiniCPM4_0_5B => "OpenBMB/MiniCPM4-0.5B",
+            WhichModel::Qwen2_5vl3B => "Qwen/Qwen2.5-VL-3B-Instruct",
+            WhichModel::Qwen2_5vl7B => "Qwen/Qwen2.5-VL-7B-Instruct",
+            WhichModel::Qwen3_0_6B => "Qwen/Qwen3-0.6B",
+            WhichModel::Qwen3ASR0_6B => "Qwen/Qwen3-ASR-0.6B",
+            WhichModel::Qwen3ASR1_7B => "Qwen/Qwen3-ASR-1.7B",
+            WhichModel::Qwen3vl2B => "Qwen/Qwen3-VL-2B-Instruct",
+            WhichModel::Qwen3vl4B => "Qwen/Qwen3-VL-4B-Instruct",
+            WhichModel::Qwen3vl8B => "Qwen/Qwen3-VL-8B-Instruct",
+            WhichModel::Qwen3vl32B => "Qwen/Qwen3-VL-32B-Instruct",
+            WhichModel::DeepSeekOCR => "deepseek-ai/DeepSeek-OCR",
+            WhichModel::HunyuanOCR => "Tencent-Hunyuan/HunyuanOCR",
+            WhichModel::PaddleOCRVL => "PaddlePaddle/PaddleOCR-VL",
+            WhichModel::RMBG2_0 => "AI-ModelScope/RMBG-2.0",
+            WhichModel::VoxCPM => "OpenBMB/VoxCPM-0.5B",
+            WhichModel::VoxCPM1_5 => "OpenBMB/VoxCPM1.5",
+            WhichModel::GlmASRNano2512 => "ZhipuAI/GLM-ASR-Nano-2512",
+            WhichModel::FunASRNano2512 => "FunAudioLLM/Fun-ASR-Nano-2512",
+        }
+    }
+
+    /// Get the model type category for this model variant
+    pub fn model_type(self) -> &'static str {
+        match self {
+            // LLM models
+            WhichModel::MiniCPM4_0_5B
+            | WhichModel::Qwen2_5vl3B
+            | WhichModel::Qwen2_5vl7B
+            | WhichModel::Qwen3_0_6B
+            | WhichModel::Qwen3vl2B
+            | WhichModel::Qwen3vl4B
+            | WhichModel::Qwen3vl8B
+            | WhichModel::Qwen3vl32B => "llm",
+            // OCR models
+            WhichModel::DeepSeekOCR | WhichModel::HunyuanOCR | WhichModel::PaddleOCRVL => "ocr",
+            // ASR models
+            WhichModel::Qwen3ASR0_6B
+            | WhichModel::Qwen3ASR1_7B
+            | WhichModel::GlmASRNano2512
+            | WhichModel::FunASRNano2512 => "asr",
+            // Image models
+            WhichModel::RMBG2_0 | WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => "image",
+        }
+    }
+}
+
 pub trait GenerateModel {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse>;
     fn generate_stream(

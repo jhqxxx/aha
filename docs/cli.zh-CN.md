@@ -113,11 +113,11 @@ aha run -m qwen3asr-0.6b -i "audio.wav" --weight-path /path/to/model
 
 ### serv - 启动服务
 
-仅启动 HTTP 服务，不下载模型。必须通过 `--weight-path` 指定本地模型路径。
+使用指定模型启动 HTTP 服务。`--weight-path` 是可选的 - 如果不指定，默认使用 `~/.aha/{model_id}`。
 
 **语法：**
 ```bash
-aha serv [OPTIONS] --model <MODEL> --weight-path <WEIGHT_PATH>
+aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>]
 ```
 
 **选项：**
@@ -127,20 +127,68 @@ aha serv [OPTIONS] --model <MODEL> --weight-path <WEIGHT_PATH>
 | `-a, --address <ADDRESS>` | 服务监听地址 | 127.0.0.1 |
 | `-p, --port <PORT>` | 服务监听端口 | 10100 |
 | `-m, --model <MODEL>` | 模型类型（必选） | - |
-| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径（必选） | - |
+| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径（可选） | ~/.aha/{model_id} |
+| `--allow-remote-shutdown` | 允许远程关机请求（不推荐） | false |
 
 **示例：**
 
 ```bash
+# 使用默认模型路径启动服务 (~/.aha/{model_id})
+aha serv -m qwen3vl-2b
+
 # 使用本地模型启动服务
 aha serv -m qwen3vl-2b --weight-path /path/to/model
 
 # 指定端口启动
-aha serv -m qwen3vl-2b --weight-path /path/to/model -p 8080
+aha serv -m qwen3vl-2b -p 8080
 
 # 指定监听地址
-aha serv -m qwen3vl-2b --weight-path /path/to/model -a 0.0.0.0
+aha serv -m qwen3vl-2b -a 0.0.0.0
+
+# 启用远程关机（不推荐用于生产环境）
+aha serv -m qwen3vl-2b --allow-remote-shutdown
 ```
+
+### ps - 列出运行中的服务
+
+列出所有当前正在运行的 AHA 服务，显示进程 ID、端口和状态。
+
+**语法：**
+```bash
+aha ps [OPTIONS]
+```
+
+**选项：**
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `-c, --compact` | 紧凑输出格式（仅显示服务 ID） | false |
+
+**示例：**
+
+```bash
+# 列出所有运行中的服务（表格格式）
+aha ps
+
+# 紧凑输出（仅服务 ID）
+aha ps -c
+```
+
+**输出格式：**
+
+```
+Service ID           PID        Model                Port       Address         Status
+-------------------------------------------------------------------------------------
+56860@10100          56860      N/A                  10100      127.0.0.1       Running
+```
+
+**字段说明：**
+- `Service ID`: 服务唯一标识符，格式为 `pid@port`
+- `PID`: 进程 ID
+- `Model`: 模型名称（如果未检测到则显示 N/A）
+- `Port`: 服务端口号
+- `Address`: 服务监听地址
+- `Status`: 服务状态（Running、Stopping、Unknown）
 
 ### download - 下载模型
 
@@ -174,6 +222,94 @@ aha download -m qwen3vl-2b --download-retries 5
 # 下载 MiniCPM4-0.5B 模型
 aha download -m minicpm4-0.5b -s models
 ```
+
+### delete - 删除已下载的模型
+
+删除默认位置（`~/.aha/{model_id}`）的已下载模型。
+
+**语法：**
+```bash
+aha delete [OPTIONS] --model <MODEL>
+```
+
+**选项：**
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `-m, --model <MODEL>` | 模型类型（必选） | - |
+
+**示例：**
+
+```bash
+# 删除 RMBG2.0 模型
+aha delete -m rmbg2.0
+
+# 删除 Qwen3-VL-2B 模型
+aha delete --model qwen3vl-2b
+```
+
+**行为说明：**
+- 删除前会显示模型信息（ID、位置、大小）
+- 需要用户确认（y/N）才会执行删除
+- 如果模型目录不存在，显示"模型未找到"消息
+- 删除完成后显示"删除成功"消息
+
+### list - 列出所有支持的模型
+
+列出所有支持的模型及其 ModelScope ID。
+
+**语法：**
+```bash
+aha list [OPTIONS]
+```
+
+**选项：**
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `-j, --json` | 以 JSON 格式输出（包含 name、model_id 和 type 字段） | false |
+
+**示例：**
+
+```bash
+# 以表格格式列出模型（默认）
+aha list
+
+# 以 JSON 格式列出模型
+aha list --json
+
+# 简写形式
+aha list -j
+```
+
+**JSON 输出格式：**
+
+使用 `--json` 时，输出包含：
+- `name`：与 `-m` 参数一起使用的模型标识符
+- `model_id`：完整的 ModelScope 模型 ID
+- `type`：模型类别（`llm`、`ocr`、`asr` 或 `image`）
+
+示例：
+```json
+[
+  {
+    "name": "qwen3vl-2b",
+    "model_id": "Qwen/Qwen3-VL-2B-Instruct",
+    "type": "llm"
+  },
+  {
+    "name": "deepseek-ocr",
+    "model_id": "deepseek-ai/DeepSeek-OCR",
+    "type": "ocr"
+  }
+]
+```
+
+**模型类型：**
+- `llm`：语言模型（文本生成、对话等）
+- `ocr`：光学字符识别模型
+- `asr`：自动语音识别模型
+- `image`：图像处理模型
 
 ## 支持的模型
 
@@ -253,6 +389,12 @@ aha -m qwen3vl-2b -a 0.0.0.0 -p 8080
 - **支持模型**: VoxCPM, VoxCPM1.5
 - **格式**: OpenAI Chat Completion 格式
 - **流式支持**: 不支持
+
+### 关机接口
+- **端点**: `POST /shutdown`
+- **功能**: 优雅地关闭服务器
+- **安全性**: 默认仅允许本地访问，使用 `--allow-remote-shutdown` 标志启用远程访问（不推荐）
+- **格式**: JSON 响应
 
 ## 向后兼容性
 

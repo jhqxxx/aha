@@ -57,6 +57,92 @@ Content-Type: application/json
 
 ## 端点
 
+### 健康检查
+
+检查服务健康状态。此端点适用于容器编排（Kubernetes）、负载均衡器和监控系统。
+
+#### 端点
+```
+GET /health
+```
+
+#### 响应
+
+**健康 (HTTP 200):**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+**不健康 (HTTP 503):**
+
+```json
+{
+  "status": "unhealthy",
+  "error": "model not initialized"
+}
+```
+
+#### 示例
+
+```bash
+curl http://127.0.0.1:10100/health
+```
+
+### 模型列表
+
+获取当前加载的模型信息（OpenAI API 兼容格式）。
+
+#### 端点
+```
+GET /models
+```
+
+#### 响应
+
+**成功 (HTTP 200):**
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "qwen3-0.6b",
+      "object": "model",
+      "created": null,
+      "owned_by": "Qwen"
+    }
+  ]
+}
+```
+
+**未初始化 (HTTP 503):**
+
+```json
+{
+  "error": "model not initialized"
+}
+```
+
+#### 字段
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `object` | string | 固定值："list" |
+| `data` | array | 模型对象数组（当前仅包含一个已加载的模型） |
+| `id` | string | 模型标识符（kebab-case，如 "qwen3-0.6b"） |
+| `object` | string | 固定值："model" |
+| `created` | integer\|null | Unix 时间戳（当前为 null） |
+| `owned_by` | string | 模型所有者/组织名称 |
+
+#### 示例
+
+```bash
+curl http://127.0.0.1:10100/models
+```
+
 ### 对话补全
 
 生成对话补全或文本响应。
@@ -351,6 +437,67 @@ curl http://127.0.0.1:10100/images/remove_background \
 #### 支持的模型
 
 - `rmbg2.0`
+
+### 优雅关机
+
+优雅地关闭 AHA 服务器。此端点启动优雅关闭流程：
+1. 停止接受新连接
+2. 等待现有请求完成（最多 1 秒）
+3. 清理 PID 文件
+4. 退出进程
+
+#### 端点
+```
+POST /shutdown
+```
+
+#### 请求体
+
+无（空请求）
+
+#### 响应
+
+**成功 (HTTP 200):**
+
+```json
+{
+  "message": "Shutting down..."
+}
+```
+
+**禁止访问 (HTTP 403):**
+
+当不允许远程关闭时：
+
+```json
+{
+  "error": "Remote shutdown not allowed. Use --allow-remote-shutdown flag to enable (not recommended)."
+}
+```
+
+#### 安全性
+
+默认情况下，关机端点仅允许来自 localhost (127.0.0.1) 的请求。要启用远程关闭，请使用 `--allow-remote-shutdown` 标志启动服务器：
+
+```bash
+aha serv -m qwen3-0.6b --allow-remote-shutdown
+```
+
+**警告：** 除非有适当的安全措施，否则不建议在生产环境中启用远程关闭。
+
+#### 示例
+
+```bash
+curl -X POST http://127.0.0.1:10100/shutdown
+```
+
+#### 日志记录
+
+所有关机请求都会记录到 stderr，格式如下：
+
+```
+[SHUTDOWN] Shutdown requested (remote_allowed: false)
+```
 
 ## 错误处理
 
