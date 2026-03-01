@@ -10,9 +10,8 @@ use crate::{
         Conv2dWithBN, TwoLinearMLP, deform_conv2d_kernel, get_batch_norm, get_conv2d,
         get_layer_norm,
     },
-    utils::tensor_utils::{
-        get_equal_mask, index_select_2d, interpolate_bilinear, split_tensor_with_size,
-    },
+    utils::interpolate::interpolate_bilinear,
+    utils::tensor_utils::{get_equal_mask, index_select_2d, split_tensor_with_size},
 };
 
 struct PatchEmbed {
@@ -996,7 +995,7 @@ impl ASPPDeformable {
         let x5 = self.global_avg_pool_1.forward(&x5)?;
         let x5 = self.global_avg_pool_2.forward_t(&x5, false)?.relu()?;
         let (_, _, h, w) = x1.dims4()?;
-        let x5 = interpolate_bilinear(&x5, (h, w), Some(true))?;
+        let x5 = interpolate_bilinear(&x5, (h, w), Some(true), None)?;
         let xs = Tensor::cat(
             &[x1, x_aspp_deforms_0, x_aspp_deforms_1, x_aspp_deforms_2, x5],
             1,
@@ -1246,7 +1245,7 @@ impl Decoder {
         // let mut outs = vec![];
         let patches_batch = self.get_patches_batch(x, x4)?;
         let (_, _, x4_h, x4_w) = x4.dims4()?;
-        let patches_batch = interpolate_bilinear(&patches_batch, (x4_h, x4_w), Some(true))?;
+        let patches_batch = interpolate_bilinear(&patches_batch, (x4_h, x4_w), Some(true), None)?;
         let ipt_blk5_out = self.ipt_blk5.forward(&patches_batch)?;
         let x4 = Tensor::cat(&[x4, &ipt_blk5_out], 1)?;
         let p4 = self.decoder_block4.forward(&x4)?;
@@ -1257,11 +1256,11 @@ impl Decoder {
         let p4 = p4.broadcast_mul(&gdt_attn_4)?;
 
         let (_, _, x3_h, x3_w) = x3.dims4()?;
-        let p4_inter = interpolate_bilinear(&p4, (x3_h, x3_w), Some(true))?;
+        let p4_inter = interpolate_bilinear(&p4, (x3_h, x3_w), Some(true), None)?;
         let p3_ = self.lateral_block4.forward(x3)?;
         let p3_ = p4_inter.add(&p3_)?;
         let patches_batch = self.get_patches_batch(x, &p3_)?;
-        let patches_batch = interpolate_bilinear(&patches_batch, (x3_h, x3_w), Some(true))?;
+        let patches_batch = interpolate_bilinear(&patches_batch, (x3_h, x3_w), Some(true), None)?;
         let ipt_blk4_out = self.ipt_blk4.forward(&patches_batch)?;
         let p3_ = Tensor::cat(&[p3_, ipt_blk4_out], 1)?;
         let p3 = self.decoder_block3.forward(&p3_)?;
@@ -1272,11 +1271,11 @@ impl Decoder {
         let p3 = p3.broadcast_mul(&gdt_attn_3)?;
 
         let (_, _, x2_h, x2_w) = x2.dims4()?;
-        let p3_inter = interpolate_bilinear(&p3, (x2_h, x2_w), Some(true))?;
+        let p3_inter = interpolate_bilinear(&p3, (x2_h, x2_w), Some(true), None)?;
         let p2_ = self.lateral_block3.forward(x2)?;
         let p2_ = p3_inter.add(&p2_)?;
         let patches_batch = self.get_patches_batch(x, &p2_)?;
-        let patches_batch = interpolate_bilinear(&patches_batch, (x2_h, x2_w), Some(true))?;
+        let patches_batch = interpolate_bilinear(&patches_batch, (x2_h, x2_w), Some(true), None)?;
         let ipt_blk3_out = self.ipt_blk3.forward(&patches_batch)?;
         let p2_ = Tensor::cat(&[p2_, ipt_blk3_out], 1)?;
         let p2 = self.decoder_block2.forward(&p2_)?;
@@ -1287,17 +1286,17 @@ impl Decoder {
         let p2 = p2.broadcast_mul(&gdt_attn_2)?;
 
         let (_, _, x1_h, x1_w) = x1.dims4()?;
-        let p2_inter = interpolate_bilinear(&p2, (x1_h, x1_w), Some(true))?;
+        let p2_inter = interpolate_bilinear(&p2, (x1_h, x1_w), Some(true), None)?;
         let p1_ = self.lateral_block2.forward(x1)?;
         let p1_ = p2_inter.add(&p1_)?;
         let patches_batch = self.get_patches_batch(x, &p1_)?;
-        let patches_batch = interpolate_bilinear(&patches_batch, (x1_h, x1_w), Some(true))?;
+        let patches_batch = interpolate_bilinear(&patches_batch, (x1_h, x1_w), Some(true), None)?;
         let ipt_blk2_out = self.ipt_blk2.forward(&patches_batch)?;
         let p1_ = Tensor::cat(&[p1_, ipt_blk2_out], 1)?;
         let p1_ = self.decoder_block1.forward(&p1_)?;
 
         let (_, _, x_h, x_w) = x.dims4()?;
-        let p1_ = interpolate_bilinear(&p1_, (x_h, x_w), Some(true))?;
+        let p1_ = interpolate_bilinear(&p1_, (x_h, x_w), Some(true), None)?;
         // let patches_batch = self.get_patches_batch(x, &p1_)?;
         // let patches_batch = interpolate_bilinear(&patches_batch, (x_h, x_w), Some(true))?;
         let ipt_blk1_out = self.ipt_blk1.forward(x)?;
@@ -1348,27 +1347,27 @@ impl BiRefNet {
         };
 
         let (_, _, h, w) = xs.dims4()?;
-        let cat_xs = interpolate_bilinear(xs, (h / 2, w / 2), Some(true))?;
+        let cat_xs = interpolate_bilinear(xs, (h / 2, w / 2), Some(true), None)?;
         let [ref x1_, ref x2_, ref x3_, ref x4_] = self.bb.forward(&cat_xs)?[..] else {
             return Err(anyhow!(format!(
                 "swintransformer output exactly 3 elements"
             )));
         };
         let (_, _, x1_h, x1_w) = x1.dims4()?;
-        let x1_ = interpolate_bilinear(x1_, (x1_h, x1_w), Some(true))?;
+        let x1_ = interpolate_bilinear(x1_, (x1_h, x1_w), Some(true), None)?;
         let x1 = Tensor::cat(&[x1, &x1_], 1)?;
         let (_, _, x2_h, x2_w) = x2.dims4()?;
-        let x2_ = interpolate_bilinear(x2_, (x2_h, x2_w), Some(true))?;
+        let x2_ = interpolate_bilinear(x2_, (x2_h, x2_w), Some(true), None)?;
         let x2 = Tensor::cat(&[x2, &x2_], 1)?;
         let (_, _, x3_h, x3_w) = x3.dims4()?;
-        let x3_ = interpolate_bilinear(x3_, (x3_h, x3_w), Some(true))?;
+        let x3_ = interpolate_bilinear(x3_, (x3_h, x3_w), Some(true), None)?;
         let x3 = Tensor::cat(&[x3, &x3_], 1)?;
         let (_, _, x4_h, x4_w) = x4.dims4()?;
-        let x4_ = interpolate_bilinear(x4_, (x4_h, x4_w), Some(true))?;
+        let x4_ = interpolate_bilinear(x4_, (x4_h, x4_w), Some(true), None)?;
         let x4 = Tensor::cat(&[x4, &x4_], 1)?;
-        let x1_resize = interpolate_bilinear(&x1, (x4_h, x4_w), Some(true))?;
-        let x2_resize = interpolate_bilinear(&x2, (x4_h, x4_w), Some(true))?;
-        let x3_resize = interpolate_bilinear(&x3, (x4_h, x4_w), Some(true))?;
+        let x1_resize = interpolate_bilinear(&x1, (x4_h, x4_w), Some(true), None)?;
+        let x2_resize = interpolate_bilinear(&x2, (x4_h, x4_w), Some(true), None)?;
+        let x3_resize = interpolate_bilinear(&x3, (x4_h, x4_w), Some(true), None)?;
         let x4 = Tensor::cat(&[x1_resize, x2_resize, x3_resize, x4], 1)?;
 
         let x4 = self.squeeze_module_0.forward(&x4)?;

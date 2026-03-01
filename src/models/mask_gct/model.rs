@@ -9,7 +9,8 @@ use crate::{
         common::{WNConv1d, get_conv1d, get_layer_norm},
         mask_gct::config::SemanticCodec,
     },
-    utils::tensor_utils::{interpolate_nearest_1d, l2_normalize},
+    utils::interpolate::interpolate_nearest_1d,
+    utils::tensor_utils::l2_normalize,
 };
 
 pub struct ConvNeXtBlock {

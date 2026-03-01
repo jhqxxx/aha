@@ -6,7 +6,7 @@ use anyhow::Result;
 
 #[test]
 fn rmbg2_0_generate() -> Result<()> {
-    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda rmbg2_0_generate -r -- --nocapture
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda --test test_rmbg2_0 rmbg2_0_generate -r -- --nocapture
 
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;

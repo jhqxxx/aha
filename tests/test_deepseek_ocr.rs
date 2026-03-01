@@ -7,7 +7,7 @@ use rocket::futures::StreamExt;
 
 #[test]
 fn deepseek_ocr_generate() -> Result<()> {
-    // RUST_BACKTRACE=1 cargo test -F cuda deepseek_ocr_generate -r -- --nocapture
+    // RUST_BACKTRACE=1 cargo test -F cuda --test test_deepseek_ocr deepseek_ocr_generate -r -- --nocapture
     let message = r#"
     {
         "model": "deepseek-ocr",

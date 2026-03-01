@@ -16,9 +16,10 @@ use crate::{
         },
     },
     position_embed::rope::{Qwen2_5VLTextRotaryEmbedding, Qwen2_5VisionRotaryEmbedding},
+    utils::interpolate::interpolate_bilinear,
     utils::tensor_utils::{
-        get_vision_next_indices, interpolate_bilinear, masked_scatter_dim0, nonzero_index,
-        prepare_causal_attention_mask, zero_index,
+        get_vision_next_indices, masked_scatter_dim0, nonzero_index, prepare_causal_attention_mask,
+        zero_index,
     },
 };
 
@@ -143,7 +144,7 @@ impl SiglipVisionEmbeddings {
             .reshape((1, sqrt_num_positions, sqrt_num_positions, self.embed_dim))?
             .permute((0, 3, 1, 2))?;
         let patch_pos_embed =
-            interpolate_bilinear(&patch_pos_embed, (new_height, new_width), Some(false))?;
+            interpolate_bilinear(&patch_pos_embed, (new_height, new_width), Some(false), None)?;
         let patch_pos_embed =
             patch_pos_embed
                 .permute((0, 2, 3, 1))?

@@ -7,7 +7,7 @@ use rocket::futures::StreamExt;
 
 #[test]
 fn paddleocr_vl_generate() -> Result<()> {
-    // RUST_BACKTRACE=1 cargo test -F cuda paddleocr_vl_generate -r -- --nocapture
+    // RUST_BACKTRACE=1 cargo test -F cuda --test test_paddleocr_vl paddleocr_vl_generate -r -- --nocapture
     let message = r#"
     {
         "model": "paddleocr_vl",
@@ -19,7 +19,7 @@ fn paddleocr_vl_generate() -> Result<()> {
                         "type": "image",
                         "image_url": 
                         {
-                            "url": "https://www.qqxiuzi.cn/zh/shouxie-shufa/welcome.png"
+                            "url": "file://./assets/img/ocr_test1.png"
                         }
                     },              
                     {

@@ -5,11 +5,11 @@
 // use std::io::{Read, Seek};
 // use std::{io::Cursor, time::Instant};
 
-use aha::utils::load_tensor_from_pt;
+use aha::utils::interpolate::interpolate_nearest_2d;
 // use aha_openai_dive::v1::resources::chat::ChatCompletionParameters;
 use anyhow::Result;
 // use byteorder::{LittleEndian, ReadBytesExt};
-use candle_core::Shape;
+use candle_core::Tensor;
 // use sentencepiece::SentencePieceProcessor;
 // use zip::ZipArchive;
 
@@ -17,25 +17,33 @@ use candle_core::Shape;
 fn messy_test() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -F cuda messy_test -r -- --nocapture
     let device = &candle_core::Device::Cpu;
-    let save_dir: String =
-        aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir);
-    let emo_matrix_path = model_path.clone() + "/feat2.pt";
-    let t_emo = load_tensor_from_pt(
-        &emo_matrix_path,
-        "feat2/data/0",
-        Shape::from_dims(&[73, 1280]),
-        device,
-    )?;
-    println!("t_emo: {}", t_emo);
-    let skp_matrix_path = model_path + "/feat1.pt";
-    let t_skp = load_tensor_from_pt(
-        &skp_matrix_path,
-        "feat1/data/0",
-        Shape::from_dims(&[73, 192]),
-        device,
-    )?;
-    println!("t_skp: {}", t_skp);
+    let input = Tensor::arange(0.0f32, 25.0f32, device)?.reshape((1, 1, 5, 5))?;
+    println!("input: {}", input);
+    let x_nearest = interpolate_nearest_2d(&input, (10, 10))?;
+    println!("x_nearest: {}", x_nearest);
+    // let input = Tensor::arange(0.0f32, 25.0f32, device)?.reshape((1, 5, 5))?;
+    // println!("input: {}", input);
+    // let x_nearest = interpolate_nearest_1d(&input, 10)?;
+    // println!("x_nearest: {}", x_nearest);
+    // let save_dir: String =
+    //     aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
+    // let model_path = format!("{}/IndexTeam/IndexTTS-2/", save_dir);
+    // let emo_matrix_path = model_path.clone() + "/feat2.pt";
+    // let t_emo = load_tensor_from_pt(
+    //     &emo_matrix_path,
+    //     "feat2/data/0",
+    //     Shape::from_dims(&[73, 1280]),
+    //     device,
+    // )?;
+    // println!("t_emo: {}", t_emo);
+    // let skp_matrix_path = model_path + "/feat1.pt";
+    // let t_skp = load_tensor_from_pt(
+    //     &skp_matrix_path,
+    //     "feat1/data/0",
+    //     Shape::from_dims(&[73, 192]),
+    //     device,
+    // )?;
+    // println!("t_skp: {}", t_skp);
     // let file = File::open(emo_matrix_path)?;
     // let mut archive = ZipArchive::new(file)?;
     // // 列出所有文件（调试用）

@@ -7,7 +7,7 @@ use rocket::futures::StreamExt;
 
 #[test]
 fn hunyuan_ocr_generate() -> Result<()> {
-    // RUST_BACKTRACE=1 cargo test -F cuda hunyuan_ocr_generate -r -- --nocapture
+    // RUST_BACKTRACE=1 cargo test -F cuda --test test_hunyuan_ocr hunyuan_ocr_generate -r -- --nocapture
     let message = r#"
     {
         "model": "hunyuan-ocr",

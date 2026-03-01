@@ -17,9 +17,10 @@ use crate::{
         deepseek_ocr::config::{DeepseekOCRConfig, DeepseekV2Config},
     },
     position_embed::rope::RoPE,
+    utils::interpolate::{interpolate_bicubic, interpolate_linear_1d},
     utils::tensor_utils::{
-        index_select_2d, interpolate_bicubic, interpolate_linear_1d, masked_scatter_dim0, nonzero,
-        onehot, prepare_causal_attention_mask, quick_gelu, topk,
+        index_select_2d, masked_scatter_dim0, nonzero, onehot, prepare_causal_attention_mask,
+        quick_gelu, topk,
     },
 };
 
@@ -480,8 +481,8 @@ impl ImageEncoderViT {
             let new_pos_embed = interpolate_bicubic(
                 &old_pos_embed,
                 (tgt_size, tgt_size),
-                Some(true),
                 Some(false),
+                Some(true),
             )?;
             let new_pos_embed = new_pos_embed.permute((0, 2, 3, 1))?;
             Ok(new_pos_embed)
@@ -571,8 +572,8 @@ impl CLIPVisionEmbeddings {
             let new_pos_embed = interpolate_bicubic(
                 &old_pos_embed,
                 (tgt_size, tgt_size),
-                Some(true),
                 Some(false),
+                Some(true),
             )?;
             let new_pos_embed = new_pos_embed
                 .permute((0, 2, 3, 1))?

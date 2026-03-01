@@ -11,9 +11,8 @@ use crate::{
         hunyuan_ocr::config::{HunYuanVLConfig, HunYuanVLVisionConfig},
     },
     position_embed::rope::{RoPE, apply_rotary_pos_emb, get_xd_cos_sin},
-    utils::tensor_utils::{
-        interpolate_bilinear, masked_scatter_dim0, prepare_causal_attention_mask, split_tensor,
-    },
+    utils::interpolate::interpolate_bilinear,
+    utils::tensor_utils::{masked_scatter_dim0, prepare_causal_attention_mask, split_tensor},
 };
 
 pub struct HunYuanVisionPatchEmbed {
@@ -83,7 +82,7 @@ impl HunYuanVisionPatchEmbed {
             let grid_h = grid_i.i(1)?.to_scalar::<u32>()? as usize;
             let grid_w = grid_i.i(2)?.to_scalar::<u32>()? as usize;
             let patch_pos_embed_ =
-                interpolate_bilinear(&self.patch_pos_embed, (grid_h, grid_w), Some(false))?;
+                interpolate_bilinear(&self.patch_pos_embed, (grid_h, grid_w), Some(false), None)?;
             let patch_pos_embed_ = patch_pos_embed_
                 .reshape((self.embed_dim, ()))?
                 .transpose(0, 1)?
