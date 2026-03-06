@@ -4,15 +4,15 @@
 use aha::models::GenerateModel;
 use aha::utils::{clean_asr_response, map_language_code};
 use aha_openai_dive::v1::resources::chat::{
-    ChatCompletionParameters, ChatMessage, ChatMessageAudioContentPart, ChatMessageContent,
-    ChatMessageContentPart, AudioUrlType,
+    AudioUrlType, ChatCompletionParameters, ChatMessage, ChatMessageAudioContentPart,
+    ChatMessageContent, ChatMessageContentPart,
 };
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{form::Form, post};
 
-use super::asr_types::{ErrorResponse, ErrorDetail, TranscriptionRequest, TranscriptionResponse};
 use super::MODEL;
+use super::asr_types::{ErrorDetail, ErrorResponse, TranscriptionRequest, TranscriptionResponse};
 
 /// Handle audio transcription requests
 ///
@@ -30,14 +30,17 @@ use super::MODEL;
 /// # Returns
 /// JSON response with format: `{"text": "transcribed text"}`
 #[post("/transcriptions", data = "<req>")]
-pub(crate) async fn transcriptions(req: Form<TranscriptionRequest<'_>>) -> (Status, Json<serde_json::Value>) {
-    // Validate response_format (only JSON supported)
+pub(crate) async fn transcriptions(
+    req: Form<TranscriptionRequest<'_>>,
+) -> (Status, Json<serde_json::Value>) {
+    // Validate response_format (only JSON and text supported)
+    #[allow(clippy::collapsible_if)]
     if let Some(ref format) = req.response_format {
         if format != "json" && format != "text" {
             return error_response(
                 Status::BadRequest,
                 "invalid_request_error",
-                "Only 'json' response format is supported",
+                "Only 'json' and 'text' response formats are supported",
                 Some("unsupported_format".to_string()),
             );
         }
@@ -60,7 +63,10 @@ pub(crate) async fn transcriptions(req: Form<TranscriptionRequest<'_>>) -> (Stat
     let file_url = format!("file://{}", file_path.display());
 
     // Map language code to full language name
-    let language_name = req.language.as_ref().and_then(|code| map_language_code(code));
+    let language_name = req
+        .language
+        .as_ref()
+        .and_then(|code| map_language_code(code));
 
     // Build ChatCompletionParameters for the ASR model
     let audio_part = ChatMessageContentPart::Audio(ChatMessageAudioContentPart {
@@ -130,23 +136,35 @@ pub(crate) async fn transcriptions(req: Form<TranscriptionRequest<'_>>) -> (Stat
                         None
                     }
                 })
-                .unwrap_or_else(|| String::new());
+                .unwrap_or_else(String::new);
 
             // Clean the response (remove "language English<asr_text>" prefix)
             let cleaned_text = clean_asr_response(&raw_text);
 
             // Return OpenAI-compatible transcription response
             let transcription = TranscriptionResponse { text: cleaned_text };
-            (Status::Ok, Json(serde_json::to_value(transcription).unwrap()))
+            (
+                Status::Ok,
+                Json(serde_json::to_value(transcription).unwrap()),
+            )
         }
         Err(e) => {
             // Determine appropriate error status based on error message
             let error_msg = e.to_string();
-            let (status, error_type, code) = if error_msg.contains("audio") || error_msg.contains("decode") {
-                (Status::BadRequest, "invalid_request_error", Some("audio_decode_error".to_string()))
-            } else {
-                (Status::InternalServerError, "server_error", Some("inference_error".to_string()))
-            };
+            let (status, error_type, code) =
+                if error_msg.contains("audio") || error_msg.contains("decode") {
+                    (
+                        Status::BadRequest,
+                        "invalid_request_error",
+                        Some("audio_decode_error".to_string()),
+                    )
+                } else {
+                    (
+                        Status::InternalServerError,
+                        "server_error",
+                        Some("inference_error".to_string()),
+                    )
+                };
 
             error_response(status, error_type, &error_msg, code)
         }
