@@ -1068,6 +1068,7 @@ impl Qwen3_5Model {
                 (seqlen_offset + seq_len) as i64,
                 input_ids.device(),
             )?
+            .to_dtype(self.rope_deltas.as_ref().unwrap().dtype())?
             .unsqueeze(0)?
             .broadcast_as((bs, seq_len))?
             .broadcast_add(self.rope_deltas.as_ref().unwrap())?
