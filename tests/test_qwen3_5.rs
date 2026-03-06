@@ -24,7 +24,7 @@ fn qwen3_5_generate() -> Result<()> {
                         "type": "image",
                         "image_url": 
                         {
-                            "url": "file:///home/jhq/Downloads/gougou1.jpg"
+                            "url": "https://www.lifeberrys.com/img/article/tourist-attraction-3-1644590220-lb.jpg"
                         }
                     },             
                     {

@@ -282,21 +282,6 @@ pub fn load_audio_from_url(url: &str) -> Result<PathBuf> {
     })
 }
 
-// pub fn _load_audio_bytes_from_url(url: &str) -> Result<Vec<u8>> {
-//     tokio::task::block_in_place(|| {
-//         let client = reqwest::blocking::Client::new();
-//         let response = client.get(url).send()?;
-//         if !response.status().is_success() {
-//             return Err(anyhow::anyhow!(
-//                 "Failed to download file: {}",
-//                 response.status()
-//             ));
-//         }
-//         let bytes = response.bytes()?.to_vec();
-//         Ok(bytes)
-//     })
-// }
-
 pub fn load_audio_bytes_from_url(url: &str) -> Result<Vec<u8>> {
     let url = url.to_string();
     thread::spawn(move || {
