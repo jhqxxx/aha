@@ -211,24 +211,24 @@ pub fn crate_tensor_from_reader<R: std::io::Read>(
             reader.read_u32_into::<LittleEndian>(&mut data_t)?;
             Ok(Tensor::from_vec(data_t, shape, &Device::Cpu)?)
         }
-        DType::I16 => {
-            let mut data_t = vec![0i16; elem_count];
-            reader.read_i16_into::<LittleEndian>(&mut data_t)?;
-            Ok(Tensor::from_vec(data_t, shape, &Device::Cpu)?)
-        }
-        DType::I32 => {
-            let mut data_t = vec![0i32; elem_count];
-            reader.read_i32_into::<LittleEndian>(&mut data_t)?;
-            Ok(Tensor::from_vec(data_t, shape, &Device::Cpu)?)
-        }
+        // DType::I16 => {
+        //     let mut data_t = vec![0i16; elem_count];
+        //     reader.read_i16_into::<LittleEndian>(&mut data_t)?;
+        //     Ok(Tensor::from_vec(data_t, shape, &Device::Cpu)?)
+        // }
+        // DType::I32 => {
+        //     let mut data_t = vec![0i32; elem_count];
+        //     reader.read_i32_into::<LittleEndian>(&mut data_t)?;
+        //     Ok(Tensor::from_vec(data_t, shape, &Device::Cpu)?)
+        // }
         DType::I64 => {
             let mut data_t = vec![0i64; elem_count];
             reader.read_i64_into::<LittleEndian>(&mut data_t)?;
             Ok(Tensor::from_vec(data_t, shape, &Device::Cpu)?)
         }
-        DType::F8E4M3 | DType::F6E2M3 | DType::F6E3M2 | DType::F4 | DType::F8E8M0 => {
-            Err(anyhow!(format!("UnsupportedDTypeForOp '{:?}'", dtype)))
-        }
+        // DType::F8E4M3 | DType::F6E2M3 | DType::F6E3M2 | DType::F4 | DType::F8E8M0 => {
+        //     Err(anyhow!(format!("UnsupportedDTypeForOp '{:?}'", dtype)))
+        // }
     }
 }
 

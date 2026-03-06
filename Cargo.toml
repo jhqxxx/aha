@@ -7,10 +7,10 @@ license = "Apache-2.0"
 description = "aha model inference library, now supports Qwen2.5VL, MiniCPM4, VoxCPM, Qwen3VL, DeepSeek-OCR, Hunyuan-OCR, PaddleOCR-VL, VoxCPM1.5, RMBG2.0, GLM-ASR-Nano-2512, Fun-ASR-Nano-2512, Qwen3, Qwen3-ASR, Qwen3.5"
 
 [dependencies]
-candle-core = { version = "0.9.2" }
-candle-nn = { version = "0.9.2" }
-candle-transformers = { version = "0.9.2" }
-candle-flash-attn = { version = "0.9.2", optional = true }
+candle-core = { version = "=0.9.1" }
+candle-nn = { version = "=0.9.1" }
+candle-transformers = { version = "=0.9.1" }
+candle-flash-attn = { version = "=0.9.1", optional = true }
 serde = "1.0.226"
 serde_json = "1.0.145"
 anyhow = "1.0.100"
