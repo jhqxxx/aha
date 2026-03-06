@@ -124,35 +124,6 @@ impl<'a> GlmOcrGenerateModel<'a> {
             dtype
         };
 
-        #[cfg(debug_assertions)]
-        {
-            eprintln!("GLM-OCR Config Debug:");
-            eprintln!("  text_config.hidden_size: {}", cfg.text_config.hidden_size);
-            eprintln!(
-                "  text_config.num_attention_heads: {}",
-                cfg.text_config.num_attention_heads
-            );
-            eprintln!(
-                "  text_config.num_key_value_heads: {}",
-                cfg.text_config.num_key_value_heads
-            );
-            eprintln!(
-                "  text_config.head_dim: {}",
-                cfg.text_config.head_dim.unwrap_or_else(|| {
-                    // Integer division, panics if num_attention_heads is 0 (like Python)
-                    cfg.text_config.hidden_size / cfg.text_config.num_attention_heads
-                })
-            );
-            eprintln!(
-                "  text_config.mrope_section: {:?}",
-                cfg.text_config.mrope_section
-            );
-            eprintln!(
-                "  Calculated head_dim: {}",
-                cfg.text_config.hidden_size / cfg.text_config.num_attention_heads
-            );
-        }
-
         let processor = GlmOcrProcessor::new(path, &device, dtype)?;
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
@@ -213,17 +184,6 @@ impl<'a> GenerateModel for GlmOcrGenerateModel<'a> {
         // Get prompt text from messages
         let prompt = extract_text_from_messages(&mes).unwrap_or_else(|| "Extract all text from this image.".to_string());
 
-        #[cfg(debug_assertions)]
-        {
-            eprintln!("[GLM-OCR] ===== DEBUG START =====");
-            eprintln!("[GLM-OCR] Image: {}", image_path);
-            eprintln!("[GLM-OCR] Prompt: {}", prompt);
-            eprintln!("[GLM-OCR] Device: {:?}", self.device);
-            eprintln!("[GLM-OCR] Temperature: {:?}", temperature);
-            eprintln!("[GLM-OCR] Top_p: {:?}", top_p);
-            eprintln!("[GLM-OCR] Max tokens: {}", mes.max_tokens.unwrap_or(512));
-        }
-
         let processed = self.processor.process_info(
             image_path,
             &prompt,
@@ -236,16 +196,6 @@ impl<'a> GenerateModel for GlmOcrGenerateModel<'a> {
             self.spatial_merge_size,
         )?;
 
-        if std::env::var("GLM_DEBUG").is_ok() {
-            eprintln!("[GLM-OCR] ===== AFTER PROCESS_INFO =====");
-            eprintln!("[GLM-OCR] input_ids shape: {:?}", processed.input_ids.shape());
-            let input_ids_vec = processed.input_ids.squeeze(0).unwrap().to_vec1::<u32>().unwrap();
-            eprintln!("[GLM-OCR] input_ids (first 20): {:?}", &input_ids_vec[..20.min(input_ids_vec.len())]);
-            eprintln!("[GLM-OCR] pixel_values shape: {:?}", processed.pixel_values.shape());
-            eprintln!("[GLM-OCR] image_mask shape: {:?}", processed.image_mask.shape());
-            eprintln!("[GLM-OCR] grid_thw: {:?}", processed.grid_thw);
-        }
-
         let mut input_ids = processed.input_ids;
         let pixel_values = Some(processed.pixel_values);
         let image_grid_thw = Some(processed.grid_thw);
@@ -254,13 +204,6 @@ impl<'a> GenerateModel for GlmOcrGenerateModel<'a> {
         let mut seq_len = input_ids.dim(1)?;
         let mut generate = Vec::new();
         let sample_len = mes.max_tokens.unwrap_or(512);
-
-        #[cfg(debug_assertions)]
-        {
-            eprintln!("[GLM-OCR] ===== START GENERATION =====");
-            eprintln!("[GLM-OCR] Initial seq_len: {}", seq_len);
-            eprintln!("[GLM-OCR] eos_token_ids: {:?}", self.eos_token_ids);
-        }
 
         for _ in 0..sample_len {
             let is_first_pass = seqlen_offset == 0;

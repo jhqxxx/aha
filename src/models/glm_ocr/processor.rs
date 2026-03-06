@@ -149,20 +149,7 @@ impl GlmOcrProcessor {
 
         // Use smart_resize to compute target dimensions
         let (target_h, target_w) = self.smart_resize(orig_h, orig_w);
-        if std::env::var("GLM_DEBUG").is_ok() {
-            let grid_h = target_h / self.patch_size;
-            let grid_w = target_w / self.patch_size;
-            let n_patches = grid_h * grid_w;
-            let pv_elems = n_patches * 3 * self.temporal_patch_size * self.patch_size * self.patch_size;
-            let pv_mb = (pv_elems * 2) as f64 / 1_048_576.0; // bf16
-            let attn_mb = (16 * n_patches * n_patches * 4) as f64 / 1_048_576.0; // 16 heads, f32
-            eprintln!(
-                "[GLM-OCR OOM-DBG] Image: orig={orig_w}x{orig_h} -> target={target_w}x{target_h} \
-                 grid={grid_w}x{grid_h} n_patches={n_patches} \
-                 pixel_values={pv_mb:.1}MB  vision_attn_per_layer={attn_mb:.1}MB"
-            );
-        }
-        
+
         // Resize image
         let img = img.resize_exact(
             target_w as u32,
@@ -183,10 +170,8 @@ impl GlmOcrProcessor {
             })
             .collect();
 
-        // Reshape to [H, W, 3]
         let tensor = Tensor::from_vec(pixels, (target_h, target_w, 3), &self.device)?;
         
-        // Normalize
         let mean = Tensor::new(self.image_mean.clone(), &self.device)?.reshape((1, 1, 3))?;
         let std = Tensor::new(self.image_std.clone(), &self.device)?.reshape((1, 1, 3))?;
         let tensor = tensor.broadcast_sub(&mean)?.broadcast_div(&std)?;
@@ -196,37 +181,25 @@ impl GlmOcrProcessor {
         let grid_w = target_w / self.patch_size;
         let patch_size = self.patch_size;
         let channels = 3;
-        let temporal_patch_size = 2;  // Python uses temporal_patch_size=2 even for images
+        let temporal_patch_size = 2; 
         
-        // Reshape: [H, W, 3] -> [grid_h, patch_size, grid_w, patch_size, 3]
         let tensor = tensor.reshape((
             grid_h, patch_size,
             grid_w, patch_size,
             channels,
         ))?;
 
-        // Permute to: [grid_h, grid_w, patch_size, patch_size, channels]
-        let tensor = tensor.permute((0, 2, 1, 3, 4))?;
+        let tensor = tensor.permute((0, 2, 4, 1, 3))?;
 
-        // Permute to put channels first: [grid_h, grid_w, channels, patch_size, patch_size]
-        // Python's patch_embed.forward does: view(-1, C, T, P, P) so we need (C, T, P_h, P_w) order
-        let tensor = tensor.permute((0, 1, 4, 2, 3))?;
-
-        // Reshape to: [num_patches, channels, patch_size, patch_size]
         let num_patches = grid_h * grid_w;
         let tensor = tensor.reshape((num_patches, channels, patch_size, patch_size))?;
 
-        // Add temporal dimension after C: [num_patches, channels, 1, patch_size, patch_size]
         let tensor = tensor.unsqueeze(2)?;
-        // Repeat T times along temporal dim 2: [num_patches, channels, temporal_patch_size, patch_size, patch_size]
         let tensor = tensor.repeat((1, 1, temporal_patch_size, 1, 1))?;
 
-        // Flatten to: [num_patches, channels * temporal_patch_size * patch_size * patch_size]
-        // This gives (C, T, P_h, P_w) order matching Python's patch_embed input
         let patch_dim = channels * temporal_patch_size * patch_size * patch_size;
         let tensor = tensor.reshape((num_patches, patch_dim))?;
         
-        // Convert to model dtype
         let tensor = tensor.to_dtype(self.dtype)?;
         
         Ok(ProcessedImage {
@@ -236,25 +209,7 @@ impl GlmOcrProcessor {
         })
     }
 
-    /// Process image and text for multimodal input.
-    ///
-    /// # Arguments
-    /// * `image_path` - Path to input image
-    /// * `prompt` - Text prompt/question about the image
-    /// * `tokenizer` - Tokenizer for text encoding
-    /// * `image_token_id` - Token ID for image content placeholders
-    /// * `image_start_token_id` - Token ID marking start of image region
-    /// * `image_end_token_id` - Token ID marking end of image region
-    /// * `patch_size` - Vision encoder patch size (default: 14)
-    /// * `temporal_patch_size` - Temporal patch size (default: 2, unused for images)
-    /// * `spatial_merge_size` - Spatial merge factor (default: 2)
-    ///
-    /// # Returns
-    /// ProcessedInput containing:
-    /// - input_ids: Combined image placeholder + text token IDs
-    /// - pixel_values: Flattened patches tensor [num_patches, patch_dim]
-    /// - image_mask: Boolean mask for image token positions
-    /// - grid_thw: (temporal, height, width) grid dimensions for RoPE
+    /// Process image and text for multimodal input
     pub fn process_info(
         &self,
         image_path: &str,
@@ -327,7 +282,6 @@ impl GlmOcrProcessor {
         let image_mask = Tensor::from_vec(image_mask_vec, (1, input_ids_vec.len()), &self.device)?;
 
         // Compute grid_thw for RoPE
-        // For images: grid_t = 1
         let grid_thw = Tensor::from_vec(
             vec![1u32, grid_h as u32, grid_w as u32],
             (3,),
