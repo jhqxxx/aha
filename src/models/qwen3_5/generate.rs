@@ -60,10 +60,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
 
 impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let enable_thinking = extract_metadata_value::<bool>(&mes.metadata, "enable_thinking");
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self
@@ -126,10 +123,7 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
                 + '_,
         >,
     > {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let enable_thinking = extract_metadata_value::<bool>(&mes.metadata, "enable_thinking");
         let mes_render = self

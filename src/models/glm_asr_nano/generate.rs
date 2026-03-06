@@ -65,10 +65,7 @@ impl<'a> GlmAsrNanoGenerateModel<'a> {
 
 impl<'a> GenerateModel for GlmAsrNanoGenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let render_text: String = self.chat_template.apply_chat_template(&mes)?;
         let (input_features, audio_token_lengths, replace_text) =
@@ -122,10 +119,7 @@ impl<'a> GenerateModel for GlmAsrNanoGenerateModel<'a> {
                 + '_,
         >,
     > {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let render_text = self.chat_template.apply_chat_template(&mes)?;
         let (input_features, audio_token_lengths, replace_text) =

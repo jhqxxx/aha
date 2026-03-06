@@ -68,19 +68,12 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
 
 impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let temperature = match mes.temperature {
-            None => self.generation_config.temperature,
-            Some(tem) => tem,
-        };
-        let top_p = match mes.top_p {
-            None => self.generation_config.top_p,
-            Some(top_p) => top_p,
-        };
+        let temperature = mes
+            .temperature
+            .unwrap_or(self.generation_config.temperature);
+        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
         let top_k = self.generation_config.top_k;
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor =
             get_logit_processor(Some(temperature), Some(top_p), Some(top_k), seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
@@ -139,19 +132,12 @@ impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
                 + '_,
         >,
     > {
-        let temperature = match mes.temperature {
-            None => self.generation_config.temperature,
-            Some(tem) => tem,
-        };
-        let top_p = match mes.top_p {
-            None => self.generation_config.top_p,
-            Some(top_p) => top_p,
-        };
+        let temperature = mes
+            .temperature
+            .unwrap_or(self.generation_config.temperature);
+        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
         let top_k = self.generation_config.top_k;
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor =
             get_logit_processor(Some(temperature), Some(top_p), Some(top_k), seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;

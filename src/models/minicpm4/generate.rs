@@ -55,10 +55,7 @@ impl<'a> MiniCPMGenerateModel<'a> {
 
 impl<'a> GenerateModel for MiniCPMGenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let mut input_ids = self.tokenizer.text_encode(mes_render, &self.device)?;
@@ -97,10 +94,7 @@ impl<'a> GenerateModel for MiniCPMGenerateModel<'a> {
                 + '_,
         >,
     > {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let mut input_ids = self.tokenizer.text_encode(mes_render, &self.device)?;

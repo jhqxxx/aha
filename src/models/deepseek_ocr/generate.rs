@@ -16,8 +16,8 @@ use crate::{
     },
     tokenizer::TokenizerModel,
     utils::{
-        build_completion_chunk_response, build_completion_response, find_type_files, get_device,
-        get_dtype, get_logit_processor,
+        build_completion_chunk_response, build_completion_response, extract_metadata_value,
+        find_type_files, get_device, get_dtype, get_logit_processor,
     },
 };
 
@@ -62,36 +62,20 @@ impl DeepseekOCRGenerateModel {
 
 impl GenerateModel for DeepseekOCRGenerateModel {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let base_size = if let Some(map) = &mes.metadata
-            && map.contains_key("base_size")
-        {
-            let size = map.get("base_size").unwrap();
-            let size = size.parse::<u32>().unwrap_or(640);
-            if self.size.contains(&size) { size } else { 640 }
+        let base_size = extract_metadata_value::<u32>(&mes.metadata, "base_size").unwrap_or(640);
+        let base_size = if self.size.contains(&base_size) {
+            base_size
         } else {
             640
         };
-        let image_size = if let Some(map) = &mes.metadata
-            && map.contains_key("image_size")
-        {
-            let size = map.get("image_size").unwrap();
-            let size = size.parse::<u32>().unwrap_or(640);
-            if self.size.contains(&size) { size } else { 640 }
+        let image_size = extract_metadata_value::<u32>(&mes.metadata, "image_size").unwrap_or(640);
+        let image_size = if self.size.contains(&image_size) {
+            image_size
         } else {
             640
         };
-        let crop_mode = if let Some(map) = &mes.metadata
-            && map.contains_key("crop_mode")
-        {
-            let size = map.get("crop_mode").unwrap();
-            size.parse::<bool>().unwrap_or(false)
-        } else {
-            false
-        };
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let crop_mode = extract_metadata_value::<bool>(&mes.metadata, "crop_mode").unwrap_or(false);
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let (mut input_ids, images_ori, image_crop, images_seq_mask, images_spatial_crop_t) = self
             .processor
@@ -147,36 +131,20 @@ impl GenerateModel for DeepseekOCRGenerateModel {
                 + '_,
         >,
     > {
-        let base_size = if let Some(map) = &mes.metadata
-            && map.contains_key("base_size")
-        {
-            let size = map.get("base_size").unwrap();
-            let size = size.parse::<u32>().unwrap_or(640);
-            if self.size.contains(&size) { size } else { 640 }
+        let base_size = extract_metadata_value::<u32>(&mes.metadata, "base_size").unwrap_or(640);
+        let base_size = if self.size.contains(&base_size) {
+            base_size
         } else {
             640
         };
-        let image_size = if let Some(map) = &mes.metadata
-            && map.contains_key("image_size")
-        {
-            let size = map.get("image_size").unwrap();
-            let size = size.parse::<u32>().unwrap_or(640);
-            if self.size.contains(&size) { size } else { 640 }
+        let image_size = extract_metadata_value::<u32>(&mes.metadata, "image_size").unwrap_or(640);
+        let image_size = if self.size.contains(&image_size) {
+            image_size
         } else {
             640
         };
-        let crop_mode = if let Some(map) = &mes.metadata
-            && map.contains_key("crop_mode")
-        {
-            let size = map.get("crop_mode").unwrap();
-            size.parse::<bool>().unwrap_or(false)
-        } else {
-            false
-        };
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let crop_mode = extract_metadata_value::<bool>(&mes.metadata, "crop_mode").unwrap_or(false);
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let (mut input_ids, images_ori, image_crop, images_seq_mask, images_spatial_crop_t) = self
             .processor

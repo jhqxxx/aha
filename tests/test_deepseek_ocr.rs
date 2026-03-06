@@ -56,7 +56,7 @@ fn deepseek_ocr_generate() -> Result<()> {
 
 #[tokio::test]
 async fn deepseek_ocr_stream() -> Result<()> {
-    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda deepseek_ocr_stream -r -- --nocapture
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda --test test_deepseek_ocr deepseek_ocr_stream -r -- --nocapture
 
     let message = r#"
     {

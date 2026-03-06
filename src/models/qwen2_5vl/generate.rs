@@ -64,10 +64,7 @@ impl<'a> Qwen2_5VLGenerateModel<'a> {
 
 impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let input = self.pre_processor.process_info(&mes, &mes_render)?;
@@ -138,10 +135,7 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
                 + '_,
         >,
     > {
-        let seed = match mes.seed {
-            None => 34562u64,
-            Some(s) => s as u64,
-        };
+        let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let input = self.pre_processor.process_info(&mes, &mes_render)?;
