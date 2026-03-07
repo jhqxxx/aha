@@ -6,6 +6,7 @@
 pub mod deepseek_ocr;
 pub mod fun_asr_nano;
 pub mod glm_asr_nano;
+pub mod glm_ocr;
 pub mod hunyuan_ocr;
 pub mod minicpm4;
 pub mod paddleocr_vl;

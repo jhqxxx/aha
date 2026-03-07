@@ -219,6 +219,7 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
         WhichModel::VoxCPM1_5,
         WhichModel::GlmASRNano2512,
         WhichModel::FunASRNano2512,
+        WhichModel::GlmOCR,
     ];
 
     if args.json {
@@ -465,6 +466,10 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::FunASRNano2512 => {
             use aha::exec::fun_asr_nano::FunASRNanoExec;
             FunASRNanoExec::run(&input, output.as_deref(), &weight_path)?;
+        }
+        WhichModel::GlmOCR => {
+            use aha::exec::glm_ocr::GlmOcrExec;
+            GlmOcrExec::run(&input, output.as_deref(), &weight_path)?;
         }
     }
 

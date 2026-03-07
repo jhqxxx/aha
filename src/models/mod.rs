@@ -5,6 +5,7 @@ pub mod deepseek_ocr;
 pub mod feature_extractor;
 pub mod fun_asr_nano;
 pub mod glm_asr_nano;
+pub mod glm_ocr;
 pub mod hunyuan_ocr;
 pub mod mask_gct;
 pub mod minicpm4;
@@ -27,7 +28,7 @@ use rocket::futures::Stream;
 use crate::models::{
     deepseek_ocr::generate::DeepseekOCRGenerateModel,
     fun_asr_nano::generate::FunAsrNanoGenerateModel,
-    glm_asr_nano::generate::GlmAsrNanoGenerateModel,
+    glm_asr_nano::generate::GlmAsrNanoGenerateModel, glm_ocr::generate::GlmOcrGenerateModel,
     hunyuan_ocr::generate::HunyuanOCRGenerateModel, minicpm4::generate::MiniCPMGenerateModel,
     paddleocr_vl::generate::PaddleOCRVLGenerateModel, qwen2_5vl::generate::Qwen2_5VLGenerateModel,
     qwen3::generate::Qwen3GenerateModel, qwen3_5::generate::Qwen3_5GenerateModel,
@@ -81,6 +82,8 @@ pub enum WhichModel {
     GlmASRNano2512,
     #[value(name = "fun-asr-nano-2512", hide = true)]
     FunASRNano2512,
+    #[value(name = "glm-ocr", hide = true)]
+    GlmOCR,
 }
 
 impl WhichModel {
@@ -109,6 +112,7 @@ impl WhichModel {
             WhichModel::VoxCPM1_5 => "OpenBMB/VoxCPM1.5",
             WhichModel::GlmASRNano2512 => "ZhipuAI/GLM-ASR-Nano-2512",
             WhichModel::FunASRNano2512 => "FunAudioLLM/Fun-ASR-Nano-2512",
+            WhichModel::GlmOCR => "ZhipuAI/GLM-OCR",
         }
     }
 
@@ -128,7 +132,7 @@ impl WhichModel {
             | WhichModel::Qwen3_5_4B
             | WhichModel::Qwen3_5_9B => "vlm",
             // OCR models
-            WhichModel::DeepSeekOCR | WhichModel::HunyuanOCR | WhichModel::PaddleOCRVL => "ocr",
+            WhichModel::DeepSeekOCR | WhichModel::HunyuanOCR | WhichModel::GlmOCR | WhichModel::PaddleOCRVL => "ocr",
             // ASR models
             WhichModel::Qwen3ASR0_6B
             | WhichModel::Qwen3ASR1_7B
@@ -169,6 +173,7 @@ pub enum ModelInstance<'a> {
     VoxCPM(Box<VoxCPMGenerate>),
     GlmASRNano(GlmAsrNanoGenerateModel<'a>),
     FunASRNano(FunAsrNanoGenerateModel),
+    GlmOCR(GlmOcrGenerateModel<'a>),
 }
 
 impl<'a> GenerateModel for ModelInstance<'a> {
@@ -187,6 +192,7 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::VoxCPM(model) => model.generate(mes),
             ModelInstance::GlmASRNano(model) => model.generate(mes),
             ModelInstance::FunASRNano(model) => model.generate(mes),
+            ModelInstance::GlmOCR(model) => model.generate(mes),
         }
     }
 
@@ -215,6 +221,7 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::VoxCPM(model) => model.generate_stream(mes),
             ModelInstance::GlmASRNano(model) => model.generate_stream(mes),
             ModelInstance::FunASRNano(model) => model.generate_stream(mes),
+            ModelInstance::GlmOCR(model) => model.generate_stream(mes),
         }
     }
 }
@@ -308,6 +315,10 @@ pub fn load_model(model_type: WhichModel, path: &str) -> Result<ModelInstance<'_
         WhichModel::FunASRNano2512 => {
             let model = FunAsrNanoGenerateModel::init(path, None, None)?;
             ModelInstance::FunASRNano(model)
+        }
+        WhichModel::GlmOCR => {
+            let model = GlmOcrGenerateModel::init(path, None, None)?;
+            ModelInstance::GlmOCR(model)
         }
     };
     Ok(model)

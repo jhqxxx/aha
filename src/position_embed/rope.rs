@@ -159,6 +159,105 @@ pub fn glm_asr_apply_rotary_pos_emb(
     Ok((q_embed, k_embed))
 }
 
+/// Interleaved rotation used by GLM-OCR text decoder.
+///
+/// Python `rotate_half_llm`:
+///   x1 = x[..., 0::2]   # even indices
+///   x2 = x[..., 1::2]   # odd indices
+///   return stack((-x2, x1), dim=-1).flatten(-2)
+///   # e.g. [q0,q1,q2,q3] → [-q1, q0, -q3, q2]
+///
+/// Each adjacent pair (x_{2i}, x_{2i+1}) is rotated to (-x_{2i+1}, x_{2i}).
+/// This is the correct counterpart to `repeat_interleave(2)` style cos/sin.
+fn rotate_half_llm(x: &Tensor) -> Result<Tensor> {
+    let last_dim = x.dim(D::Minus1)?;
+    let half = last_dim / 2;
+    // Reshape (..., D) → (..., D/2, 2) so each row is one adjacent pair
+    let mut pair_shape = x.dims().to_vec();
+    let rank = pair_shape.len();
+    pair_shape[rank - 1] = half;
+    pair_shape.push(2);
+    let x_pairs = x.reshape(pair_shape)?; // (..., half, 2)
+    // col 0 = even elements [x0, x2, ...], col 1 = odd elements [x1, x3, ...]
+    let x_even = x_pairs.narrow(D::Minus1, 0, 1)?; // (..., half, 1)
+    let x_odd = x_pairs.narrow(D::Minus1, 1, 1)?;  // (..., half, 1)
+    let neg_x_odd = x_odd.affine(-1.0, 0.0)?;
+    // Concatenate [-x_odd, x_even] → [[-x1,x0], [-x3,x2], ...]
+    let result_pairs = Tensor::cat(&[&neg_x_odd, &x_even], D::Minus1)?; // (..., half, 2)
+    // Flatten last two dims back to D: [-x1, x0, -x3, x2, ...]
+    Ok(result_pairs.reshape(x.dims().to_vec())?)
+}
+
+pub fn glm_ocr_apply_rotary_pos_emb(
+    q: &Tensor,
+    k: &Tensor,
+    cos: &Tensor,
+    sin: &Tensor,
+) -> Result<(Tensor, Tensor)> {
+    // GLM-OCR applies rotary to only the first rotary_dim of head_dim
+    // cos/sin: (bs, seq_len, head_dim) - already doubled via cat(freqs, freqs)
+    // q/k: (bs, n_head, seq_len, head_dim)
+    // Python: unsqueeze_dim=1
+    //   - rank 2 (seq_len, head_dim) -> unsqueeze(1) -> (seq_len, 1, head_dim)
+    //   - rank 3 (bs, seq_len, head_dim) -> unsqueeze(1) -> (bs, 1, seq_len, head_dim)
+    let mut cos = cos.clone();
+    let mut sin = sin.clone();
+
+    cos = cos.unsqueeze(1)?; // (seq_len, head_dim) -> (seq_len, 1, head_dim)
+    sin = sin.unsqueeze(1)?;
+
+    // Python: cos = cos[..., :cos.shape[-1]//2].repeat_interleave(2, dim=-1)
+    // Take first half and interleave each element
+    let full_dim = cos.dim(D::Minus1)?;
+    let half_dim = full_dim / 2;
+    let cos_half = cos.narrow(D::Minus1, 0, half_dim)?;
+    let sin_half = sin.narrow(D::Minus1, 0, half_dim)?;
+    // repeat_interleave(2, dim=-1): [a,b,c] -> [a,a,b,b,c,c]
+    let cos_interleaved = cos_half
+        .unsqueeze(D::Minus1)?
+        .broadcast_mul(&Tensor::ones(
+            &[1, 1, 1, 1, 2],
+            cos_half.dtype(),
+            cos_half.device(),
+        )?)?
+        .reshape(cos.shape())?;
+    let sin_interleaved = sin_half
+        .unsqueeze(D::Minus1)?
+        .broadcast_mul(&Tensor::ones(
+            &[1, 1, 1, 1, 2],
+            sin_half.dtype(),
+            sin_half.device(),
+        )?)?
+        .reshape(sin.shape())?;
+
+    let cos = cos_interleaved.to_dtype(q.dtype())?;
+    let sin = sin_interleaved.to_dtype(q.dtype())?;
+
+    let rotary_dim = cos.dim(D::Minus1)?;
+    // Split q/k into rotary and pass-through portions
+    let q_rot = q.narrow(D::Minus1, 0, rotary_dim)?;
+    let q_pass = q.narrow(D::Minus1, rotary_dim, q.dim(D::Minus1)? - rotary_dim)?;
+    let k_rot = k.narrow(D::Minus1, 0, rotary_dim)?;
+    let k_pass = k.narrow(D::Minus1, rotary_dim, k.dim(D::Minus1)? - rotary_dim)?;
+
+    // Apply rotary: q_rot * cos + rotate_half_llm(q_rot) * sin
+    // Must use interleaved rotate_half_llm (not split-half rotate_half) because
+    // cos/sin use repeat_interleave(2) format: [c0,c0,c1,c1,...].
+    // rotate_half_llm rotates adjacent pairs (q_{2i},q_{2i+1}) → (-q_{2i+1}, q_{2i}),
+    // which is the correct counterpart for this cos/sin format.
+    let q_embed = q_rot
+        .broadcast_mul(&cos)?
+        .add(&rotate_half_llm(&q_rot)?.broadcast_mul(&sin)?)?;
+    let k_embed = k_rot
+        .broadcast_mul(&cos)?
+        .add(&rotate_half_llm(&k_rot)?.broadcast_mul(&sin)?)?;
+
+    // Concatenate rotary and pass-through portions
+    let q_embed = Tensor::cat(&[&q_embed, &q_pass], D::Minus1)?;
+    let k_embed = Tensor::cat(&[&k_embed, &k_pass], D::Minus1)?;
+    Ok((q_embed, k_embed))
+}
+
 pub fn roformer_rotate(x: &Tensor) -> Result<Tensor> {
     let dims = x.dims();
     let last_dim = dims

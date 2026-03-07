@@ -261,6 +261,7 @@ fn which_model_to_id(which_model: WhichModel) -> &'static str {
         WhichModel::VoxCPM1_5 => "voxcpm1.5",
         WhichModel::GlmASRNano2512 => "glm-asr-nano-2512",
         WhichModel::FunASRNano2512 => "fun-asr-nano-2512",
+        WhichModel::GlmOCR => "glm-ocr",
     }
 }
 
@@ -283,7 +284,7 @@ fn which_model_to_owner(which_model: WhichModel) -> &'static str {
         WhichModel::PaddleOCRVL => "PaddlePaddle",
         WhichModel::RMBG2_0 => "AI-ModelScope",
         WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => "OpenBMB",
-        WhichModel::GlmASRNano2512 => "ZhipuAI",
+        WhichModel::GlmASRNano2512 | WhichModel::GlmOCR => "ZhipuAI",
         WhichModel::FunASRNano2512 => "FunAudioLLM",
     }
 }
