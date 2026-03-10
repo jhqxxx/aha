@@ -277,6 +277,9 @@ curl http://127.0.0.1:10100/chat/completions \
   }'
 ```
 
+> **Note:** For OpenAI-standard audio transcription with `multipart/form-data` file upload,
+> see the [Audio Transcriptions](#audio-transcriptions) endpoint.
+
 **Streaming Response:**
 
 ```bash
@@ -375,6 +378,128 @@ Returns audio data in base64 WAV format.
 #### Supported Models
 
 - `voxcpm`, `voxcpm1.5`
+
+### Audio Transcriptions
+
+Transcribe audio files to text (Automatic Speech Recognition).
+
+This endpoint provides OpenAI-compatible audio transcription using `multipart/form-data` format.
+
+#### Endpoints
+
+```
+POST /audio/transcriptions
+POST /v1/audio/transcriptions
+```
+
+Both endpoints use the same handler and return identical responses. The `/v1/audio/transcriptions` path follows OpenAI's standard API convention.
+
+#### Request Body
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file` | file | Yes | The audio file to transcribe (wav, mp3, m4a, etc.) |
+| `model` | string | No | Model identifier (optional, ignored - uses loaded model) |
+| `language` | string | No | Language code (e.g., "zh", "en", "yue") |
+| `prompt` | string | No | Optional text to guide transcription (not implemented, ignored) |
+| `response_format` | string | No | Response format, only "json" or "text" supported (default: "json") |
+| `temperature` | number | No | Sampling temperature (0.0 to 1.0, default: 0.0) |
+
+#### Supported Languages
+
+| Code | Language | Code | Language |
+|------|----------|------|----------|
+| `zh` | Chinese | `en` | English |
+| `yue` | Cantonese | `ar` | Arabic |
+| `de` | German | `fr` | French |
+| `es` | Spanish | `pt` | Portuguese |
+| `id` | Indonesian | `it` | Italian |
+| `ko` | Korean | `ru` | Russian |
+| `th` | Thai | `vi` | Vietnamese |
+| `ja` | Japanese | `tr` | Turkish |
+| `hi` | Hindi | `ms` | Malay |
+| `nl` | Dutch | `sv` | Swedish |
+| `da` | Danish | `fi` | Finnish |
+| `pl` | Polish | `cs` | Czech |
+| `fil` | Filipino | `fa` | Persian |
+| `el` | Greek | `ro` | Romanian |
+| `hu` | Hungarian | `mk` | Macedonian |
+
+#### Examples
+
+**Basic transcription:**
+
+```bash
+curl -X POST http://127.0.0.1:10100/audio/transcriptions \
+  -H "Authorization: Bearer NO_NEED" \
+  -F file="@./audio.wav" \
+  -F model="qwen3asr-0.6b"
+```
+
+**With language specification:**
+
+```bash
+curl -X POST http://127.0.0.1:10100/v1/audio/transcriptions \
+  -H "Authorization: Bearer NO_NEED" \
+  -F file="@./chinese_audio.wav" \
+  -F model="qwen3asr-0.6b" \
+  -F language="zh"
+```
+
+**With temperature:**
+
+```bash
+curl -X POST http://127.0.0.1:10100/v1/audio/transcriptions \
+  -H "Authorization: Bearer NO_NEED" \
+  -F file="@./audio.wav" \
+  -F model="qwen3asr-0.6b" \
+  -F temperature="0.0"
+```
+
+#### Response
+
+**Success (HTTP 200):**
+
+```json
+{
+  "text": "Transcribed text from the audio file"
+}
+```
+
+**Error (HTTP 400):**
+
+```json
+{
+  "error": {
+    "message": "Audio file is required",
+    "type": "invalid_request_error",
+    "code": "missing_file"
+  }
+}
+```
+
+**Error (HTTP 503):**
+
+```json
+{
+  "error": {
+    "message": "Model not initialized",
+    "type": "service_unavailable",
+    "code": "model_not_loaded"
+  }
+}
+```
+
+#### Supported Models
+
+- `qwen3asr-0.6b`
+- `qwen3asr-1.7b`
+- `glm-asr-nano-2512`
+- `fun-asr-nano-2512`
+
+#### File Upload Limit
+
+Maximum audio file size: 100 MB
 
 ### Images Remove Background
 

@@ -277,6 +277,9 @@ curl http://127.0.0.1:10100/chat/completions \
   }'
 ```
 
+> **提示**：支持 OpenAI 标准的音频转录接口，使用 `multipart/form-data` 上传文件。
+> 详见 [语音转写](#语音转写) 章节。
+
 **流式响应：**
 
 ```bash
@@ -375,6 +378,128 @@ curl http://127.0.0.1:10100/audio/speech \
 #### 支持的模型
 
 - `voxcpm`、`voxcpm1.5`
+
+### 语音转写
+
+将音频文件转录为文本（自动语音识别）。
+
+此接口提供符合 OpenAI 标准的音频转录功能，使用 `multipart/form-data` 格式。
+
+#### 端点
+
+```
+POST /audio/transcriptions
+POST /v1/audio/transcriptions
+```
+
+两个端点使用相同的处理函数并返回相同的响应。`/v1/audio/transcriptions` 路径遵循 OpenAI 的标准 API 约定。
+
+#### 请求参数
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `file` | file | 是 | 要转录的音频文件 (wav, mp3, m4a 等) |
+| `model` | string | 否 | 模型标识符（可选，被忽略 - 使用已加载的模型） |
+| `language` | string | 否 | 语言代码（如 "zh"、"en"、"yue"） |
+| `prompt` | string | 否 | 引导转录的可选文本（未实现，被忽略） |
+| `response_format` | string | 否 | 响应格式，仅支持 "json" 或 "text"（默认："json"） |
+| `temperature` | number | 否 | 采样温度 (0.0 到 1.0，默认：0.0) |
+
+#### 支持的语言
+
+| 代码 | 语言 | 代码 | 语言 |
+|------|------|------|------|
+| `zh` | 中文 | `en` | 英语 |
+| `yue` | 粤语 | `ar` | 阿拉伯语 |
+| `de` | 德语 | `fr` | 法语 |
+| `es` | 西班牙语 | `pt` | 葡萄牙语 |
+| `id` | 印尼语 | `it` | 意大利语 |
+| `ko` | 韩语 | `ru` | 俄语 |
+| `th` | 泰语 | `vi` | 越南语 |
+| `ja` | 日语 | `tr` | 土耳其语 |
+| `hi` | 印地语 | `ms` | 马来语 |
+| `nl` | 荷兰语 | `sv` | 瑞典语 |
+| `da` | 丹麦语 | `fi` | 芬兰语 |
+| `pl` | 波兰语 | `cs` | 捷克语 |
+| `fil` | 菲律宾语 | `fa` | 波斯语 |
+| `el` | 希腊语 | `ro` | 罗马尼亚语 |
+| `hu` | 匈牙利语 | `mk` | 马其顿语 |
+
+#### 示例
+
+**基本转录：**
+
+```bash
+curl -X POST http://127.0.0.1:10100/audio/transcriptions \
+  -H "Authorization: Bearer NO_NEED" \
+  -F file="@./audio.wav" \
+  -F model="qwen3asr-0.6b"
+```
+
+**指定语言：**
+
+```bash
+curl -X POST http://127.0.0.1:10100/v1/audio/transcriptions \
+  -H "Authorization: Bearer NO_NEED" \
+  -F file="@./chinese_audio.wav" \
+  -F model="qwen3asr-0.6b" \
+  -F language="zh"
+```
+
+**设置温度参数：**
+
+```bash
+curl -X POST http://127.0.0.1:10100/v1/audio/transcriptions \
+  -H "Authorization: Bearer NO_NEED" \
+  -F file="@./audio.wav" \
+  -F model="qwen3asr-0.6b" \
+  -F temperature="0.0"
+```
+
+#### 响应
+
+**成功 (HTTP 200):**
+
+```json
+{
+  "text": "从音频文件转录的文本"
+}
+```
+
+**错误 (HTTP 400):**
+
+```json
+{
+  "error": {
+    "message": "Audio file is required",
+    "type": "invalid_request_error",
+    "code": "missing_file"
+  }
+}
+```
+
+**错误 (HTTP 503):**
+
+```json
+{
+  "error": {
+    "message": "Model not initialized",
+    "type": "service_unavailable",
+    "code": "model_not_loaded"
+  }
+}
+```
+
+#### 支持的模型
+
+- `qwen3asr-0.6b`
+- `qwen3asr-1.7b`
+- `glm-asr-nano-2512`
+- `fun-asr-nano-2512`
+
+#### 文件上传限制
+
+最大音频文件大小：100 MB
 
 ### 图像背景移除
 
