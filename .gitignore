@@ -17,3 +17,7 @@ docs/MODEL_DEVELOPMENT_GUIDE.md
 
 bak
 .gitignore
+
+
+demos
+benchmarks

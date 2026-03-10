@@ -254,13 +254,20 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
         // Table output (default)
         println!("Available models:");
         println!();
-        println!("{:<30} {:<40} {:<10}", "Model Name", "ModelScope ID", "Download");
+        println!(
+            "{:<30} {:<40} {:<10}",
+            "Model Name", "ModelScope ID", "Download"
+        );
         println!("{}", "-".repeat(80));
         for model in models {
             let possible_value = model.to_possible_value().unwrap();
             let name = possible_value.get_name();
             let id = model.model_id();
-            let download_status = if is_model_downloaded(model) { "  ✔" } else { "" };
+            let download_status = if is_model_downloaded(model) {
+                "  ✔"
+            } else {
+                ""
+            };
             println!("{:<30} {:<40} {:<10}", name, id, download_status);
         }
     }
