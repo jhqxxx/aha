@@ -185,6 +185,18 @@ fn get_default_weight_path(model: WhichModel) -> String {
     format!("{}/{}", save_dir, model_id)
 }
 
+/// Check if a model is downloaded by verifying the model directory exists
+/// Returns true if ~/.aha/{model_id} directory exists, false otherwise
+fn is_model_downloaded(model: WhichModel) -> bool {
+    let model_id = model.model_id();
+    let save_dir = match get_default_save_dir() {
+        Some(dir) => dir,
+        None => return false,
+    };
+    let model_path = format!("{}/{}", save_dir, model_id);
+    std::path::Path::new(&model_path).exists()
+}
+
 /// Model information for JSON output
 #[derive(Serialize)]
 struct ModelInfo {
@@ -192,6 +204,7 @@ struct ModelInfo {
     model_id: String,
     #[serde(rename = "type")]
     model_type: String,
+    downloaded: bool,
 }
 
 /// List all supported models
@@ -232,6 +245,7 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
                     name: possible_value.get_name().to_string(),
                     model_id: model.model_id().to_string(),
                     model_type: model.model_type().to_string(),
+                    downloaded: is_model_downloaded(*model),
                 }
             })
             .collect();
@@ -240,13 +254,14 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
         // Table output (default)
         println!("Available models:");
         println!();
-        println!("{:<30} ModelScope ID", "Model Name");
+        println!("{:<30} {:<40} {:<10}", "Model Name", "ModelScope ID", "Download");
         println!("{}", "-".repeat(80));
         for model in models {
             let possible_value = model.to_possible_value().unwrap();
             let name = possible_value.get_name();
             let id = model.model_id();
-            println!("{:<30} {}", name, id);
+            let download_status = if is_model_downloaded(model) { "  ✔" } else { "" };
+            println!("{:<30} {:<40} {:<10}", name, id, download_status);
         }
     }
 
