@@ -22,7 +22,7 @@ fn qwen3_5_generate() -> Result<()> {
                 "content": [        
                     {
                         "type": "text", 
-                        "text": "你好啊"
+                        "text": "你好啊，你是谁"
                     }
                 ]
             }
@@ -31,12 +31,12 @@ fn qwen3_5_generate() -> Result<()> {
     "#;
     let mes: ChatCompletionParameters = serde_json::from_str(message)?;
     let i_start = Instant::now();
-    let mut qwen3vl = Qwen3_5GenerateModel::init(&model_path, None, None)?;
+    let mut qwen3_5 = Qwen3_5GenerateModel::init(&model_path, None, None)?;
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
 
     let i_start = Instant::now();
-    let res = qwen3vl.generate(mes)?;
+    let res = qwen3_5.generate(mes)?;
     let i_duration = i_start.elapsed();
     println!("generate: \n {:?}", res);
     if res.usage.is_some() {

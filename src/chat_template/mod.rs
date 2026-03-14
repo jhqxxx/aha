@@ -148,5 +148,4 @@ impl<'a> ChatTemplate<'a> {
             .map_err(|e| anyhow!(format!("render template error {}", e)))?;
         Ok(message_str)
     }
-
 }

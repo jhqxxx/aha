@@ -99,6 +99,28 @@ impl Qwen3VLProcessor {
         })
     }
 
+    pub fn new_qwen3_5_default(device: &Device, dtype: DType) -> Result<Self> {
+        let img_process_cfg = PreprocessorConfig::qwen3_5_img_default();
+        let video_process_cfg = PreprocessorConfig::qwen3_5_video_default();
+        let image_token = "<|image_pad|>".to_string();
+        let video_token = "<|video_pad|>".to_string();
+        let vision_start_token = "<|vision_start|>".to_string();
+        let vision_end_token = "<|vision_end|>".to_string();
+        Ok(Self {
+            img_process_cfg,
+            video_process_cfg,
+            device: device.clone(),
+            dtype,
+            image_token,
+            video_token,
+            vision_start_token,
+            vision_end_token,
+            fps: 2,
+            min_frames: 4,
+            max_frames: 768,
+        })
+    }
+
     pub fn extract_vision_info(
         &self,
         mes: &ChatCompletionParameters,

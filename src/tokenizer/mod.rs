@@ -85,8 +85,6 @@ impl TokenizerModel {
             }
             tokenizer
         };
-        let len = tokenizer.get_vocab_size(true);
-        println!("len: {}", len);
         Ok(Self { tokenizer })
     }
 

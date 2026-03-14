@@ -18,6 +18,36 @@ pub struct PreprocessorConfig {
     pub image_std: Vec<f32>,
 }
 
+impl PreprocessorConfig {
+    pub fn qwen3_5_img_default() -> Self {
+        Self {
+            size: Size {
+                longest_edge: 16777216,
+                shortest_edge: 65536,
+            },
+            patch_size: 16,
+            temporal_patch_size: 2,
+            merge_size: 2,
+            image_mean: vec![0.5, 0.5, 0.5],
+            image_std: vec![0.5, 0.5, 0.5],
+        }
+    }
+
+    pub fn qwen3_5_video_default() -> Self {
+        Self {
+            size: Size {
+                longest_edge: 25165824,
+                shortest_edge: 4096,
+            },
+            patch_size: 16,
+            temporal_patch_size: 2,
+            merge_size: 2,
+            image_mean: vec![0.5, 0.5, 0.5],
+            image_std: vec![0.5, 0.5, 0.5],
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub struct RopeScaling {
     pub rope_type: String,

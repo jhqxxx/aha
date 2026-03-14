@@ -2,7 +2,7 @@ use aha_openai_dive::v1::resources::chat::{
     ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse,
 };
 use anyhow::{Result, anyhow};
-use candle_core::{DType, Device, Tensor};
+use candle_core::{DType, Device, Tensor, quantized::gguf_file};
 use candle_nn::VarBuilder;
 use rocket::async_stream::stream;
 use rocket::futures::Stream;
@@ -11,13 +11,14 @@ use crate::{
     chat_template::ChatTemplate,
     models::{
         GenerateModel,
+        common::gguf::Gguf,
         qwen3_5::{config::Qwen3_5Config, model::Qwen3_5Model},
         qwen3vl::processor::Qwen3VLProcessor,
     },
     tokenizer::TokenizerModel,
     utils::{
-        build_completion_chunk_response, build_completion_response, extract_metadata_value,
-        find_type_files, get_device, get_dtype, get_logit_processor,
+        build_completion_chunk_response, build_completion_response, find_type_files, get_device,
+        get_dtype, get_logit_processor,
     },
 };
 
@@ -29,10 +30,17 @@ pub struct Qwen3_5GenerateModel<'a> {
     device: Device,
     eos_token_id: u32,
     model_name: String,
+    repeat_penalty: f32,
+    repeat_last_n: usize,
 }
 
 impl<'a> Qwen3_5GenerateModel<'a> {
     pub fn init(path: &str, device: Option<&Device>, dtype: Option<DType>) -> Result<Self> {
+        let model_name = path
+            .split("/")
+            .collect::<Vec<&str>>()
+            .pop()
+            .unwrap_or("qwen3.5");
         let chat_template = ChatTemplate::init(path)?;
         let tokenizer = TokenizerModel::init(path)?;
         let config_path = path.to_string() + "/config.json";
@@ -44,7 +52,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let eos_token_id = cfg.text_config.eos_token_id;
-        let qwen3_5 = Qwen3_5Model::new(vb, cfg)?;
+        let qwen3_5 = Qwen3_5Model::new_from_vb(vb, cfg)?;
 
         Ok(Self {
             chat_template,
@@ -53,26 +61,81 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             qwen3_5,
             device,
             eos_token_id,
-            model_name: "qwen3.5".to_string(),
+            model_name: model_name.to_string(),
+            repeat_penalty: 1.01,
+            repeat_last_n: 64,
+        })
+    }
+
+    pub fn init_from_gguf(
+        model_file: &str,
+        mmproj_file: Option<&str>,
+        device: Option<&Device>,
+    ) -> Result<Self> {
+        if !model_file.contains("Qwen3.5") || !model_file.ends_with("gguf") {
+            return Err(anyhow!("Qwen3.5 gguf model file name illigal {model_file}"));
+        }
+        if let Some(mmproj) = mmproj_file
+            && (!mmproj.contains("mmproj") || !mmproj.ends_with("gguf"))
+        {
+            return Err(anyhow!("Qwen3.5 mmproj_file name illigal {model_file}"));
+        }
+
+        let mut reader = std::fs::File::open(model_file)?;
+        let content = gguf_file::Content::read(&mut reader)?;
+        let device = get_device(device);
+        let mut gguf = Gguf::new(content, reader, device.clone());
+
+        let chat_template_str = gguf
+            .get_matedata("tokenizer.chat_template")?
+            .to_string()?
+            .clone();
+        let chat_template = ChatTemplate::str_init(&chat_template_str)?;
+        let tokenizer = gguf.build_tokenizer(Some(false), Some(false), Some(false))?;
+        let dtype = match gguf.get_matedata("general.type") {
+            Ok(v) => match v.to_u32() {
+                Ok(0) => DType::F32,
+                Ok(1) => DType::F16,
+                _ => DType::F16,
+            },
+            Err(_) => DType::F16,
+        };
+        let pre_processor = Qwen3VLProcessor::new_qwen3_5_default(&device, dtype)?;
+
+        // let eos_token_id = gguf.get_matedata("tokenizer.ggml.eos_token_id")?.to_u32()?;
+        let qwen3_5 = Qwen3_5Model::new_from_gguf(&mut gguf, &device)?;
+        let stem = std::path::Path::new(model_file)
+            .file_stem() // 获取文件名主干（不含扩展名）
+            .and_then(|s| s.to_str())
+            .unwrap_or("qwen3.5");
+        Ok(Self {
+            chat_template,
+            tokenizer,
+            pre_processor,
+            qwen3_5,
+            device,
+            eos_token_id: 248044,
+            model_name: stem.to_string(),
+            repeat_penalty: 1.1,
+            repeat_last_n: 64,
         })
     }
 }
 
 impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let seed = mes.seed.unwrap_or(34562) as u64;        
-        let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
+        let seed = mes.seed.unwrap_or(32768) as u64;
+        let temperature = mes.temperature.unwrap_or(0.6);
+        let top_p = mes.top_p.unwrap_or(0.95);
+        let mut logit_processor =
+            get_logit_processor(temperature.into(), top_p.into(), Some(20), seed);
+        // let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        println!("mes_render: {}", mes_render);
-        // let enable_thinking = extract_metadata_value::<bool>(&mes.metadata, "enable_thinking");
-        // let mes_render = self
-        //     .chat_template
-        //     .apply_chat_temp_think(&mes, enable_thinking)?;
+
         let input = self.pre_processor.process_info(&mes, &mes_render)?;
         let mut input_ids = self
             .tokenizer
             .text_encode(input.replace_text.clone(), &self.device)?;
-        println!("input_ids: {}", input_ids);
         let mut seq_len = input_ids.dim(1)?;
         let prompt_tokens = seq_len as u32;
         let mut seqlen_offset = 0;
@@ -92,6 +155,16 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
                 seqlen_offset,
             )?;
             let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
+            let logits = if self.repeat_penalty == 1. {
+                logits
+            } else {
+                let start_at = generate.len().saturating_sub(self.repeat_last_n);
+                candle_transformers::utils::apply_repeat_penalty(
+                    &logits,
+                    self.repeat_penalty,
+                    &generate[start_at..],
+                )?
+            };
             let next_token = logit_processor.sample(&logits)?;
             generate.push(next_token);
             if next_token == self.eos_token_id {
@@ -129,10 +202,6 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
         let seed = mes.seed.unwrap_or(34562) as u64;
         let mut logit_processor = get_logit_processor(mes.temperature, mes.top_p, None, seed);
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        // let enable_thinking = extract_metadata_value::<bool>(&mes.metadata, "enable_thinking");
-        // let mes_render = self
-        //     .chat_template
-        //     .apply_chat_temp_think(&mes, enable_thinking)?;
         let input = self.pre_processor.process_info(&mes, &mes_render)?;
         let mut input_ids = self
             .tokenizer
@@ -148,6 +217,7 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
             let video_grid_thw = input.video_grid_thw.as_ref();
             let mut tool_call_id = None;
             let mut tool_call_content = String::new();
+            let mut generate = Vec::new();
             for _ in 0..sample_len {
                 let logits = self.qwen3_5.forward(
                     &input_ids,
@@ -158,7 +228,18 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
                     seqlen_offset,
                 )?;
                 let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
+                let logits = if self.repeat_penalty == 1. {
+                    logits
+                } else {
+                    let start_at = generate.len().saturating_sub(self.repeat_last_n);
+                    candle_transformers::utils::apply_repeat_penalty(
+                        &logits,
+                        self.repeat_penalty,
+                        &generate[start_at..],
+                    )?
+                };
                 let next_token = logit_processor.sample(&logits)?;
+                generate.push(next_token);
                 let mut decode_ids = Vec::new();
                 if !error_tokens.is_empty() {
                     decode_ids.extend_from_slice(&error_tokens);

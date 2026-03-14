@@ -7,6 +7,8 @@ use candle_nn::{
     embedding, layer_norm, linear_b, linear_no_bias, ops::sigmoid, rms_norm,
 };
 
+pub mod gguf;
+
 use crate::{
     position_embed::rope::{RoPE, apply_rotary_pos_emb, apply_rotary_pos_emb_roformer},
     utils::tensor_utils::{prepare_causal_attention_mask, repeat_kv},
