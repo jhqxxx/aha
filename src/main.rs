@@ -656,6 +656,7 @@ pub(crate) async fn start_http_server(
         ..Config::default()
     });
 
+    builder = builder.mount("/v1/chat", routes![api::chat]);
     builder = builder.mount("/chat", routes![api::chat]);
     // /images/remove_background
     builder = builder.mount("/images", routes![api::remove_background]);
