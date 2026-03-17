@@ -260,6 +260,7 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
         WhichModel::DeepSeekOCR,
         WhichModel::HunyuanOCR,
         WhichModel::PaddleOCRVL,
+        WhichModel::PaddleOCRVL1_5,
         WhichModel::RMBG2_0,
         WhichModel::VoxCPM,
         WhichModel::VoxCPM1_5,
@@ -524,6 +525,10 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
             HunyuanORExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::PaddleOCRVL => {
+            use aha::exec::paddleocr_vl::PaddleOVLExec;
+            PaddleOVLExec::run(&input, output.as_deref(), &weight_path)?;
+        }
+        WhichModel::PaddleOCRVL1_5 => {
             use aha::exec::paddleocr_vl::PaddleOVLExec;
             PaddleOVLExec::run(&input, output.as_deref(), &weight_path)?;
         }

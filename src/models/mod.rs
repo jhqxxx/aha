@@ -74,6 +74,8 @@ pub enum WhichModel {
     HunyuanOCR,
     #[value(name = "paddleocr-vl", hide = true)]
     PaddleOCRVL,
+    #[value(name = "paddleocr-vl1.5", hide = true)]
+    PaddleOCRVL1_5,
     #[value(name = "rmbg2.0")]
     RMBG2_0,
     #[value(name = "voxcpm", hide = true)]
@@ -110,6 +112,7 @@ impl WhichModel {
             WhichModel::DeepSeekOCR => "deepseek-ai/DeepSeek-OCR",
             WhichModel::HunyuanOCR => "Tencent-Hunyuan/HunyuanOCR",
             WhichModel::PaddleOCRVL => "PaddlePaddle/PaddleOCR-VL",
+            WhichModel::PaddleOCRVL1_5 => "PaddlePaddle/PaddleOCR-VL-1.5",
             WhichModel::RMBG2_0 => "AI-ModelScope/RMBG-2.0",
             WhichModel::VoxCPM => "OpenBMB/VoxCPM-0.5B",
             WhichModel::VoxCPM1_5 => "OpenBMB/VoxCPM1.5",
@@ -139,7 +142,8 @@ impl WhichModel {
             WhichModel::DeepSeekOCR
             | WhichModel::HunyuanOCR
             | WhichModel::GlmOCR
-            | WhichModel::PaddleOCRVL => "ocr",
+            | WhichModel::PaddleOCRVL
+            | WhichModel::PaddleOCRVL1_5 => "ocr",
             // ASR models
             WhichModel::Qwen3ASR0_6B
             | WhichModel::Qwen3ASR1_7B
@@ -313,6 +317,10 @@ pub fn load_model<'a>(
             ModelInstance::HunyuanOCR(model)
         }
         WhichModel::PaddleOCRVL => {
+            let model = PaddleOCRVLGenerateModel::init(path, None, None)?;
+            ModelInstance::PaddleOCRVL(Box::new(model))
+        }
+        WhichModel::PaddleOCRVL1_5 => {
             let model = PaddleOCRVLGenerateModel::init(path, None, None)?;
             ModelInstance::PaddleOCRVL(Box::new(model))
         }
