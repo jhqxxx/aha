@@ -95,8 +95,9 @@ impl Qwen3VLVisionPatchEmbed {
     pub fn forward(&self, hidden_states: &Tensor) -> Result<Tensor> {
         // hidden_states shape:  (grid_t*grid_h*grid_w, c*temporal_patch_size*patch_size*patch_size)
         // ((), 1536) matmul (1536, 1024) -> ((), 1024)
-        let hidden_states = hidden_states.matmul(&self.conv3d_weight)?;
-        let hidden_states = hidden_states.broadcast_add(&self.conv3d_bias)?;
+        let dtype = hidden_states.dtype();
+        let hidden_states = hidden_states.matmul(&self.conv3d_weight.to_dtype(dtype)?)?;
+        let hidden_states = hidden_states.broadcast_add(&self.conv3d_bias.to_dtype(dtype)?)?;
         Ok(hidden_states)
     }
 }
@@ -169,7 +170,12 @@ impl Qwen3VLVisionPatchMerger {
         } else {
             xs.clone()
         };
-        let xs = self.norm.forward(&xs)?.reshape(((), self.hidden_size))?;
+        let orig_dtype = xs.dtype();
+        let xs = self
+            .norm
+            .forward(&xs.to_dtype(self.norm.weight().dtype())?)?
+            .reshape(((), self.hidden_size))?;
+        let xs = xs.to_dtype(orig_dtype)?;
         let xs = self
             .linear_fc2
             .forward(&self.act_fn.forward(&self.linear_fc1.forward(&xs)?)?)?;
@@ -343,12 +349,21 @@ impl Qwen3VLVisionBlock {
         cos: &Tensor,
         sin: &Tensor,
     ) -> Result<Tensor> {
+        let orig_dtype = xs.dtype();
         let residual = xs.clone();
-        let xs = self.norm1.forward(xs)?;
+        let xs = self
+            .norm1
+            .forward(&xs.to_dtype(self.norm1.weight().dtype())?)?;
+        let xs = xs.to_dtype(orig_dtype)?;
         let xs = self.attn.forward(&xs, cos, sin, cu_seqlens)?;
         let xs = (residual + xs)?;
         let residual = xs.clone();
-        let xs = self.mlp.forward(&self.norm2.forward(&xs)?)?;
+        let xs = self.mlp.forward(
+            &self
+                .norm2
+                .forward(&xs.to_dtype(self.norm2.weight().dtype())?)?
+                .to_dtype(orig_dtype)?,
+        )?;
         let xs = (residual + xs)?;
         Ok(xs)
     }
@@ -679,7 +694,9 @@ impl Qwen3VLVisionModel {
         grid_thw: &Tensor,
     ) -> Result<(Tensor, Vec<Tensor>)> {
         let hidden_states = self.patch_embed.forward(hidden_states)?;
-        let pos_embeds = self.fast_pos_embed_interpolate(grid_thw)?;
+        let pos_embeds = self
+            .fast_pos_embed_interpolate(grid_thw)?
+            .to_dtype(hidden_states.dtype())?;
         let hidden_states = hidden_states.broadcast_add(&pos_embeds)?;
         let rotary_pos_emb = self.rot_pos_emb(grid_thw)?;
         let seq_len = hidden_states.dim(0)?;

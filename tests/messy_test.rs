@@ -10,12 +10,32 @@
 use anyhow::Result;
 // use byteorder::{LittleEndian, ReadBytesExt};
 use candle_core::Tensor;
+use modelscope::{DownloadOptions, ModelScope};
 // use sentencepiece::SentencePieceProcessor;
 // use zip::ZipArchive;
+
+#[tokio::test]
+async fn download_test() -> Result<()> {
+    // cargo test -F cuda --test messy_test download_test -r -- --nocapture
+    let model_id = "unsloth/Qwen3.5-4B-GGUF";
+    let model_name = "Qwen3.5-4B-IQ4_NL.gguf";
+    let save_dir =
+        aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
+    let _ = ModelScope::download_with_options(
+        model_id,
+        save_dir,
+        DownloadOptions {
+            files: (vec![model_name.to_string()]).into(),
+        },
+    )
+    .await;
+    Ok(())
+}
 
 #[test]
 fn messy_test() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -F cuda --test messy_test messy_test -r -- --nocapture
+
     let device = &candle_core::Device::Cpu;
     let t1 = Tensor::randn(0.0, 1.0, (16, 9, 64, 128), device)?;
     let t2 = Tensor::randn(0.0, 1.0, (16, 9, 128, 64), device)?;

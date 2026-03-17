@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+### 2026-03-17
+- 修复 qwen3.5 position_ids 创建错误
+- cli 参数增加 
+  - gguf_path: 本地 GGUF 模型权重路径（加载 GGUF 模型时需要）
+  - mmproj_path: 本地 mmproj GGUF 权重路径（加载多模态 GGUF 时需要）
+- WhichModel 增加 qwen3.5-gguf
+
 ### 2026-03-16
 - 增加 Qwen3.5 mmproj
 

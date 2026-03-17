@@ -213,6 +213,10 @@ impl QuantizedLinear {
     pub fn new(inner: QMatMul, bias: Option<Tensor>) -> Self {
         Self { inner, bias }
     }
+
+    pub fn inner_dequantize(&self) -> Result<Tensor> {
+        Ok(self.inner.dequantize_f16()?)
+    }
 }
 
 impl Module for QuantizedLinear {

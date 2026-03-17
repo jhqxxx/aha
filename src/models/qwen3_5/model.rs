@@ -750,7 +750,7 @@ impl Qwen3_5Attention {
     }
 
     pub fn clear_kv_cache(&mut self) {
-        self.kv_cache = None
+        self.kv_cache = None;
     }
 }
 
@@ -1024,7 +1024,6 @@ impl Qwen3_5TextModel {
             // i += 1;
         }
         xs = self.norm.forward(&xs)?;
-        // println!("norm : {}", xs);
         Ok(xs)
     }
 
@@ -1348,7 +1347,9 @@ impl Qwen3_5Model {
         video_grid_thw: Option<&Tensor>,
         seqlen_offset: usize,
     ) -> Result<Tensor> {
-        let position_ids = if let Some(rope_deltas) = &self.rope_deltas {
+        let position_ids = if let Some(rope_deltas) = &self.rope_deltas
+            && seqlen_offset != 0
+        {
             let (bs, seq_len, _) = inputs_embeds.dims3()?;
             Tensor::arange(
                 seqlen_offset as i64,
@@ -1383,12 +1384,12 @@ impl Qwen3_5Model {
         seqlen_offset: usize,
     ) -> Result<Tensor> {
         let mut inputs_embeds = self.language_model.embed_tokens.forward(input_ids)?;
-        // println!("embed_tokens: {}", inputs_embeds);
         if let Some(pixel_values) = pixel_values
             && let Some(image_grid_thw) = image_grid_thw
             && let Some(visual) = self.visual.as_ref()
         {
             let (image_embeds, _) = visual.forward(pixel_values, image_grid_thw)?;
+            // println!("image_embeds: {}", image_embeds);
             let vision_mask = get_equal_mask(input_ids, self.image_token_id)?;
             let n_image_tokens = vision_mask.sum_all()?.to_scalar::<u32>()?;
             if n_image_tokens as usize != image_embeds.dim(0)? {
@@ -1429,9 +1430,7 @@ impl Qwen3_5Model {
         let outputs = self.language_model.forward(&inputs_embeds, &position_ids)?;
         let seq_len = outputs.dim(1)?;
         let hidden_state = outputs.narrow(1, seq_len - 1, 1)?;
-        // println!("narrow 1 : {}", hidden_state);
         let logits = self.lm_head.forward(&hidden_state)?;
-        // println!("logits : {}", logits);
         Ok(logits)
     }
 

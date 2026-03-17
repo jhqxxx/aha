@@ -37,9 +37,16 @@ static SHUTDOWN_FLAG: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 static SERVER_PORT: OnceLock<u16> = OnceLock::new();
 static ALLOW_REMOTE_SHUTDOWN: OnceLock<bool> = OnceLock::new();
 
-pub fn init(model_type: WhichModel, path: String) -> anyhow::Result<()> {
+pub fn init(
+    model_type: WhichModel,
+    path: String,
+    gguf: Option<String>,
+    mmproj: Option<String>,
+) -> anyhow::Result<()> {
     let model_path = string_to_static_str(path);
-    let model = load_model(model_type, model_path)?;
+    let gguf = gguf.map(string_to_static_str);
+    let mmproj = mmproj.map(string_to_static_str);
+    let model = load_model(model_type, model_path, gguf, mmproj)?;
     MODEL.get_or_init(|| {
         Arc::new(RwLock::new(StoredModel {
             which_model: model_type,
@@ -247,6 +254,7 @@ fn which_model_to_id(which_model: WhichModel) -> &'static str {
         WhichModel::Qwen3_5_2B => "qwen3.5-2b",
         WhichModel::Qwen3_5_4B => "qwen3.5-4b",
         WhichModel::Qwen3_5_9B => "qwen3.5-9b",
+        WhichModel::Qwen3_5Gguf => "qwen3.5-gguf",
         WhichModel::Qwen3ASR0_6B => "qwen3asr-0.6b",
         WhichModel::Qwen3ASR1_7B => "qwen3asr-1.7b",
         WhichModel::Qwen3vl2B => "qwen3vl-2b",
@@ -274,7 +282,8 @@ fn which_model_to_owner(which_model: WhichModel) -> &'static str {
         WhichModel::Qwen3vl2B
         | WhichModel::Qwen3vl4B
         | WhichModel::Qwen3vl8B
-        | WhichModel::Qwen3vl32B => "Qwen",
+        | WhichModel::Qwen3vl32B
+        | WhichModel::Qwen3_5Gguf => "Qwen",
         WhichModel::Qwen3_5_0_8B
         | WhichModel::Qwen3_5_2B
         | WhichModel::Qwen3_5_4B

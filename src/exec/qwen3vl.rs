@@ -24,16 +24,19 @@ impl ExecModel for Qwen3vlExec {
         let mut model = Qwen3VLGenerateModel::init(weight_path, None, None)?;
         let i_duration = i_start.elapsed();
         println!("Time elapsed in load model is: {:?}", i_duration);
-        let url = &input[1];
-        let input_url = if url.starts_with("http://")
-            || url.starts_with("https://")
-            || url.starts_with("file://")
+        let url = input.get(1);
+        let input_url = if let Some(url) = url
+            && (url.starts_with("http://")
+                || url.starts_with("https://")
+                || url.starts_with("file://"))
         {
-            url.clone()
+            Some(url.clone())
         } else {
-            format!("file://{}", url)
+            url.map(|url| format!("file://{}", url))
         };
-        let message = if input_url.ends_with("mp4") {
+        let message = if let Some(input_url) = &input_url
+            && input_url.ends_with("mp4")
+        {
             format!(
                 r#"{{
             "model": "qwen3vl",
@@ -58,7 +61,7 @@ impl ExecModel for Qwen3vlExec {
         }}"#,
                 input_url, target_text
             )
-        } else {
+        } else if let Some(input_url) = &input_url {
             format!(
                 r#"{{
             "model": "qwen3vl",
@@ -81,6 +84,24 @@ impl ExecModel for Qwen3vlExec {
             ]
         }}"#,
                 input_url, target_text
+            )
+        } else {
+            format!(
+                r#"{{
+            "model": "qwen3vl",
+            "messages": [
+                {{
+                    "role": "user",
+                    "content": [
+                        {{
+                            "type": "text", 
+                            "text": "{}"
+                        }}
+                    ]
+                }}
+            ]
+        }}"#,
+                target_text
             )
         };
         let mes = serde_json::from_str(&message)?;

@@ -25,6 +25,13 @@
 aha is a high-performance, cross-platform AI inference engine built with Rust and the Candle framework. It brings state-of-the-art AI models to your local machine—no API keys, no cloud dependencies, just pure, fast AI running directly on your hardware.
 
 ## Changelog
+### 2026-03-17
+- fix qwen3.5 position_ids create bug
+- cli param add 
+  - gguf_path: Local GGUF model weight path (required for loading models with GGUF)
+  - mmproj_path: Local path to mmproj GGUF weights (required for multimodal GGUF loading)
+- WhichModel add qwen3.5-gguf
+
 ### 2026-03-16
 - Added Qwen3.5 mmproj
 
@@ -41,28 +48,6 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 ### 2026-03-01
 - update interpolate.rs
 
-### 2026-02-24
-- update candle version 0.9.2
-
-### v0.2.0 (2026-02-05)
-- Added Qwen3-ASR speech recognition model
-
-### v0.1.9 (2026-01-31)
-- Added CLI `list` subcommand to show supported models
-- Added CLI subcommand structure support (`cli`, `serv`, `download`, `run`)
-- Fixed Qwen3VL thinking startswith bug
-- Fixed `aha run` multiple inputs bug
-
-### v0.1.8 (2026-01-17)
-- Added Qwen3 text model support
-- Added Fun-ASR-Nano-2512 speech recognition model
-- Fixed ModelScope Fun-ASR-Nano model load error
-- Updated audio resampling with rubato
-
-### v0.1.7 (2026-01-07)
-- Added GLM-ASR-Nano-2512 speech recognition model
-- Merged Metal (GPU) support for Apple Silicon
-- Added dynamic home directory and model download script
 
 **[View full changelog](docs/changelog.md)** →
 

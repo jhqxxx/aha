@@ -9,13 +9,19 @@ use anyhow::Result;
 #[test]
 fn gguf_test() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -r -F cuda --test test_gguf_qwen3_5 gguf_test -- --nocapture
-    // let model_path = "/home/jhq/.aha/Qwen/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q5_K_M.gguf"; // 有问题
+    // let model_path = "/home/jhq/.aha/Qwen/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q6_K.gguf"; // 有问题
     // let mmproj_path = "/home/jhq/.aha/Qwen/Qwen3.5-4B-GGUF/mmproj-F16.gguf";
     // let model_path = "/home/jhq/.aha/Qwen/Qwen3.5-2B-GGUF/Qwen3.5-2B-Q6_K.gguf";
+    // let mmproj_path = "/home/jhq/.aha/Qwen/Qwen3.5-2B-GGUF/mmproj-F16.gguf";
     let model_path = "/home/jhq/.aha/Qwen/Qwen3.5-0.8B-GGUF/Qwen3.5-0.8B-Q4_K_M.gguf";
     let mmproj_path = "/home/jhq/.aha/Qwen/Qwen3.5-0.8B-GGUF/mmproj-F16.gguf";
     // let mut model_file = std::fs::File::open(model_path)?;
     // let model = gguf_file::Content::read(&mut model_file)?;
+    // for (key, value) in model.tensor_infos {
+    //     if key.contains("blk.12.") {
+    //         println!("{key}: {:#?}", value);
+    //     }
+    // }
     // for (key, value) in model.metadata {
     //     if key.contains("tokeni") {
     //         continue;

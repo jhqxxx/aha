@@ -520,6 +520,7 @@ impl Qwen3VLTextRotaryEmbedding {
         let position_ids_expanded = position_ids
             .unsqueeze(D::Minus2)?
             .to_dtype(DType::F32)?
+            // .to_dtype(dtype)?
             .contiguous()?;
         // inv_freq Vec<f32> -> Tensor(1, 1, head_dim / 2, 1) -> (3, bs, head_dim / 2, 1)
         let inv_freq_expanded = Tensor::from_vec(
@@ -529,6 +530,7 @@ impl Qwen3VLTextRotaryEmbedding {
         )?
         .broadcast_as((3, position_ids.dim(1)?, self.inv_freq.len(), 1))?
         .to_dtype(DType::F32)?
+        // .to_dtype(dtype)?
         .contiguous()?;
 
         // (3, bs, head_dim / 2, 1) matmul (3, bs, 1, position)

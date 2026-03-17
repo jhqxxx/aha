@@ -5,6 +5,13 @@ All notable changes to aha will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### 2026-03-17
+- fix qwen3.5 position_ids create bug
+- cli param add 
+  - gguf_path: Local GGUF model weight path (required for loading models with GGUF)
+  - mmproj_path: Local path to mmproj GGUF weights (required for multimodal model GGUF loading)
+- WhichModel add qwen3.5-gguf
+
 ### 2026-03-16
 - Added Qwen3.5 mmproj
 

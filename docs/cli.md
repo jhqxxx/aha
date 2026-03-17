@@ -18,6 +18,8 @@ aha [COMMAND] [OPTIONS]
 | `--weight-path <WEIGHT_PATH>` | Local model weight path | - |
 | `--save-dir <SAVE_DIR>` | Model download save directory | ~/.aha/ |
 | `--download-retries <DOWNLOAD_RETRIES>` | Download retry count | 3 |
+| `--gguf-path <GGUF_PATH>` | Local GGUF weight | - |
+| `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight | - |
 | `-h, --help` | Display help information | - |
 | `-V, --version` | Display version number | - |
 
@@ -42,6 +44,8 @@ aha cli [OPTIONS] --model <MODEL>
 | `--weight-path <WEIGHT_PATH>` | Local model weight path (skip download if specified) | - |
 | `--save-dir <SAVE_DIR>` | Model download save directory | ~/.aha/ |
 | `--download-retries <DOWNLOAD_RETRIES>` | Download retry count | 3 |
+| `--gguf-path <GGUF_PATH>` | Local GGUF weight | - |
+| `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight | - |
 
 **Examples:**
 
@@ -57,6 +61,9 @@ aha cli -m qwen3vl-2b --weight-path /path/to/model
 
 # Backward compatible way (equivalent to cli subcommand)
 aha -m qwen3vl-2b
+
+# use gguf-path and mmproj-path
+aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
 ```
 
 ### run - Direct model inference
@@ -65,7 +72,7 @@ Run model inference directly without starting an HTTP service. Suitable for one-
 
 **Syntax:**
 ```bash
-aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] --weight-path <WEIGHT_PATH>
+aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
 ```
 
 **Options:**
@@ -75,8 +82,9 @@ aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] --weight-pa
 | `-m, --model <MODEL>` | Model type (required) | - |
 | `-i, --input <INPUT>` | Input text or file path (model-specific interpretation, supports 1-2 parameters: input1: prompt text, input2: file path) | - |
 | `-o, --output <OUTPUT>` | Output file path (optional, auto-generated if not specified) | - |
-| `--weight-path <WEIGHT_PATH>` | Local model weight path (required) | - |
-
+| `--weight-path <WEIGHT_PATH>` | Local model weight path (required when using non-GGUF models) | - |
+| `--gguf-path <GGUF_PATH>` | Local GGUF model weight path（required when using GGUF models） | - |
+| `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight path（optional，If not specified, the module will not be loaded） | - |
 **Examples:**
 
 ```bash
@@ -109,6 +117,14 @@ aha run -m qwen2.5vl-3b -i "请分析图片并提取所有可见文本内容，�
 
 # Qwen3-ASR speech recognition (single input: audio file)
 aha run -m qwen3asr-0.6b -i "audio.wav" --weight-path /path/to/model
+
+# Qwen3.5-GGUF without mmproj (single input: prompt text)
+aha run -m qwen3.5-gguf -i 你如何看待AI --gguf-path /path/to/xxx.gguf
+
+# Qwen3.5-GGUF with mmproj (two inputs：prompt text + file)
+aha run -m qwen3.5-gguf -i 提取图片中的文本 -i https://ai.bdstatic.com/file/C56CC9B274CF460CA33
+63E59ECD94423 --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
+
 ```
 
 ### serv - Start service
@@ -117,7 +133,7 @@ Start HTTP service with a model. The `--weight-path` is optional - if not specif
 
 **Syntax:**
 ```bash
-aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>]
+aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
 ```
 
 **Options:**
@@ -129,6 +145,8 @@ aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>]
 | `-m, --model <MODEL>` | Model type (required) | - |
 | `--weight-path <WEIGHT_PATH>` | Local model weight path (optional) | ~/.aha/{model_id} |
 | `--allow-remote-shutdown` | Allow remote shutdown requests (not recommended) | false |
+| `--gguf-path <GGUF_PATH>` | Local GGUF model weight path（required when using GGUF models） | - |
+| `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight path（optional，If not specified, the module will not be loaded） | - |
 
 **Examples:**
 

@@ -22,7 +22,7 @@ pub mod w2v_bert_2_0;
 use aha_openai_dive::v1::resources::chat::{
     ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse,
 };
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use rocket::futures::Stream;
 
 use crate::models::{
@@ -54,6 +54,8 @@ pub enum WhichModel {
     Qwen3_5_4B,
     #[value(name = "qwen3.5-9b", hide = true)]
     Qwen3_5_9B,
+    #[value(name = "qwen3.5-gguf", hide = true)]
+    Qwen3_5Gguf,
     #[value(name = "qwen3asr-0.6b", hide = true)]
     Qwen3ASR0_6B,
     #[value(name = "qwen3asr-1.7b", hide = true)]
@@ -98,6 +100,7 @@ impl WhichModel {
             WhichModel::Qwen3_5_2B => "Qwen/Qwen3.5-2B",
             WhichModel::Qwen3_5_4B => "Qwen/Qwen3.5-4B",
             WhichModel::Qwen3_5_9B => "Qwen/Qwen3.5-9B",
+            WhichModel::Qwen3_5Gguf => "GGUF",
             WhichModel::Qwen3ASR0_6B => "Qwen/Qwen3-ASR-0.6B",
             WhichModel::Qwen3ASR1_7B => "Qwen/Qwen3-ASR-1.7B",
             WhichModel::Qwen3vl2B => "Qwen/Qwen3-VL-2B-Instruct",
@@ -130,7 +133,8 @@ impl WhichModel {
             | WhichModel::Qwen3_5_0_8B
             | WhichModel::Qwen3_5_2B
             | WhichModel::Qwen3_5_4B
-            | WhichModel::Qwen3_5_9B => "vlm",
+            | WhichModel::Qwen3_5_9B
+            | WhichModel::Qwen3_5Gguf => "vlm",
             // OCR models
             WhichModel::DeepSeekOCR
             | WhichModel::HunyuanOCR
@@ -229,7 +233,12 @@ impl<'a> GenerateModel for ModelInstance<'a> {
     }
 }
 
-pub fn load_model(model_type: WhichModel, path: &str) -> Result<ModelInstance<'_>> {
+pub fn load_model<'a>(
+    model_type: WhichModel,
+    path: &str,
+    gguf: Option<&str>,
+    mmproj: Option<&str>,
+) -> Result<ModelInstance<'a>> {
     let model = match model_type {
         WhichModel::MiniCPM4_0_5B => {
             let model = MiniCPMGenerateModel::init(path, None, None)?;
@@ -261,6 +270,14 @@ pub fn load_model(model_type: WhichModel, path: &str) -> Result<ModelInstance<'_
         }
         WhichModel::Qwen3_5_9B => {
             let model = Qwen3_5GenerateModel::init(path, None, None)?;
+            ModelInstance::Qwen3_5(model)
+        }
+        WhichModel::Qwen3_5Gguf => {
+            if gguf.is_none() {
+                return Err(anyhow!("Qwen3_5Gguf gguf model path is required"));
+            }
+            let gguf = gguf.unwrap();
+            let model = Qwen3_5GenerateModel::init_from_gguf(gguf, mmproj, None)?;
             ModelInstance::Qwen3_5(model)
         }
         WhichModel::Qwen3ASR0_6B => {

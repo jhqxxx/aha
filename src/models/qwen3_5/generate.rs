@@ -102,7 +102,9 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             (None, None)
         };
 
-        // let eos_token_id = gguf.get_matedata("tokenizer.ggml.eos_token_id")?.to_u32()?;
+        let eos_token_id = model_gguf
+            .get_matedata("tokenizer.ggml.eos_token_id")?
+            .to_u32()?;
         let qwen3_5 = Qwen3_5Model::new_from_gguf(&mut model_gguf, mmproj_gguf.as_mut(), &device)?;
         let stem = std::path::Path::new(model_file)
             .file_stem() // 获取文件名主干（不含扩展名）
@@ -114,7 +116,8 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             pre_processor,
             qwen3_5,
             device,
-            eos_token_id: 248044,
+            // eos_token_id: 248044,
+            eos_token_id,
             model_name: stem.to_string(),
             repeat_penalty: 1.1,
             repeat_last_n: 64,
@@ -125,7 +128,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
 impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
     fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
         let seed = mes.seed.unwrap_or(32768) as u64;
-        let temperature = mes.temperature.unwrap_or(0.6);
+        let temperature = mes.temperature.unwrap_or(0.4);
         let top_p = mes.top_p.unwrap_or(0.95);
         let mut logit_processor =
             get_logit_processor(temperature.into(), top_p.into(), Some(20), seed);
@@ -144,7 +147,6 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
             } else {
                 (mes_render, None, None, None, None)
             };
-        // let input = self.pre_processor.process_info(&mes, &mes_render)?;
         let mut input_ids = self.tokenizer.text_encode(mes_text, &self.device)?;
         let mut seq_len = input_ids.dim(1)?;
         let prompt_tokens = seq_len as u32;

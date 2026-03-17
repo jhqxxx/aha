@@ -6,6 +6,7 @@ use aha::{
     process::{cleanup_pid_file, create_pid_file},
     utils::{download_model, get_default_save_dir},
 };
+use anyhow::anyhow;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use rocket::{
     Config,
@@ -44,6 +45,14 @@ struct Cli {
     /// Download retry count
     #[arg(long)]
     download_retries: Option<u32>,
+
+    /// Local GGUF model weight path (required for loading models with GGUF).
+    #[arg(long)]
+    gguf_path: Option<String>,
+
+    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
+    #[arg(long)]
+    mmproj_path: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -104,6 +113,14 @@ struct CliArgs {
     /// Download retry count
     #[arg(long)]
     download_retries: Option<u32>,
+
+    /// Local GGUF model weight path (required for loading models with GGUF).
+    #[arg(long)]
+    gguf_path: Option<String>,
+
+    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
+    #[arg(long)]
+    mmproj_path: Option<String>,
 }
 
 /// Arguments for the 'serv start' subcommand
@@ -115,6 +132,14 @@ struct ServArgs {
     /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
     #[arg(long)]
     weight_path: Option<String>,
+
+    /// Local GGUF model weight path (required for loading models with GGUF).
+    #[arg(long)]
+    gguf_path: Option<String>,
+
+    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
+    #[arg(long)]
+    mmproj_path: Option<String>,
 }
 
 /// Arguments for the 'serv list' subcommand
@@ -159,6 +184,14 @@ struct RunArgs {
     /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
     #[arg(long)]
     weight_path: Option<String>,
+
+    /// Local GGUF model weight path (required for loading models with GGUF).
+    #[arg(long)]
+    gguf_path: Option<String>,
+
+    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
+    #[arg(long)]
+    mmproj_path: Option<String>,
 }
 
 /// Arguments for the 'delete' subcommand (delete model from default location)
@@ -282,23 +315,33 @@ async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         weight_path,
         save_dir,
         download_retries,
+        gguf_path,
+        mmproj_path,
     } = args;
     let model_id = common.model.model_id();
 
-    let model_path = match weight_path {
-        Some(path) => path,
-        None => {
-            let save_dir = match save_dir {
-                Some(dir) => dir,
-                None => get_default_save_dir().expect("Failed to get home directory"),
-            };
-            let max_retries = download_retries.unwrap_or(3);
-            download_model(model_id, &save_dir, max_retries).await?;
-            save_dir + "/" + model_id
+    let (model_path, gguf, mmproj) = if model_id.eq("GGUF") {
+        if gguf_path.is_none() {
+            return Err(anyhow!("gguf model path is required"));
         }
+        ("GGUF".to_string(), gguf_path, mmproj_path)
+    } else {
+        let model_path = match weight_path {
+            Some(path) => path,
+            None => {
+                let save_dir = match save_dir {
+                    Some(dir) => dir,
+                    None => get_default_save_dir().expect("Failed to get home directory"),
+                };
+                let max_retries = download_retries.unwrap_or(3);
+                download_model(model_id, &save_dir, max_retries).await?;
+                save_dir + "/" + model_id
+            }
+        };
+        (model_path, None, None)
     };
 
-    init(common.model, model_path)?;
+    init(common.model, model_path, gguf, mmproj)?;
     start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
 
     Ok(())
@@ -309,14 +352,24 @@ async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
     let ServArgs {
         common,
         weight_path,
+        gguf_path,
+        mmproj_path,
     } = args;
-
-    let model_path = match weight_path {
-        Some(path) => path,
-        None => get_default_weight_path(common.model),
+    let model_id = common.model.model_id();
+    let (model_path, gguf, mmproj) = if model_id.eq("GGUF") {
+        if gguf_path.is_none() {
+            return Err(anyhow!("gguf model path is required"));
+        }
+        ("GGUF".to_string(), gguf_path, mmproj_path)
+    } else {
+        let model_path = match weight_path {
+            Some(path) => path,
+            None => get_default_weight_path(common.model),
+        };
+        (model_path, None, None)
     };
 
-    init(common.model, model_path)?;
+    init(common.model, model_path, gguf, mmproj)?;
     start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
 
     Ok(())
@@ -392,6 +445,8 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         input,
         output,
         weight_path,
+        gguf_path,
+        mmproj_path,
     } = args;
 
     // Use default weight path if not specified
@@ -399,7 +454,6 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         Some(path) => path,
         None => get_default_weight_path(model),
     };
-
     match model {
         WhichModel::MiniCPM4_0_5B => {
             use aha::exec::minicpm4::MiniCPM4Exec;
@@ -432,6 +486,10 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::Qwen3_5_9B => {
             use aha::exec::qwen3_5::Qwen3_5Exec;
             Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
+        WhichModel::Qwen3_5Gguf => {
+            use aha::exec::qwen3_5::Qwen3_5Exec;
+            Qwen3_5Exec::run_gguf(&input, output.as_deref(), gguf_path, mmproj_path)?;
         }
         WhichModel::Qwen3ASR0_6B => {
             use aha::exec::qwen3_asr::Qwen3ASRExec;
@@ -610,6 +668,8 @@ async fn main() -> anyhow::Result<()> {
                 weight_path: cli.weight_path,
                 save_dir: cli.save_dir,
                 download_retries: cli.download_retries,
+                gguf_path: cli.gguf_path,
+                mmproj_path: cli.mmproj_path,
             };
             run_cli(args).await
         }
