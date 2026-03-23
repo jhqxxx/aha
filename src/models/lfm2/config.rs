@@ -1,5 +1,5 @@
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use anyhow::{anyhow, Result};
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Lfm2Config {
     pub architectures: Vec<String>,
@@ -43,7 +43,6 @@ pub struct Lfm2Config {
     pub tie_embedding: Option<bool>,
 }
 
-
 impl Lfm2Config {
     pub fn full_attn_idx2layer_type(&mut self) {
         if self.layer_types.is_none()
@@ -75,7 +74,9 @@ impl Lfm2Config {
             }
             Ok(layer_types)
         } else {
-            Err(anyhow!("layer_types full_attn_idxs cannot be none at the same time"))
+            Err(anyhow!(
+                "layer_types full_attn_idxs cannot be none at the same time"
+            ))
         }
     }
 }
@@ -84,5 +85,5 @@ impl Lfm2Config {
 pub struct Lfm2GenerateConfig {
     pub bos_token_id: u32,
     pub eos_token_id: u32,
-    pub pad_token_id: u32
+    pub pad_token_id: u32,
 }

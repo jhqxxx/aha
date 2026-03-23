@@ -8,6 +8,7 @@ pub mod fun_asr_nano;
 pub mod glm_asr_nano;
 pub mod glm_ocr;
 pub mod hunyuan_ocr;
+pub mod lfm2;
 pub mod minicpm4;
 pub mod paddleocr_vl;
 pub mod qwen2_5vl;
@@ -18,7 +19,6 @@ pub mod qwen3vl;
 pub mod rmbg2_0;
 pub mod voxcpm;
 pub mod voxcpm1_5;
-pub mod lfm2;
 
 use anyhow::Result;
 

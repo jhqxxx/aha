@@ -43,7 +43,7 @@ fn messy_test() -> Result<()> {
     //     aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
     // let model_path = format!("{}/deepseek-ai/DeepSeek-OCR-2/", save_dir);
     // let stem = std::path::Path::new(&model_path)
-    //     .file_name() 
+    //     .file_name()
     //     .and_then(|s| s.to_str())
     //     .unwrap_or("qwen3.5");
     // println!("stem: {:?}", stem);

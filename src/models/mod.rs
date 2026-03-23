@@ -7,6 +7,7 @@ pub mod fun_asr_nano;
 pub mod glm_asr_nano;
 pub mod glm_ocr;
 pub mod hunyuan_ocr;
+pub mod lfm2;
 pub mod mask_gct;
 pub mod minicpm4;
 pub mod paddleocr_vl;
@@ -19,7 +20,6 @@ pub mod qwen3vl;
 pub mod rmbg2_0;
 pub mod voxcpm;
 pub mod w2v_bert_2_0;
-pub mod lfm2;
 
 use aha_openai_dive::v1::resources::chat::{
     ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse,
@@ -28,7 +28,15 @@ use anyhow::{Result, anyhow};
 use rocket::futures::Stream;
 
 use crate::models::{
-    deepseek_ocr::generate::DeepseekOCRGenerateModel, fun_asr_nano::generate::FunAsrNanoGenerateModel, glm_asr_nano::generate::GlmAsrNanoGenerateModel, glm_ocr::generate::GlmOcrGenerateModel, hunyuan_ocr::generate::HunyuanOCRGenerateModel, lfm2::generate::Lfm2GenerateModel, minicpm4::generate::MiniCPMGenerateModel, paddleocr_vl::generate::PaddleOCRVLGenerateModel, qwen2_5vl::generate::Qwen2_5VLGenerateModel, qwen3::generate::Qwen3GenerateModel, qwen3_5::generate::Qwen3_5GenerateModel, qwen3_asr::generate::Qwen3AsrGenerateModel, qwen3vl::generate::Qwen3VLGenerateModel, rmbg2_0::generate::RMBG2_0Model, voxcpm::generate::VoxCPMGenerate
+    deepseek_ocr::generate::DeepseekOCRGenerateModel,
+    fun_asr_nano::generate::FunAsrNanoGenerateModel,
+    glm_asr_nano::generate::GlmAsrNanoGenerateModel, glm_ocr::generate::GlmOcrGenerateModel,
+    hunyuan_ocr::generate::HunyuanOCRGenerateModel, lfm2::generate::Lfm2GenerateModel,
+    minicpm4::generate::MiniCPMGenerateModel, paddleocr_vl::generate::PaddleOCRVLGenerateModel,
+    qwen2_5vl::generate::Qwen2_5VLGenerateModel, qwen3::generate::Qwen3GenerateModel,
+    qwen3_5::generate::Qwen3_5GenerateModel, qwen3_asr::generate::Qwen3AsrGenerateModel,
+    qwen3vl::generate::Qwen3VLGenerateModel, rmbg2_0::generate::RMBG2_0Model,
+    voxcpm::generate::VoxCPMGenerate,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -130,7 +138,8 @@ impl WhichModel {
     pub fn model_type(self) -> &'static str {
         match self {
             // LLM models
-            WhichModel::MiniCPM4_0_5B | WhichModel::Qwen3_0_6B
+            WhichModel::MiniCPM4_0_5B
+            | WhichModel::Qwen3_0_6B
             | WhichModel::LFM2_1_2B
             | WhichModel::LFM2_5_1_2BInstruct => "llm",
             WhichModel::Qwen2_5vl3B

@@ -70,7 +70,7 @@ impl Lfm2ShortConv {
                 bx.narrow(D::Minus1, pad_num.unsigned_abs(), self.l_cache)?
             };
             self.cache = Some(conv_state);
-            let bx = bx.pad_with_zeros(D::Minus1, self.l_cache-1, self.l_cache-1)?;
+            let bx = bx.pad_with_zeros(D::Minus1, self.l_cache - 1, self.l_cache - 1)?;
             let bx = conv1d_depthwise(&bx, self.conv.weight(), self.conv.bias())?;
             bx.narrow(D::Minus1, 0, seq_len)?
         } else {
@@ -145,9 +145,8 @@ impl Lfm2DecoderLayer {
         let intermediate_size = if config.block_auto_adjust_ff_dim {
             let inter_size = 2 * config.block_ff_dim / 3;
             let inter_size = (config.block_ffn_dim_multiplier * inter_size as f64) as usize;
-            let inter_size = config.block_multiple_of
-                * ((inter_size + config.block_multiple_of - 1) / config.block_multiple_of);
-            inter_size
+            config.block_multiple_of
+                * ((inter_size + config.block_multiple_of - 1) / config.block_multiple_of)
         } else {
             config.block_ff_dim
         };
@@ -291,9 +290,7 @@ impl Lfm2Model {
             );
             match linear {
                 Ok(linear) => linear,
-                Err(_) => {
-                    Linear::new(model.embed_tokens.embeddings().clone(), None)
-                }
+                Err(_) => Linear::new(model.embed_tokens.embeddings().clone(), None),
             }
         };
         Ok(Self { model, lm_head })

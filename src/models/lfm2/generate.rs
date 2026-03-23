@@ -1,15 +1,18 @@
+use crate::utils::build_completion_chunk_response;
 use crate::{
     chat_template::ChatTemplate,
-    models::{GenerateModel, lfm2::{
-        config::{Lfm2Config, Lfm2GenerateConfig},
-        model::Lfm2Model,
-    }},
+    models::{
+        GenerateModel,
+        lfm2::{
+            config::{Lfm2Config, Lfm2GenerateConfig},
+            model::Lfm2Model,
+        },
+    },
     tokenizer::TokenizerModel,
     utils::{
         build_completion_response, find_type_files, get_device, get_dtype, get_logit_processor,
     },
 };
-use crate::utils::build_completion_chunk_response;
 use aha_openai_dive::v1::resources::chat::{ChatCompletionParameters, ChatCompletionResponse};
 use anyhow::Result;
 use candle_core::{DType, Device, Tensor};
@@ -59,8 +62,6 @@ impl<'a> Lfm2GenerateModel<'a> {
             model_name,
         })
     }
-
-    
 }
 
 impl<'a> GenerateModel for Lfm2GenerateModel<'a> {
@@ -103,16 +104,20 @@ impl<'a> GenerateModel for Lfm2GenerateModel<'a> {
     }
 
     fn generate_stream(
-            &mut self,
-            mes: ChatCompletionParameters,
-        ) -> Result<
-            Box<
-                dyn rocket::futures::Stream<Item = Result<aha_openai_dive::v1::resources::chat::ChatCompletionChunkResponse, anyhow::Error>>
-                    + Send
-                    + Unpin
-                    + '_,
-            >,
-        > {
+        &mut self,
+        mes: ChatCompletionParameters,
+    ) -> Result<
+        Box<
+            dyn rocket::futures::Stream<
+                    Item = Result<
+                        aha_openai_dive::v1::resources::chat::ChatCompletionChunkResponse,
+                        anyhow::Error,
+                    >,
+                > + Send
+                + Unpin
+                + '_,
+        >,
+    > {
         let mes_render = self.chat_template.apply_chat_template(&mes)?;
         let mut logits = get_logit_processor(
             mes.temperature,

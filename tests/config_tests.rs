@@ -1,5 +1,8 @@
 use aha::models::{
-    deepseek_ocr::config::DeepseekOCRConfig, hunyuan_ocr::config::HunYuanVLConfig, lfm2::config::Lfm2Config, minicpm4::config::MiniCPM4Config, paddleocr_vl::config::PaddleOCRVLConfig, qwen2_5vl::config::Qwen2_5VLConfig, qwen3vl::config::Qwen3VLConfig, voxcpm::config::VoxCPMConfig
+    deepseek_ocr::config::DeepseekOCRConfig, hunyuan_ocr::config::HunYuanVLConfig,
+    lfm2::config::Lfm2Config, minicpm4::config::MiniCPM4Config,
+    paddleocr_vl::config::PaddleOCRVLConfig, qwen2_5vl::config::Qwen2_5VLConfig,
+    qwen3vl::config::Qwen3VLConfig, voxcpm::config::VoxCPMConfig,
 };
 use anyhow::Result;
 

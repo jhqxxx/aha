@@ -1,7 +1,10 @@
-use std::{pin::pin, time::Instant};
+use aha::{
+    chat::ChatCompletionParameters,
+    models::{GenerateModel, lfm2::generate::Lfm2GenerateModel},
+};
 use anyhow::Result;
-use aha::{chat::ChatCompletionParameters, models::{GenerateModel, lfm2::generate::Lfm2GenerateModel}};
 use rocket::futures::StreamExt;
+use std::{pin::pin, time::Instant};
 
 #[test]
 fn lfm2_generate() -> Result<()> {
@@ -43,7 +46,6 @@ fn lfm2_generate() -> Result<()> {
 
     Ok(())
 }
-
 
 #[tokio::test]
 async fn lfm2_stream() -> Result<()> {
