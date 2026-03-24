@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use aha::{
-    models::WhichModel,
+    models::{LISTED_MODELS, ModelArtifactFormat, WhichModel},
     process::{cleanup_pid_file, create_pid_file},
     utils::{download_model, get_default_save_dir},
 };
@@ -242,37 +242,9 @@ struct ModelInfo {
 
 /// List all supported models
 fn run_list(args: ListArgs) -> anyhow::Result<()> {
-    let models = [
-        WhichModel::MiniCPM4_0_5B,
-        WhichModel::Qwen2_5vl3B,
-        WhichModel::Qwen2_5vl7B,
-        WhichModel::Qwen3_0_6B,
-        WhichModel::Qwen3_5_0_8B,
-        WhichModel::Qwen3_5_2B,
-        WhichModel::Qwen3_5_4B,
-        WhichModel::Qwen3_5_9B,
-        WhichModel::Qwen3ASR0_6B,
-        WhichModel::Qwen3ASR1_7B,
-        WhichModel::Qwen3vl2B,
-        WhichModel::Qwen3vl4B,
-        WhichModel::Qwen3vl8B,
-        WhichModel::Qwen3vl32B,
-        WhichModel::DeepSeekOCR,
-        WhichModel::DeepSeekOCR2,
-        WhichModel::HunyuanOCR,
-        WhichModel::PaddleOCRVL,
-        WhichModel::PaddleOCRVL1_5,
-        WhichModel::RMBG2_0,
-        WhichModel::VoxCPM,
-        WhichModel::VoxCPM1_5,
-        WhichModel::GlmASRNano2512,
-        WhichModel::FunASRNano2512,
-        WhichModel::GlmOCR,
-    ];
-
     if args.json {
         // JSON output
-        let model_infos: Vec<ModelInfo> = models
+        let model_infos: Vec<ModelInfo> = LISTED_MODELS
             .iter()
             .map(|model| {
                 let possible_value = model.to_possible_value().unwrap();
@@ -294,11 +266,11 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
             "Model Name", "ModelScope ID", "Download"
         );
         println!("{}", "-".repeat(80));
-        for model in models {
+        for model in LISTED_MODELS {
             let possible_value = model.to_possible_value().unwrap();
             let name = possible_value.get_name();
             let id = model.model_id();
-            let download_status = if is_model_downloaded(model) {
+            let download_status = if is_model_downloaded(*model) {
                 "  ✔"
             } else {
                 ""
@@ -308,6 +280,46 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn resolve_model_paths_for_server(
+    model: WhichModel,
+    weight_path: Option<String>,
+    save_dir: Option<String>,
+    download_retries: Option<u32>,
+    gguf_path: Option<String>,
+    mmproj_path: Option<String>,
+    allow_download: bool,
+) -> anyhow::Result<(String, Option<String>, Option<String>)> {
+    match model.artifact_format() {
+        ModelArtifactFormat::Gguf => {
+            if gguf_path.is_none() {
+                return Err(anyhow!("gguf model path is required"));
+            }
+            Ok(("GGUF".to_string(), gguf_path, mmproj_path))
+        }
+        ModelArtifactFormat::Safetensors => {
+            let model_id = model.model_id();
+            let model_path = match weight_path {
+                Some(path) => path,
+                None if allow_download => {
+                    let save_dir = match save_dir {
+                        Some(dir) => dir,
+                        None => get_default_save_dir().expect("Failed to get home directory"),
+                    };
+                    let max_retries = download_retries.unwrap_or(3);
+                    download_model(model_id, &save_dir, max_retries).await?;
+                    save_dir + "/" + model_id
+                }
+                None => get_default_weight_path(model),
+            };
+            Ok((model_path, None, None))
+        }
+        ModelArtifactFormat::Onnx => Err(anyhow!(
+            "onnx runtime is not integrated yet for model {}",
+            model.openai_model_id()
+        )),
+    }
 }
 
 /// Run the 'cli' subcommand: download model (if needed) and start service
@@ -320,28 +332,16 @@ async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         gguf_path,
         mmproj_path,
     } = args;
-    let model_id = common.model.model_id();
-
-    let (model_path, gguf, mmproj) = if model_id.eq("GGUF") {
-        if gguf_path.is_none() {
-            return Err(anyhow!("gguf model path is required"));
-        }
-        ("GGUF".to_string(), gguf_path, mmproj_path)
-    } else {
-        let model_path = match weight_path {
-            Some(path) => path,
-            None => {
-                let save_dir = match save_dir {
-                    Some(dir) => dir,
-                    None => get_default_save_dir().expect("Failed to get home directory"),
-                };
-                let max_retries = download_retries.unwrap_or(3);
-                download_model(model_id, &save_dir, max_retries).await?;
-                save_dir + "/" + model_id
-            }
-        };
-        (model_path, None, None)
-    };
+    let (model_path, gguf, mmproj) = resolve_model_paths_for_server(
+        common.model,
+        weight_path,
+        save_dir,
+        download_retries,
+        gguf_path,
+        mmproj_path,
+        true,
+    )
+    .await?;
 
     init(common.model, model_path, gguf, mmproj)?;
     start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
@@ -357,19 +357,16 @@ async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
         gguf_path,
         mmproj_path,
     } = args;
-    let model_id = common.model.model_id();
-    let (model_path, gguf, mmproj) = if model_id.eq("GGUF") {
-        if gguf_path.is_none() {
-            return Err(anyhow!("gguf model path is required"));
-        }
-        ("GGUF".to_string(), gguf_path, mmproj_path)
-    } else {
-        let model_path = match weight_path {
-            Some(path) => path,
-            None => get_default_weight_path(common.model),
-        };
-        (model_path, None, None)
-    };
+    let (model_path, gguf, mmproj) = resolve_model_paths_for_server(
+        common.model,
+        weight_path,
+        None,
+        None,
+        gguf_path,
+        mmproj_path,
+        false,
+    )
+    .await?;
 
     init(common.model, model_path, gguf, mmproj)?;
     start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
@@ -426,6 +423,12 @@ async fn run_download(args: DownloadArgs) -> anyhow::Result<()> {
         download_retries,
     } = args;
     let model_id = model.model_id();
+    if !model.is_download_managed() {
+        return Err(anyhow!(
+            "{} does not use managed model download. Please provide local artifact path directly when serving/running.",
+            model.openai_model_id()
+        ));
+    }
 
     let save_dir = match save_dir {
         Some(dir) => dir,
@@ -473,6 +476,18 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
             use aha::exec::qwen3::Qwen3Exec;
             Qwen3Exec::run(&input, output.as_deref(), &weight_path)?;
         }
+        WhichModel::Qwen3Embedding0_6B
+        | WhichModel::Qwen3Embedding4B
+        | WhichModel::Qwen3Embedding8B => {
+            use aha::exec::qwen3_embedding::Qwen3EmbeddingExec;
+            Qwen3EmbeddingExec::run(&input, output.as_deref(), &weight_path)?;
+        }
+        WhichModel::Qwen3Reranker0_6B
+        | WhichModel::Qwen3Reranker4B
+        | WhichModel::Qwen3Reranker8B => {
+            use aha::exec::qwen3_reranker::Qwen3RerankerExec;
+            Qwen3RerankerExec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::Qwen3_5_0_8B => {
             use aha::exec::qwen3_5::Qwen3_5Exec;
             Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
@@ -489,7 +504,19 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
             use aha::exec::qwen3_5::Qwen3_5Exec;
             Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::Qwen3_5Gguf => {
+        WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2 => {
+            use aha::exec::qwen3_5::Qwen3_5Exec;
+            Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
+        WhichModel::Qwen3_5Gguf
+        | WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf
+        | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf
+        | WhichModel::Qwen3_5_0_8BUnslothGguf
+        | WhichModel::Qwen3_5_2BUnslothGguf
+        | WhichModel::Qwen3_5_4BUnslothGguf
+        | WhichModel::Qwen3_5_0_8BLmstudioGguf
+        | WhichModel::Qwen3_5_2BLmstudioGguf
+        | WhichModel::Qwen3_5_4BLmstudioGguf => {
             use aha::exec::qwen3_5::Qwen3_5Exec;
             Qwen3_5Exec::run_gguf(&input, output.as_deref(), gguf_path, mmproj_path)?;
         }
@@ -734,6 +761,12 @@ pub(crate) async fn start_http_server(
     builder = builder.mount("/audio", routes![api::speech, api::transcriptions]);
     // /v1/audio/transcriptions (OpenAI standard ASR transcription endpoint)
     builder = builder.mount("/v1/audio", routes![api::transcriptions]);
+    // /embeddings and /v1/embeddings (OpenAI-compatible embeddings endpoint)
+    builder = builder.mount("/", routes![api::embeddings]);
+    builder = builder.mount("/v1", routes![api::embeddings]);
+    // /rerank and /v1/rerank
+    builder = builder.mount("/", routes![api::rerank]);
+    builder = builder.mount("/v1", routes![api::rerank]);
     // Health check and model info endpoints
     builder = builder.mount("/", routes![api::health, api::models]);
     // Shutdown endpoint

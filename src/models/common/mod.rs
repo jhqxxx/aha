@@ -8,6 +8,7 @@ use candle_nn::{
 };
 
 pub mod gguf;
+pub mod retrieval;
 
 use crate::{
     position_embed::rope::{RoPE, apply_rotary_pos_emb, apply_rotary_pos_emb_roformer},

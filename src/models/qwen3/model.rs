@@ -205,7 +205,11 @@ pub struct Qwen3Model {
 
 impl Qwen3Model {
     pub fn new(config: &Qwen3Config, vb: VarBuilder) -> Result<Self> {
-        let vb = vb.pp("model");
+        let vb = if vb.contains_tensor("model.embed_tokens.weight") {
+            vb.pp("model")
+        } else {
+            vb
+        };
         let vocab_size = config.vocab_size;
         let embed_tokens = embedding(vocab_size, config.hidden_size, vb.pp("embed_tokens"))?;
         let mut layers = vec![];
@@ -231,6 +235,19 @@ impl Qwen3Model {
         })
     }
     pub fn forward(
+        &mut self,
+        input_ids: Option<&Tensor>,
+        inputs_embeds: Option<&Tensor>,
+        seqlen_offset: usize,
+    ) -> Result<Tensor> {
+        let hidden_states = self.forward_hidden(input_ids, inputs_embeds, seqlen_offset)?;
+        let seq_len = hidden_states.dim(1)?;
+        let hidden_state = hidden_states.narrow(1, seq_len - 1, 1)?;
+        let logits = self.lm_head.forward(&hidden_state)?;
+        Ok(logits)
+    }
+
+    pub fn forward_hidden(
         &mut self,
         input_ids: Option<&Tensor>,
         inputs_embeds: Option<&Tensor>,
@@ -271,9 +288,7 @@ impl Qwen3Model {
                 decode_layer.forward(&hidden_states, &cos, &sin, attention_mask.as_ref())?;
         }
         hidden_states = self.norm.forward(&hidden_states)?;
-        let hidden_state = hidden_states.narrow(1, seq_len - 1, 1)?;
-        let logits = self.lm_head.forward(&hidden_state)?;
-        Ok(logits)
+        Ok(hidden_states)
     }
     pub fn embedding_token_id(&self, input_ids: &Tensor) -> Result<Tensor> {
         Ok(self.embed_tokens.forward(input_ids)?)

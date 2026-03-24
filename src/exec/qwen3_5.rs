@@ -148,7 +148,9 @@ impl ExecModel for Qwen3_5Exec {
         let mut model = Qwen3_5GenerateModel::init(weight_path, None, None)?;
         let i_duration = i_start.elapsed();
         println!("Time elapsed in load model is: {:?}", i_duration);
-        let url = &input[1];
+        let url = input
+            .get(1)
+            .ok_or_else(|| anyhow!("qwen3.5 requires a second input: image/video path or URL"))?;
         let input_url = if url.starts_with("http://")
             || url.starts_with("https://")
             || url.starts_with("file://")

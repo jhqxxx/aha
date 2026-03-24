@@ -28,7 +28,9 @@ impl ExecModel for GlmASRNanoExec {
 
         // Create ChatCompletionParameters for ASR
         // Input should be an audio file path
-        let url = &input[1];
+        let url = input.get(1).ok_or_else(|| {
+            anyhow::anyhow!("glm-asr-nano requires a second input: audio path or URL")
+        })?;
         let input_url = if url.starts_with("http://")
             || url.starts_with("https://")
             || url.starts_with("file://")

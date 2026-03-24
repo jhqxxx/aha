@@ -54,3 +54,6 @@ ffmpeg = ["ffmpeg-next"]
 needless_range_loop = "allow"
 single_range_in_vec_init = "allow"
 manual_div_ceil = "allow"
+
+[dev-dependencies]
+ort = { version = "2.0.0-rc.10", default-features = false, features = ["load-dynamic", "api-24"] }
