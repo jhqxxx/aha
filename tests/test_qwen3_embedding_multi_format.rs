@@ -5,11 +5,13 @@ use std::{
 };
 
 use aha::models::{
-    common::{gguf::Gguf, retrieval::cosine_similarity},
+    ArtifactKind, LoadSpec, ModelPaths,
+    common::{gguf::Gguf, onnx::ensure_ort_dylib_path, retrieval::cosine_similarity},
     qwen3_embedding::generate::Qwen3EmbeddingModel,
 };
 use anyhow::{Context, Result, anyhow};
 use candle_core::{Device, quantized::gguf_file};
+#[cfg(feature = "onnx-runtime")]
 use ort::session::Session;
 
 const QWEN3_EMBEDDING_SAFETENSORS_DIR: &str = r"D:\model_download\Qwen3-Embedding-0.6B";
@@ -130,8 +132,7 @@ fn qwen3_embedding_onnx_can_load() -> Result<()> {
     // Run this test only:
     // cargo test --test test_qwen3_embedding_multi_format qwen3_embedding_onnx_can_load -- --nocapture
     let onnx_path = first_file_with_extension_recursive(QWEN3_EMBEDDING_ONNX_DIR, "onnx")?;
-    // Current aha runtime does not integrate ONNX execution yet.
-    // Here we validate that ONNX artifact can be discovered and read normally.
+    // Basic artifact-level smoke check: ONNX file can be discovered and read.
     let metadata = std::fs::metadata(&onnx_path)
         .with_context(|| format!("failed to read onnx metadata: {}", onnx_path.display()))?;
     if metadata.len() == 0 {
@@ -143,6 +144,7 @@ fn qwen3_embedding_onnx_can_load() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "onnx-runtime")]
 #[test]
 fn qwen3_embedding_onnxruntime_can_create_session() -> Result<()> {
     // Run this test only:
@@ -152,8 +154,8 @@ fn qwen3_embedding_onnxruntime_can_create_session() -> Result<()> {
     // ort with `load-dynamic` requires ONNX Runtime dynamic library path to be configured.
     // Example on Windows:
     // $env:ORT_DYLIB_PATH = "D:\\onnxruntime\\onnxruntime.dll"
-    if std::env::var("ORT_DYLIB_PATH").is_err() {
-        println!("skip onnxruntime session test: ORT_DYLIB_PATH is not set");
+    if let Err(err) = ensure_ort_dylib_path() {
+        println!("skip onnxruntime session test: {err}");
         return Ok(());
     }
 
@@ -174,6 +176,92 @@ fn qwen3_embedding_onnxruntime_can_create_session() -> Result<()> {
         return Err(anyhow!("onnxruntime session has no outputs"));
     }
 
+    Ok(())
+}
+
+#[test]
+fn qwen3_embedding_onnx_init_from_spec_can_embed() -> Result<()> {
+    if let Err(err) = ensure_ort_dylib_path() {
+        println!("skip onnx init test: {err}");
+        return Ok(());
+    }
+
+    let spec = LoadSpec {
+        model: aha::models::WhichModel::Qwen3Embedding0_6B,
+        artifact: ArtifactKind::Onnx,
+        paths: ModelPaths {
+            onnx_path: Some(QWEN3_EMBEDDING_ONNX_DIR.to_string()),
+            tokenizer_dir: Some(QWEN3_EMBEDDING_ONNX_DIR.to_string()),
+            ..Default::default()
+        },
+    };
+
+    let mut model = Qwen3EmbeddingModel::init_from_spec(&spec, None, None)?;
+    let output = model.embed(&["test onnx embedding".to_string()])?;
+    assert_eq!(output.len(), 1);
+    assert!(!output[0].is_empty());
+    Ok(())
+}
+
+#[test]
+fn qwen3_embedding_safetensors_init_from_spec_can_embed() -> Result<()> {
+    if let Err(err) = require_existing_dir(QWEN3_EMBEDDING_SAFETENSORS_DIR) {
+        println!("skip safetensors init_from_spec test: {err}");
+        return Ok(());
+    }
+
+    let spec = LoadSpec {
+        model: aha::models::WhichModel::Qwen3Embedding0_6B,
+        artifact: ArtifactKind::Safetensors,
+        paths: ModelPaths {
+            weight_dir: Some(QWEN3_EMBEDDING_SAFETENSORS_DIR.to_string()),
+            ..Default::default()
+        },
+    };
+
+    let mut model = Qwen3EmbeddingModel::init_from_spec(&spec, None, None)?;
+    let output = model.embed(&["test safetensors embedding".to_string()])?;
+    assert_eq!(output.len(), 1);
+    assert!(!output[0].is_empty());
+    Ok(())
+}
+
+#[test]
+fn qwen3_embedding_load_spec_accepts_gguf() {
+    let spec = LoadSpec {
+        model: aha::models::WhichModel::Qwen3Embedding0_6B,
+        artifact: ArtifactKind::Gguf,
+        paths: ModelPaths {
+            gguf_path: Some("D:/model_download/Qwen3-Embedding-0.6B-GGUF/model.gguf".to_string()),
+            ..Default::default()
+        },
+    };
+    spec.validate()
+        .expect("qwen3 embedding should accept gguf artifact");
+}
+
+#[test]
+fn qwen3_embedding_init_from_spec_gguf_can_embed() -> Result<()> {
+    let gguf_path = match first_file_with_extension(QWEN3_EMBEDDING_GGUF_DIR, "gguf") {
+        Ok(path) => path,
+        Err(err) => {
+            println!("skip gguf init_from_spec test: {err}");
+            return Ok(());
+        }
+    };
+    let spec = LoadSpec {
+        model: aha::models::WhichModel::Qwen3Embedding0_6B,
+        artifact: ArtifactKind::Gguf,
+        paths: ModelPaths {
+            gguf_path: Some(gguf_path.to_string_lossy().to_string()),
+            tokenizer_dir: Some(QWEN3_EMBEDDING_GGUF_DIR.to_string()),
+            ..Default::default()
+        },
+    };
+    let mut model = Qwen3EmbeddingModel::init_from_spec(&spec, None, None)?;
+    let output = model.embed(&["test gguf embedding".to_string()])?;
+    assert_eq!(output.len(), 1);
+    assert!(!output[0].is_empty());
     Ok(())
 }
 

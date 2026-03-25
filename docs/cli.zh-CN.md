@@ -20,6 +20,9 @@ aha [COMMAND] [OPTIONS]
 | `--download-retries <DOWNLOAD_RETRIES>` | 下载重试次数 | 3 |
 | `--gguf-path <GGUF_PATH>` | 本地 GGUF 模型权重 | - |
 | `--mmproj-path <MMPROJ_PATH>` | 本地 mmproj GGUF 模型权重 | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型目录或文件路径 | - |
+| `--tokenizer-dir <TOKENIZER_DIR>` | GGUF/ONNX 的 tokenizer/config 目录 | - |
+| `--artifact-format <ARTIFACT_FORMAT>` | 制品格式（`auto|safetensors|gguf|onnx`） | auto |
 | `-h, --help` | 显示帮助信息 | - |
 | `-V, --version` | 显示版本号 | - |
 
@@ -46,6 +49,9 @@ aha cli [OPTIONS] --model <MODEL>
 | `--download-retries <DOWNLOAD_RETRIES>` | 下载重试次数 | 3 |
 | `--gguf-path <GGUF_PATH>` | 本地 GGUF 模型权重 | - |
 | `--mmproj-path <MMPROJ_PATH>` | 本地 mmproj GGUF 模型权重 | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型目录或文件路径 | - |
+| `--tokenizer-dir <TOKENIZER_DIR>` | GGUF/ONNX 的 tokenizer/config 目录 | - |
+| `--artifact-format <ARTIFACT_FORMAT>` | 制品格式（`auto|safetensors|gguf|onnx`） | auto |
 
 **示例：**
 
@@ -64,6 +70,11 @@ aha -m qwen3vl-2b
 
 # 指定gguf-path和mmproj-path
 aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
+
+# 使用 ONNX 模型启动服务
+aha cli -m qwen3-embedding-0.6b --artifact-format onnx \
+  --onnx-path /path/to/Qwen3-Embedding-0.6B-ONNX \
+  --tokenizer-dir /path/to/Qwen3-Embedding-0.6B-ONNX
 ```
 
 ### run - 直接模型推理
@@ -72,7 +83,9 @@ aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmp
 
 **语法：**
 ```bash
-aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
+aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] \
+  [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>] \
+  [--onnx-path <ONNX_PATH>] [--tokenizer-dir <TOKENIZER_DIR>] [--artifact-format <ARTIFACT_FORMAT>]
 ```
 
 **选项：**
@@ -82,9 +95,12 @@ aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-p
 | `-m, --model <MODEL>` | 模型类型（必选） | - |
 | `-i, --input <INPUT>` | 输入文本或文件路径（模型特定解释，支持1-2个参数, input1： 提示文本, input2: 文件地址） | - |
 | `-o, --output <OUTPUT>` | 输出文件路径（可选，未指定则自动生成） | - |
-| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径（使用非GGUF模型时必选） | - |
+| `--weight-path <WEIGHT_PATH>` | 本地 safetensors 模型目录（`--artifact-format safetensors` 时必选） | - |
 | `--gguf-path <GGUF_PATH>` | 本地GGUF模型权重路径（使用GGUF模型时必选） | - |
 | `--mmproj-path <MMPROJ_PATH>` | 本地mmproj GGUF模型权重路径（可选，未指定则不加载该模块） | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型目录或文件路径（`--artifact-format onnx` 时必选） | - |
+| `--tokenizer-dir <TOKENIZER_DIR>` | GGUF/ONNX 的 tokenizer/config 目录（可选，建议提供） | - |
+| `--artifact-format <ARTIFACT_FORMAT>` | 制品格式（`auto|safetensors|gguf|onnx`） | auto |
 
 **示例：**
 
@@ -113,6 +129,9 @@ aha run -m fun-asr-nano-2512 -i "语音转写：" -i "audio.wav" --weight-path /
 # qwen3 文本生成（单个输入）
 aha run -m qwen3-0.6b -i "你好" --weight-path /path/to/model
 
+# qwen3 GGUF 文本生成（单个输入）
+aha run -m qwen3-0.6b -i "你好" --artifact-format gguf --gguf-path /path/to/Qwen3-0.6B-Q8_0.gguf
+
 # qwen2.5vl 图像理解（两个输入：提示文本 + 图片文件）
 aha run -m qwen2.5vl-3b -i "请分析图片并提取所有可见文本内容，按从左到右、从上到下的布局，返回纯文本" -i "image.jpg" --weight-path /path/to/model
 
@@ -125,6 +144,11 @@ aha run -m qwen3.5-gguf -i 你如何看待AI --gguf-path /path/to/xxx.gguf
 # Qwen3.5-GGUF 有mmproj (两个输入：提示文本 + 文件)
 aha run -m qwen3.5-gguf -i 提取图片中的文本 -i https://ai.bdstatic.com/file/C56CC9B274CF460CA33
 63E59ECD94423 --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
+
+# Qwen3.5 ONNX 文本生成（text-only）
+aha run -m qwen3.5-0.8b -i "你好" --artifact-format onnx \
+  --onnx-path /path/to/Qwen3.5-0.8B-ONNX \
+  --tokenizer-dir /path/to/Qwen3.5-0.8B-ONNX
 ```
 
 ### serv - 启动服务
@@ -133,7 +157,9 @@ aha run -m qwen3.5-gguf -i 提取图片中的文本 -i https://ai.bdstatic.com/f
 
 **语法：**
 ```bash
-aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
+aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] \
+  [--mmproj-path <MMPROJ_PATH>] [--onnx-path <ONNX_PATH>] [--tokenizer-dir <TOKENIZER_DIR>] \
+  [--artifact-format <ARTIFACT_FORMAT>]
 ```
 
 **选项：**
@@ -147,6 +173,9 @@ aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <G
 | `--allow-remote-shutdown` | 允许远程关机请求（不推荐） | false |
 | `--gguf-path <GGUF_PATH>` | 本地GGUF模型权重路径（使用GGUF模型时必选） | - |
 | `--mmproj-path <MMPROJ_PATH>` | 本地mmproj GGUF模型权重路径（可选，未指定则不加载该模块） | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型目录或文件路径（ONNX 模型时必选） | - |
+| `--tokenizer-dir <TOKENIZER_DIR>` | GGUF/ONNX 的 tokenizer/config 目录 | - |
+| `--artifact-format <ARTIFACT_FORMAT>` | 制品格式（`auto|safetensors|gguf|onnx`） | auto |
 
 **示例：**
 
@@ -165,6 +194,11 @@ aha serv -m qwen3vl-2b -a 0.0.0.0
 
 # 启用远程关机（不推荐用于生产环境）
 aha serv -m qwen3vl-2b --allow-remote-shutdown
+
+# 启动 ONNX embedding 服务
+aha serv -m qwen3-embedding-0.6b --artifact-format onnx \
+  --onnx-path /path/to/Qwen3-Embedding-0.6B-ONNX \
+  --tokenizer-dir /path/to/Qwen3-Embedding-0.6B-ONNX
 ```
 
 ### ps - 列出运行中的服务
@@ -408,6 +442,20 @@ aha -m qwen3vl-2b -a 0.0.0.0 -p 8080
 - **格式**: OpenAI Chat Completion 格式
 - **流式支持**: 不支持
 
+### Embeddings 接口
+- **端点**: `POST /embeddings` 或 `POST /v1/embeddings`
+- **功能**: 文本向量生成
+- **支持模型**: Qwen3-Embedding 系列
+- **格式**: OpenAI embeddings 格式
+- **流式支持**: 不支持
+
+### Rerank 接口
+- **端点**: `POST /rerank` 或 `POST /v1/rerank`
+- **功能**: query/document 重排打分
+- **支持模型**: Qwen3-Reranker 系列
+- **格式**: Rerank JSON（`results[index,relevance_score,document]`）
+- **流式支持**: 不支持
+
 ### 关机接口
 - **端点**: `POST /shutdown`
 - **功能**: 优雅地关闭服务器
@@ -428,15 +476,19 @@ aha -m qwen3vl-2b
 
 ## 注意事项
 
-1. **serv 子命令必须指定 `--weight-path`**：由于 `serv` 子命令不下载模型，必须通过 `--weight-path` 指定已下载的模型路径。
+1. **GGUF/ONNX 仅支持本地路径**：请使用 `--gguf-path` 或 `--onnx-path`。自动下载管理仅适用于 safetensors 模型。
 
-2. **下载重试机制**：默认重试 3 次，每次失败后等待 2 秒再重试。可通过 `--download-retries` 调整重试次数。
+2. **制品格式选择**：`--artifact-format auto` 使用模型默认格式，也可显式指定 `safetensors|gguf|onnx`。
 
-3. **默认保存目录**：模型默认保存到 `~/.aha/` 目录下，可通过 `--save-dir` 或 `-s` 参数自定义。
+3. **tokenizer 目录**：GGUF/ONNX 若未与 tokenizer/config 同目录，请额外指定 `--tokenizer-dir`。
 
-4. **端口占用**：启动服务前确保指定的端口未被占用，默认端口为 10100。
+4. **下载重试机制**：默认重试 3 次，每次失败后等待 2 秒再重试。可通过 `--download-retries` 调整重试次数。
 
-5. **权限问题**：如果保存到系统目录（如 `/data/models`），确保有相应的写入权限。
+5. **默认保存目录**：模型默认保存到 `~/.aha/` 目录下，可通过 `--save-dir` 或 `-s` 参数自定义。
+
+6. **端口占用**：启动服务前确保指定的端口未被占用，默认端口为 10100。
+
+7. **权限问题**：如果保存到系统目录（如 `/data/models`），确保有相应的写入权限。
 
 ## 获取帮助
 

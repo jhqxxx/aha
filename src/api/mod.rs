@@ -2,9 +2,8 @@ use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use aha::models::{GenerateModel, ModelInstance, WhichModel, load_model};
+use aha::models::{ArtifactKind, GenerateModel, LoadSpec, ModelInstance, WhichModel, load_model};
 use aha::process::cleanup_pid_file;
-use aha::utils::string_to_static_str;
 use aha_openai_dive::v1::resources::chat::ChatCompletionParameters;
 use rocket::futures::StreamExt;
 use rocket::serde::{Deserialize, Serialize, json::Json};
@@ -29,6 +28,7 @@ pub(crate) use asr::transcriptions;
 /// Wrapper to store model type together with the model instance
 pub(crate) struct StoredModel {
     which_model: WhichModel,
+    artifact: ArtifactKind,
     instance: ModelInstance<'static>,
 }
 
@@ -38,19 +38,14 @@ static SHUTDOWN_FLAG: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 static SERVER_PORT: OnceLock<u16> = OnceLock::new();
 static ALLOW_REMOTE_SHUTDOWN: OnceLock<bool> = OnceLock::new();
 
-pub fn init(
-    model_type: WhichModel,
-    path: String,
-    gguf: Option<String>,
-    mmproj: Option<String>,
-) -> anyhow::Result<()> {
-    let model_path = string_to_static_str(path);
-    let gguf = gguf.map(string_to_static_str);
-    let mmproj = mmproj.map(string_to_static_str);
-    let model = load_model(model_type, model_path, gguf, mmproj)?;
+pub fn init(spec: LoadSpec) -> anyhow::Result<()> {
+    let resolved_artifact = spec.resolved_artifact();
+    let model_type = spec.model;
+    let model = load_model(&spec)?;
     MODEL.get_or_init(|| {
         Arc::new(RwLock::new(StoredModel {
             which_model: model_type,
+            artifact: resolved_artifact,
             instance: model,
         }))
     });
@@ -415,6 +410,7 @@ struct ModelObject {
     object: String,
     created: Option<i64>,
     owned_by: String,
+    artifact: String,
 }
 
 /// OpenAI-compatible models list response
@@ -440,6 +436,7 @@ pub(crate) async fn models() -> (Status, (ContentType, Json<serde_json::Value>))
             object: "model".to_string(),
             created: None, // We don't track creation time
             owned_by: which_model.owner().to_string(),
+            artifact: format!("{:?}", guard.artifact).to_ascii_lowercase(),
         };
         drop(guard);
 

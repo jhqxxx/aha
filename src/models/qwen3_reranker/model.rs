@@ -21,6 +21,22 @@ impl Qwen3RerankerBackend {
         })
     }
 
+    pub fn load_onnx(onnx_path: &str, tokenizer_dir: Option<&str>) -> Result<Self> {
+        let embedding_backend = Qwen3EmbeddingModel::init_onnx(onnx_path, tokenizer_dir)?;
+        Ok(Self {
+            config: Qwen3RerankerConfig::default(),
+            embedding_backend,
+        })
+    }
+
+    pub fn load_gguf(gguf_path: &str, tokenizer_dir: Option<&str>) -> Result<Self> {
+        let embedding_backend = Qwen3EmbeddingModel::init_gguf(gguf_path, tokenizer_dir)?;
+        Ok(Self {
+            config: Qwen3RerankerConfig::default(),
+            embedding_backend,
+        })
+    }
+
     pub fn rerank(&mut self, query: &str, documents: &[String]) -> Result<Vec<f32>> {
         if query.trim().is_empty() {
             return Err(anyhow!("reranker query cannot be empty"));

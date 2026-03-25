@@ -6,24 +6,24 @@ aha 支持多个领域的最先进 AI 模型集合。
 
 | 模型 | 参数量 | 描述 | 使用场景 | 开源协议 |
 |------|--------|------|----------|---------|
-| **Qwen3-0.6B** | 0.6B | 最新一代 | 高级推理 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-0.6B** | 0.6B | 最新一代（safetensors / gguf / onnx） | 高级推理 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **MiniCPM4-0.5B** | 0.5B | 高效轻量级 | 边缘部署 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## Embedding
 
 | 模型 | 参数量 | 描述 | 开源协议 |
 |------|--------|------|---------|
-| **Qwen3-Embedding-0.6B** | 0.6B | 文本向量（safetensors） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Embedding-4B** | 4B | 文本向量（safetensors） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Embedding-8B** | 8B | 文本向量（safetensors） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Embedding-0.6B** | 0.6B | 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Embedding-4B** | 4B | 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Embedding-8B** | 8B | 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## Reranker
 
 | 模型 | 参数量 | 描述 | 开源协议 |
 |------|--------|------|---------|
-| **Qwen3-Reranker-0.6B** | 0.6B | 文本重排（基于 embedding 相似度的基线实现，safetensors） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Reranker-4B** | 4B | 文本重排（基于 embedding 相似度的基线实现，safetensors） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Reranker-8B** | 8B | 文本重排（基于 embedding 相似度的基线实现，safetensors） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Reranker-0.6B** | 0.6B | 文本重排（embedding-similarity 基线，safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Reranker-4B** | 4B | 文本重排（embedding-similarity 基线，safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Reranker-8B** | 8B | 文本重排（embedding-similarity 基线，safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## 视觉与多模态
 
@@ -35,11 +35,11 @@ aha 支持多个领域的最先进 AI 模型集合。
 | **Qwen3-VL-4B** | 4B | 增强多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Qwen3-VL-8B** | 8B | 增强多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Qwen3-VL-32B** | 32B | 增强多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-0.8B** | 0.8B | 原生多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-2B** | 2B | 原生多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-4B** | 4B | 原生多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-9B** | 9B | 原生多模态 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2** | 9B | Qwen3.5 同构蒸馏版本 | [HF 页面许可证](https://huggingface.co/Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2) |
+| **Qwen3.5-0.8B** | 0.8B | 原生多模态（safetensors / gguf / onnx 文本+图片，视频/音频显式拒绝） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-2B** | 2B | 原生多模态（safetensors / gguf / onnx 文本+图片，视频/音频显式拒绝） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-4B** | 4B | 原生多模态（safetensors / gguf / onnx 文本+图片，视频/音频显式拒绝） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-9B** | 9B | 原生多模态（safetensors / gguf / onnx 文本+图片，视频/音频显式拒绝） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2** | 9B | Qwen3.5 同构蒸馏版本（safetensors / gguf / onnx 文本+图片，视频/音频显式拒绝） | [HF 页面许可证](https://huggingface.co/Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2) |
 
 ### Qwen3.5 GGUF 仓库来源（复用现有运行时）
 

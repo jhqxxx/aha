@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use serde::Serialize;
 
 use crate::exec::ExecModel;
-use crate::models::qwen3_reranker::generate::Qwen3RerankerModel;
+use crate::models::{LoadSpec, qwen3_reranker::generate::Qwen3RerankerModel};
 
 #[derive(Debug, Serialize)]
 struct RerankItem {
@@ -15,8 +15,8 @@ struct RerankItem {
 
 pub struct Qwen3RerankerExec;
 
-impl ExecModel for Qwen3RerankerExec {
-    fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
+impl Qwen3RerankerExec {
+    pub fn run_with_spec(input: &[String], output: Option<&str>, spec: &LoadSpec) -> Result<()> {
         if input.len() < 2 {
             return Err(anyhow!(
                 "reranker run requires two inputs: <query> <documents-source>"
@@ -29,7 +29,7 @@ impl ExecModel for Qwen3RerankerExec {
             return Err(anyhow!("documents list is empty"));
         }
 
-        let mut model = Qwen3RerankerModel::init(weight_path, None, None)?;
+        let mut model = Qwen3RerankerModel::init_from_spec(spec, None, None)?;
         let i_start = Instant::now();
         let scores = model.rerank(&query, &documents)?;
         println!("Time elapsed in rerank is: {:?}", i_start.elapsed());
@@ -54,6 +54,14 @@ impl ExecModel for Qwen3RerankerExec {
         std::fs::write(&output_path, output_json.as_bytes())?;
         println!("Generate rerank output to {}", output_path);
         Ok(())
+    }
+}
+
+impl ExecModel for Qwen3RerankerExec {
+    fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
+        let spec =
+            LoadSpec::for_safetensors(crate::models::WhichModel::Qwen3Reranker0_6B, weight_path);
+        Self::run_with_spec(input, output, &spec)
     }
 }
 

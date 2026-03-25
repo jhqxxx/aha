@@ -1,6 +1,7 @@
 pub mod bigvgan;
 pub mod campplus;
 pub mod common;
+pub mod core;
 pub mod deepseek_ocr;
 pub mod feature_extractor;
 pub mod fun_asr_nano;
@@ -40,6 +41,11 @@ use crate::models::{
     rmbg2_0::generate::RMBG2_0Model, voxcpm::generate::VoxCPMGenerate,
 };
 
+pub use core::artifact::{
+    ArtifactKind, LoadSpec, ModelPaths, default_artifact, supported_artifacts,
+};
+pub use core::{artifact, registry};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModelArtifactFormat {
     Safetensors,
@@ -77,23 +83,8 @@ pub enum WhichModel {
     Qwen3_5_4B,
     #[value(name = "qwen3.5-9b", hide = true)]
     Qwen3_5_9B,
-    #[value(
-        name = "qwen3.5-9b-claude-4.6-opus-reasoning-distilled-v2",
-        hide = true
-    )]
-    Qwen3_5_9BClaude46OpusReasoningDistilledV2,
     #[value(name = "qwen3.5-gguf", hide = true)]
     Qwen3_5Gguf,
-    #[value(
-        name = "qwen3.5-4b-claude-4.6-opus-reasoning-distilled-v2-gguf",
-        hide = true
-    )]
-    Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf,
-    #[value(
-        name = "qwen3.5-9b-claude-4.6-opus-reasoning-distilled-v2-gguf",
-        hide = true
-    )]
-    Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf,
     #[value(name = "qwen3.5-0.8b-unsloth-gguf", hide = true)]
     Qwen3_5_0_8BUnslothGguf,
     #[value(name = "qwen3.5-2b-unsloth-gguf", hide = true)]
@@ -157,9 +148,6 @@ pub const LISTED_MODELS: &[WhichModel] = &[
     WhichModel::Qwen3_5_2B,
     WhichModel::Qwen3_5_4B,
     WhichModel::Qwen3_5_9B,
-    WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2,
-    WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf,
-    WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf,
     WhichModel::Qwen3_5_0_8BUnslothGguf,
     WhichModel::Qwen3_5_2BUnslothGguf,
     WhichModel::Qwen3_5_4BUnslothGguf,
@@ -189,8 +177,6 @@ impl WhichModel {
     pub fn artifact_format(self) -> ModelArtifactFormat {
         match self {
             WhichModel::Qwen3_5Gguf
-            | WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf
-            | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf
             | WhichModel::Qwen3_5_0_8BUnslothGguf
             | WhichModel::Qwen3_5_2BUnslothGguf
             | WhichModel::Qwen3_5_4BUnslothGguf
@@ -224,16 +210,7 @@ impl WhichModel {
             WhichModel::Qwen3_5_2B => "qwen3.5-2b",
             WhichModel::Qwen3_5_4B => "qwen3.5-4b",
             WhichModel::Qwen3_5_9B => "qwen3.5-9b",
-            WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2 => {
-                "qwen3.5-9b-claude-4.6-opus-reasoning-distilled-v2"
-            }
             WhichModel::Qwen3_5Gguf => "qwen3.5-gguf",
-            WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf => {
-                "qwen3.5-4b-claude-4.6-opus-reasoning-distilled-v2-gguf"
-            }
-            WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf => {
-                "qwen3.5-9b-claude-4.6-opus-reasoning-distilled-v2-gguf"
-            }
             WhichModel::Qwen3_5_0_8BUnslothGguf => "qwen3.5-0.8b-unsloth-gguf",
             WhichModel::Qwen3_5_2BUnslothGguf => "qwen3.5-2b-unsloth-gguf",
             WhichModel::Qwen3_5_4BUnslothGguf => "qwen3.5-4b-unsloth-gguf",
@@ -288,9 +265,6 @@ impl WhichModel {
             WhichModel::Qwen3_5_0_8BLmstudioGguf
             | WhichModel::Qwen3_5_2BLmstudioGguf
             | WhichModel::Qwen3_5_4BLmstudioGguf => "lmstudio-community",
-            WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2
-            | WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf
-            | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf => "Jackrong",
             WhichModel::DeepSeekOCR | WhichModel::DeepSeekOCR2 => "deepseek-ai",
             WhichModel::HunyuanOCR => "Tencent-Hunyuan",
             WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 => "PaddlePaddle",
@@ -318,16 +292,7 @@ impl WhichModel {
             WhichModel::Qwen3_5_2B => "Qwen/Qwen3.5-2B",
             WhichModel::Qwen3_5_4B => "Qwen/Qwen3.5-4B",
             WhichModel::Qwen3_5_9B => "Qwen/Qwen3.5-9B",
-            WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2 => {
-                "Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2"
-            }
             WhichModel::Qwen3_5Gguf => "GGUF",
-            WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf => {
-                "Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF"
-            }
-            WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf => {
-                "Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF"
-            }
             WhichModel::Qwen3_5_0_8BUnslothGguf => "unsloth/Qwen3.5-0.8B-GGUF",
             WhichModel::Qwen3_5_2BUnslothGguf => "unsloth/Qwen3.5-2B-GGUF",
             WhichModel::Qwen3_5_4BUnslothGguf => "unsloth/Qwen3.5-4B-GGUF",
@@ -375,11 +340,8 @@ impl WhichModel {
             | WhichModel::Qwen3_5_2B
             | WhichModel::Qwen3_5_4B
             | WhichModel::Qwen3_5_9B
-            | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2
             | WhichModel::Qwen3_5Gguf => "vlm",
-            WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf
-            | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf
-            | WhichModel::Qwen3_5_0_8BUnslothGguf
+            WhichModel::Qwen3_5_0_8BUnslothGguf
             | WhichModel::Qwen3_5_2BUnslothGguf
             | WhichModel::Qwen3_5_4BUnslothGguf
             | WhichModel::Qwen3_5_0_8BLmstudioGguf
@@ -515,7 +477,11 @@ impl<'a> ModelInstance<'a> {
     }
 }
 
-pub fn load_model<'a>(
+pub fn load_model<'a>(spec: &LoadSpec) -> Result<ModelInstance<'a>> {
+    registry::load_model_from_spec(spec)
+}
+
+pub fn load_model_legacy<'a>(
     model_type: WhichModel,
     path: &str,
     gguf: Option<&str>,
@@ -566,13 +532,7 @@ pub fn load_model<'a>(
             let model = Qwen3_5GenerateModel::init(path, None, None)?;
             ModelInstance::Qwen3_5(model)
         }
-        WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2 => {
-            let model = Qwen3_5GenerateModel::init(path, None, None)?;
-            ModelInstance::Qwen3_5(model)
-        }
         WhichModel::Qwen3_5Gguf
-        | WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf
-        | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf
         | WhichModel::Qwen3_5_0_8BUnslothGguf
         | WhichModel::Qwen3_5_2BUnslothGguf
         | WhichModel::Qwen3_5_4BUnslothGguf

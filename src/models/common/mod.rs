@@ -8,6 +8,7 @@ use candle_nn::{
 };
 
 pub mod gguf;
+pub mod onnx;
 pub mod retrieval;
 
 use crate::{

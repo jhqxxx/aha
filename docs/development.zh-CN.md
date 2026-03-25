@@ -335,6 +335,17 @@ fn test_newmodel_generate() -> Result<()> {
 - `docs/api.md` - 将模型添加到支持的模型部分
 - `CHANGELOG.md` - 为新模型添加条目
 
+## 多制品接入规则
+
+为模型新增或扩展加载后端时，请遵循当前制品架构：
+
+1. 统一使用 `LoadSpec`（`src/models/core/artifact.rs`）作为加载输入契约。
+2. 保持模型身份（`WhichModel`）与制品格式（`ArtifactKind`）解耦。
+3. 在 `supported_artifacts(model)` 中声明支持矩阵，不要提前暴露未实现格式。
+4. 通过 family loader registry（`src/models/core/registry.rs`）分发初始化，不再扩展 `load_model` 的大 `match`。
+5. GGUF/ONNX 保持本地路径输入（`gguf_path` / `onnx_path` / `tokenizer_dir`），不引入远程下载管理逻辑。
+6. 新后端接入时保持 `ModelInstance` 能力接口语义兼容（`generate`、`generate_stream`、`embedding`、`rerank`）。
+
 ## 测试
 
 ### 单元测试

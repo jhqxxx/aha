@@ -5,6 +5,29 @@ All notable changes to aha will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### 2026-03-25
+- Added unified multi-artifact loading via `LoadSpec` (`safetensors` / `gguf` / `onnx`) across CLI, API, and service entrypoints.
+- Added CLI options:
+  - `--artifact-format` (`auto|safetensors|gguf|onnx`)
+  - `--onnx-path`
+  - `--tokenizer-dir`
+- Added ONNX runtime helper layer with repository-local `lib/onnxruntime.dll` auto-discovery on Windows.
+- Enabled ONNX runtime path for:
+  - `qwen3` text generation (dynamic cache-aware decode path)
+  - `qwen3_embedding` (real session init + embedding)
+  - `qwen3_reranker` (reusing embedding-similarity backend)
+  - `qwen3.5` text/image generation (vision encoder path; video/audio explicitly rejected)
+- Enabled GGUF runtime path for `qwen3-0.6b` by reusing `candle_transformers::quantized_qwen3`.
+- Enabled GGUF runtime path for:
+  - `qwen3_embedding` (token embedding + mean pooling + normalization)
+  - `qwen3_reranker` (reusing embedding-similarity backend on top of GGUF embedding)
+- Added reusable GGUF text bootstrap helpers in `models/common/gguf.rs` and reused them in `qwen3` / `qwen3.5`.
+- Added/updated validation tests:
+  - `test_load_spec`
+  - `test_qwen3_multi_format`
+  - `test_qwen3_embedding_multi_format`
+  - `test_qwen3_reranker_multi_format`
+
 ### v0.2.3 (2026-03-18)
 - add DeepSeek-OCR-2
 

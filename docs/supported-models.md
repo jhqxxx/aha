@@ -6,24 +6,24 @@ aha supports a growing collection of state-of-the-art AI models across multiple 
 
 | Model | Parameters | Description | Use Case | License |
 |-------|-----------|-------------|----------|---------|
-| **Qwen3-0.6B** | 0.6B | Latest generation | Advanced reasoning | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-0.6B** | 0.6B | Latest generation (safetensors / gguf / onnx) | Advanced reasoning | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **MiniCPM4-0.5B** | 0.5B | Efficient lightweight | Edge deployment | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## Embedding
 
 | Model | Parameters | Description | License |
 |-------|-----------|-------------|---------|
-| **Qwen3-Embedding-0.6B** | 0.6B | Text embedding (safetensors) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Embedding-4B** | 4B | Text embedding (safetensors) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Embedding-8B** | 8B | Text embedding (safetensors) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Embedding-0.6B** | 0.6B | Text embedding (safetensors / gguf / onnx) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Embedding-4B** | 4B | Text embedding (safetensors / gguf / onnx) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Embedding-8B** | 8B | Text embedding (safetensors / gguf / onnx) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## Reranker
 
 | Model | Parameters | Description | License |
 |-------|-----------|-------------|---------|
-| **Qwen3-Reranker-0.6B** | 0.6B | Text reranking (embedding-similarity baseline, safetensors) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Reranker-4B** | 4B | Text reranking (embedding-similarity baseline, safetensors) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3-Reranker-8B** | 8B | Text reranking (embedding-similarity baseline, safetensors) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Reranker-0.6B** | 0.6B | Text reranking (embedding-similarity baseline, safetensors / gguf / onnx) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Reranker-4B** | 4B | Text reranking (embedding-similarity baseline, safetensors / gguf / onnx) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-Reranker-8B** | 8B | Text reranking (embedding-similarity baseline, safetensors / gguf / onnx) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## Vision & Multimodal
 
@@ -35,11 +35,11 @@ aha supports a growing collection of state-of-the-art AI models across multiple 
 | **Qwen3-VL-4B** | 4B | Enhanced multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Qwen3-VL-8B** | 8B | Enhanced multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Qwen3-VL-32B** | 32B | Enhanced multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-0.8B** | 0.8B | Native Multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-2B** | 2B | Native Multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-4B** | 4B | Native Multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-9B** | 9B | Native Multimodal | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
-| **Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2** | 9B | Distilled variant (Qwen3.5 family) | [Model license on HF](https://huggingface.co/Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2) |
+| **Qwen3.5-0.8B** | 0.8B | Native Multimodal (safetensors / gguf / onnx-text+image, video/audio rejected) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-2B** | 2B | Native Multimodal (safetensors / gguf / onnx-text+image, video/audio rejected) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-4B** | 4B | Native Multimodal (safetensors / gguf / onnx-text+image, video/audio rejected) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-9B** | 9B | Native Multimodal (safetensors / gguf / onnx-text+image, video/audio rejected) | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2** | 9B | Distilled variant (Qwen3.5 family, safetensors / gguf / onnx-text+image, video/audio rejected) | [Model license on HF](https://huggingface.co/Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2) |
 
 ### Qwen3.5 GGUF Sources (Runtime Reused)
 

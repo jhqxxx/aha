@@ -1,4 +1,7 @@
-use std::io::{Read, Seek};
+use std::{
+    fs::File,
+    io::{Read, Seek},
+};
 
 use ahash::AHashMap;
 use anyhow::{Result, anyhow};
@@ -15,6 +18,12 @@ use candle_nn::{
 use tokenizers::{self, AddedToken, Tokenizer, models::bpe::BPE};
 
 use crate::tokenizer::TokenizerModel;
+
+pub struct GgufTextBootstrap {
+    pub tokenizer: TokenizerModel,
+    pub chat_template: Option<String>,
+    pub eos_token_id: Option<u32>,
+}
 
 pub struct Gguf<R: Read + Seek> {
     ct: gguf_file::Content,
@@ -201,6 +210,35 @@ impl<R: Read + Seek> Gguf<R> {
             _ => Err(anyhow!("Unsupported tokenizer model type: {model_type}")),
         }
     }
+}
+
+pub fn load_gguf_file(path: &str, device: &Device) -> Result<Gguf<File>> {
+    let mut reader = File::open(path)?;
+    let content = gguf_file::Content::read(&mut reader)?;
+    Ok(Gguf::new(content, reader, device.clone()))
+}
+
+pub fn load_text_bootstrap_from_gguf(
+    model_file: &str,
+    add_prefix_space: Option<bool>,
+    trim_offsets: Option<bool>,
+    use_regex: Option<bool>,
+) -> Result<GgufTextBootstrap> {
+    let gguf = load_gguf_file(model_file, &Device::Cpu)?;
+    let tokenizer = gguf.build_tokenizer(add_prefix_space, trim_offsets, use_regex)?;
+    let chat_template = gguf
+        .get_matedata("tokenizer.chat_template")
+        .ok()
+        .and_then(|value| value.to_string().ok().cloned());
+    let eos_token_id = gguf
+        .get_matedata("tokenizer.ggml.eos_token_id")
+        .ok()
+        .and_then(|value| value.to_u32().ok());
+    Ok(GgufTextBootstrap {
+        tokenizer,
+        chat_template,
+        eos_token_id,
+    })
 }
 
 #[derive(Debug, Clone)]

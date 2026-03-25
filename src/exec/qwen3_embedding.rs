@@ -3,13 +3,13 @@ use std::time::Instant;
 use anyhow::Result;
 
 use crate::exec::ExecModel;
-use crate::models::qwen3_embedding::generate::Qwen3EmbeddingModel;
+use crate::models::{LoadSpec, qwen3_embedding::generate::Qwen3EmbeddingModel};
 use crate::utils::get_file_path;
 
 pub struct Qwen3EmbeddingExec;
 
-impl ExecModel for Qwen3EmbeddingExec {
-    fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
+impl Qwen3EmbeddingExec {
+    pub fn run_with_spec(input: &[String], output: Option<&str>, spec: &LoadSpec) -> Result<()> {
         let input_text = input
             .first()
             .ok_or_else(|| anyhow::anyhow!("embedding run requires one text input"))?;
@@ -21,7 +21,7 @@ impl ExecModel for Qwen3EmbeddingExec {
         };
 
         let i_start = Instant::now();
-        let mut model = Qwen3EmbeddingModel::init(weight_path, None, None)?;
+        let mut model = Qwen3EmbeddingModel::init_from_spec(spec, None, None)?;
         println!("Time elapsed in load model is: {:?}", i_start.elapsed());
 
         let i_start = Instant::now();
@@ -35,5 +35,13 @@ impl ExecModel for Qwen3EmbeddingExec {
             println!("Output saved to: {}", out);
         }
         Ok(())
+    }
+}
+
+impl ExecModel for Qwen3EmbeddingExec {
+    fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
+        let spec =
+            LoadSpec::for_safetensors(crate::models::WhichModel::Qwen3Embedding0_6B, weight_path);
+        Self::run_with_spec(input, output, &spec)
     }
 }

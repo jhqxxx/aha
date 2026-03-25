@@ -335,6 +335,17 @@ Update the following files:
 - `docs/api.md` - Add model to supported models section
 - `CHANGELOG.md` - Add entry for new model
 
+## Multi-Artifact Integration Rules
+
+When adding or extending model loaders, follow the current artifact architecture:
+
+1. Use `LoadSpec` (`src/models/core/artifact.rs`) as the only input contract for loading.
+2. Keep model identity (`WhichModel`) separate from artifact format (`ArtifactKind`).
+3. Register supported formats in `supported_artifacts(model)`; do not expose unsupported formats.
+4. Route initialization through family loader registry (`src/models/core/registry.rs`) instead of extending a large `match` in `load_model`.
+5. Keep GGUF/ONNX path handling local-only (`gguf_path` / `onnx_path` / `tokenizer_dir`), and avoid adding remote download logic for these formats.
+6. Maintain API compatibility of `ModelInstance` capabilities (`generate`, `generate_stream`, `embedding`, `rerank`) when adding new backends.
+
 ## Testing
 
 ### Unit Tests

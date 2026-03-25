@@ -5,6 +5,29 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+### 2026-03-25
+- 新增统一多制品加载抽象 `LoadSpec`，在 CLI / API / service 三入口支持 `safetensors` / `gguf` / `onnx`。
+- 新增 CLI 参数：
+  - `--artifact-format`（`auto|safetensors|gguf|onnx`）
+  - `--onnx-path`
+  - `--tokenizer-dir`
+- 新增 ONNX 运行时通用层，并在 Windows 上支持仓库内 `lib/onnxruntime.dll` 自动发现。
+- 完成以下模型族 ONNX 运行路径接入：
+  - `qwen3` 文本生成（动态 cache 适配解码路径）
+  - `qwen3_embedding`（真实 session 初始化与 embedding）
+  - `qwen3_reranker`（复用 embedding-similarity 后端）
+  - `qwen3.5` 文本+图片生成（接入 vision encoder；视频/音频显式拒绝）
+- 新增 `qwen3-0.6b` 的 GGUF 运行路径（复用 `candle_transformers::quantized_qwen3`）。
+- 新增以下模型族的 GGUF 运行路径：
+  - `qwen3_embedding`（token embedding + mean pooling + normalization）
+  - `qwen3_reranker`（在 GGUF embedding 之上复用 embedding-similarity 后端）
+- 在 `models/common/gguf.rs` 新增通用 GGUF 文本引导 helper，并复用到 `qwen3` / `qwen3.5`。
+- 新增/更新验证测试：
+  - `test_load_spec`
+  - `test_qwen3_multi_format`
+  - `test_qwen3_embedding_multi_format`
+  - `test_qwen3_reranker_multi_format`
+
 ### v0.2.3 (2026-03-18)
 - 新增 DeepSeek-OCR-2
 

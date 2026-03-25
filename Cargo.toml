@@ -43,12 +43,18 @@ half = "2.7.1"
 byteorder = "1.5.0"
 sentencepiece = "0.13.1"
 ahash = "0.8.12"
+ort = { version = "2.0.0-rc.10", default-features = false, features = ["load-dynamic", "api-24", "half", "ndarray"], optional = true }
+ndarray = "0.17"
+
+[patch.crates-io]
+esaxx-rs = { path = "vendor/esaxx-rs" }
 
 [features]
 flash-attn = ["candle-flash-attn"]
 cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
 metal = ["candle-nn/metal", "candle-core/metal", "candle-transformers/metal"]
 ffmpeg = ["ffmpeg-next"]
+onnx-runtime = ["dep:ort"]
 
 [lints.clippy]
 needless_range_loop = "allow"
@@ -56,4 +62,3 @@ single_range_in_vec_init = "allow"
 manual_div_ceil = "allow"
 
 [dev-dependencies]
-ort = { version = "2.0.0-rc.10", default-features = false, features = ["load-dynamic", "api-24"] }

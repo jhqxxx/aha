@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use aha::{
-    models::{LISTED_MODELS, ModelArtifactFormat, WhichModel},
+    models::{ArtifactKind, LISTED_MODELS, LoadSpec, ModelPaths, WhichModel, default_artifact},
     process::{cleanup_pid_file, create_pid_file},
     utils::{download_model, get_default_save_dir},
 };
@@ -54,6 +54,18 @@ struct Cli {
     #[arg(long)]
     mmproj_path: Option<String>,
 
+    /// Local ONNX model path
+    #[arg(long)]
+    onnx_path: Option<String>,
+
+    /// Tokenizer/config directory for GGUF/ONNX artifacts
+    #[arg(long)]
+    tokenizer_dir: Option<String>,
+
+    /// Model artifact format
+    #[arg(long)]
+    artifact_format: Option<ArtifactArg>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -74,6 +86,25 @@ enum Commands {
     Run(RunArgs),
     /// List all supported models
     List(ListArgs),
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum ArtifactArg {
+    Auto,
+    Safetensors,
+    Gguf,
+    Onnx,
+}
+
+impl From<ArtifactArg> for ArtifactKind {
+    fn from(value: ArtifactArg) -> Self {
+        match value {
+            ArtifactArg::Auto => ArtifactKind::Auto,
+            ArtifactArg::Safetensors => ArtifactKind::Safetensors,
+            ArtifactArg::Gguf => ArtifactKind::Gguf,
+            ArtifactArg::Onnx => ArtifactKind::Onnx,
+        }
+    }
 }
 
 /// Common/shared arguments for server operations
@@ -121,6 +152,18 @@ struct CliArgs {
     /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
     #[arg(long)]
     mmproj_path: Option<String>,
+
+    /// Local ONNX model path
+    #[arg(long)]
+    onnx_path: Option<String>,
+
+    /// Tokenizer/config directory for GGUF/ONNX artifacts
+    #[arg(long)]
+    tokenizer_dir: Option<String>,
+
+    /// Model artifact format
+    #[arg(long)]
+    artifact_format: Option<ArtifactArg>,
 }
 
 /// Arguments for the 'serv start' subcommand
@@ -140,6 +183,18 @@ struct ServArgs {
     /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
     #[arg(long)]
     mmproj_path: Option<String>,
+
+    /// Local ONNX model path
+    #[arg(long)]
+    onnx_path: Option<String>,
+
+    /// Tokenizer/config directory for GGUF/ONNX artifacts
+    #[arg(long)]
+    tokenizer_dir: Option<String>,
+
+    /// Model artifact format
+    #[arg(long)]
+    artifact_format: Option<ArtifactArg>,
 }
 
 /// Arguments for the 'serv list' subcommand
@@ -192,6 +247,18 @@ struct RunArgs {
     /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
     #[arg(long)]
     mmproj_path: Option<String>,
+
+    /// Local ONNX model path
+    #[arg(long)]
+    onnx_path: Option<String>,
+
+    /// Tokenizer/config directory for GGUF/ONNX artifacts
+    #[arg(long)]
+    tokenizer_dir: Option<String>,
+
+    /// Model artifact format
+    #[arg(long)]
+    artifact_format: Option<ArtifactArg>,
 }
 
 /// Arguments for the 'delete' subcommand (delete model from default location)
@@ -282,43 +349,120 @@ fn run_list(args: ListArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn resolve_model_paths_for_server(
+fn resolve_artifact_kind(model: WhichModel, artifact: Option<ArtifactArg>) -> ArtifactKind {
+    artifact
+        .map(Into::into)
+        .unwrap_or_else(|| default_artifact(model))
+}
+
+async fn resolve_load_spec_for_server(
     model: WhichModel,
     weight_path: Option<String>,
     save_dir: Option<String>,
     download_retries: Option<u32>,
     gguf_path: Option<String>,
     mmproj_path: Option<String>,
+    onnx_path: Option<String>,
+    tokenizer_dir: Option<String>,
+    artifact: Option<ArtifactArg>,
     allow_download: bool,
-) -> anyhow::Result<(String, Option<String>, Option<String>)> {
-    match model.artifact_format() {
-        ModelArtifactFormat::Gguf => {
-            if gguf_path.is_none() {
-                return Err(anyhow!("gguf model path is required"));
+) -> anyhow::Result<LoadSpec> {
+    let artifact = resolve_artifact_kind(model, artifact);
+    let weight_dir = match artifact {
+        ArtifactKind::Safetensors => match weight_path {
+            Some(path) => Some(path),
+            None if allow_download && model.is_download_managed() => {
+                let model_id = model.model_id();
+                let save_dir = match save_dir {
+                    Some(dir) => dir,
+                    None => get_default_save_dir().expect("Failed to get home directory"),
+                };
+                let max_retries = download_retries.unwrap_or(3);
+                download_model(model_id, &save_dir, max_retries).await?;
+                Some(save_dir + "/" + model_id)
             }
-            Ok(("GGUF".to_string(), gguf_path, mmproj_path))
+            None => Some(get_default_weight_path(model)),
+        },
+        ArtifactKind::Gguf | ArtifactKind::Onnx | ArtifactKind::Auto => None,
+    };
+
+    let spec = LoadSpec {
+        model,
+        artifact,
+        paths: ModelPaths {
+            weight_dir,
+            gguf_path,
+            mmproj_path,
+            onnx_path,
+            tokenizer_dir,
+        },
+    };
+    spec.validate()?;
+    Ok(spec)
+}
+
+fn resolve_load_spec_for_run(args: &RunArgs) -> anyhow::Result<LoadSpec> {
+    let artifact = resolve_artifact_kind(args.model, args.artifact_format);
+    let weight_dir = match artifact {
+        ArtifactKind::Safetensors => Some(
+            args.weight_path
+                .clone()
+                .unwrap_or_else(|| get_default_weight_path(args.model)),
+        ),
+        ArtifactKind::Gguf | ArtifactKind::Onnx | ArtifactKind::Auto => None,
+    };
+    let spec = LoadSpec {
+        model: args.model,
+        artifact,
+        paths: ModelPaths {
+            weight_dir,
+            gguf_path: args.gguf_path.clone(),
+            mmproj_path: args.mmproj_path.clone(),
+            onnx_path: args.onnx_path.clone(),
+            tokenizer_dir: args.tokenizer_dir.clone(),
+        },
+    };
+    spec.validate()?;
+    Ok(spec)
+}
+
+fn run_target_model_with_spec(args: &RunArgs, spec: &LoadSpec) -> anyhow::Result<bool> {
+    match args.model {
+        WhichModel::Qwen3_0_6B => {
+            use aha::exec::qwen3::Qwen3Exec;
+            Qwen3Exec::run_with_spec(&args.input, args.output.as_deref(), spec)?;
+            Ok(true)
         }
-        ModelArtifactFormat::Safetensors => {
-            let model_id = model.model_id();
-            let model_path = match weight_path {
-                Some(path) => path,
-                None if allow_download => {
-                    let save_dir = match save_dir {
-                        Some(dir) => dir,
-                        None => get_default_save_dir().expect("Failed to get home directory"),
-                    };
-                    let max_retries = download_retries.unwrap_or(3);
-                    download_model(model_id, &save_dir, max_retries).await?;
-                    save_dir + "/" + model_id
-                }
-                None => get_default_weight_path(model),
-            };
-            Ok((model_path, None, None))
+        WhichModel::Qwen3Embedding0_6B
+        | WhichModel::Qwen3Embedding4B
+        | WhichModel::Qwen3Embedding8B => {
+            use aha::exec::qwen3_embedding::Qwen3EmbeddingExec;
+            Qwen3EmbeddingExec::run_with_spec(&args.input, args.output.as_deref(), spec)?;
+            Ok(true)
         }
-        ModelArtifactFormat::Onnx => Err(anyhow!(
-            "onnx runtime is not integrated yet for model {}",
-            model.openai_model_id()
-        )),
+        WhichModel::Qwen3Reranker0_6B
+        | WhichModel::Qwen3Reranker4B
+        | WhichModel::Qwen3Reranker8B => {
+            use aha::exec::qwen3_reranker::Qwen3RerankerExec;
+            Qwen3RerankerExec::run_with_spec(&args.input, args.output.as_deref(), spec)?;
+            Ok(true)
+        }
+        WhichModel::Qwen3_5_0_8B
+        | WhichModel::Qwen3_5_2B
+        | WhichModel::Qwen3_5_4B
+        | WhichModel::Qwen3_5_9B
+        | WhichModel::Qwen3_5Gguf
+        | WhichModel::Qwen3_5_0_8BUnslothGguf
+        | WhichModel::Qwen3_5_2BUnslothGguf
+        | WhichModel::Qwen3_5_4BUnslothGguf
+        | WhichModel::Qwen3_5_0_8BLmstudioGguf
+        | WhichModel::Qwen3_5_2BLmstudioGguf
+        | WhichModel::Qwen3_5_4BLmstudioGguf => {
+            use aha::exec::qwen3_5::Qwen3_5Exec;
+            Qwen3_5Exec::run_with_spec(&args.input, args.output.as_deref(), spec)?;
+            Ok(true)
+        }
+        _ => Ok(false),
     }
 }
 
@@ -331,19 +475,25 @@ async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         download_retries,
         gguf_path,
         mmproj_path,
+        onnx_path,
+        tokenizer_dir,
+        artifact_format,
     } = args;
-    let (model_path, gguf, mmproj) = resolve_model_paths_for_server(
+    let spec = resolve_load_spec_for_server(
         common.model,
         weight_path,
         save_dir,
         download_retries,
         gguf_path,
         mmproj_path,
+        onnx_path,
+        tokenizer_dir,
+        artifact_format,
         true,
     )
     .await?;
 
-    init(common.model, model_path, gguf, mmproj)?;
+    init(spec)?;
     start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
 
     Ok(())
@@ -356,19 +506,25 @@ async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
         weight_path,
         gguf_path,
         mmproj_path,
+        onnx_path,
+        tokenizer_dir,
+        artifact_format,
     } = args;
-    let (model_path, gguf, mmproj) = resolve_model_paths_for_server(
+    let spec = resolve_load_spec_for_server(
         common.model,
         weight_path,
         None,
         None,
         gguf_path,
         mmproj_path,
+        onnx_path,
+        tokenizer_dir,
+        artifact_format,
         false,
     )
     .await?;
 
-    init(common.model, model_path, gguf, mmproj)?;
+    init(spec)?;
     start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
 
     Ok(())
@@ -445,13 +601,17 @@ async fn run_download(args: DownloadArgs) -> anyhow::Result<()> {
 fn run_run(args: RunArgs) -> anyhow::Result<()> {
     use aha::exec::ExecModel;
 
+    let spec = resolve_load_spec_for_run(&args)?;
+    if run_target_model_with_spec(&args, &spec)? {
+        return Ok(());
+    }
+
     let RunArgs {
         model,
         input,
         output,
         weight_path,
-        gguf_path,
-        mmproj_path,
+        ..
     } = args;
 
     // Use default weight path if not specified
@@ -503,22 +663,6 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::Qwen3_5_9B => {
             use aha::exec::qwen3_5::Qwen3_5Exec;
             Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2 => {
-            use aha::exec::qwen3_5::Qwen3_5Exec;
-            Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_5Gguf
-        | WhichModel::Qwen3_5_4BClaude46OpusReasoningDistilledV2Gguf
-        | WhichModel::Qwen3_5_9BClaude46OpusReasoningDistilledV2Gguf
-        | WhichModel::Qwen3_5_0_8BUnslothGguf
-        | WhichModel::Qwen3_5_2BUnslothGguf
-        | WhichModel::Qwen3_5_4BUnslothGguf
-        | WhichModel::Qwen3_5_0_8BLmstudioGguf
-        | WhichModel::Qwen3_5_2BLmstudioGguf
-        | WhichModel::Qwen3_5_4BLmstudioGguf => {
-            use aha::exec::qwen3_5::Qwen3_5Exec;
-            Qwen3_5Exec::run_gguf(&input, output.as_deref(), gguf_path, mmproj_path)?;
         }
         WhichModel::Qwen3ASR0_6B => {
             use aha::exec::qwen3_asr::Qwen3ASRExec;
@@ -588,6 +732,15 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
             use aha::exec::glm_ocr::GlmOcrExec;
             GlmOcrExec::run(&input, output.as_deref(), &weight_path)?;
         }
+        WhichModel::Qwen3_5Gguf
+        | WhichModel::Qwen3_5_0_8BUnslothGguf
+        | WhichModel::Qwen3_5_2BUnslothGguf
+        | WhichModel::Qwen3_5_4BUnslothGguf
+        | WhichModel::Qwen3_5_0_8BLmstudioGguf
+        | WhichModel::Qwen3_5_2BLmstudioGguf
+        | WhichModel::Qwen3_5_4BLmstudioGguf => unreachable!(
+            "qwen3.5 gguf models should already be handled by run_target_model_with_spec"
+        ),
     }
 
     Ok(())
@@ -707,6 +860,9 @@ async fn main() -> anyhow::Result<()> {
                 download_retries: cli.download_retries,
                 gguf_path: cli.gguf_path,
                 mmproj_path: cli.mmproj_path,
+                onnx_path: cli.onnx_path,
+                tokenizer_dir: cli.tokenizer_dir,
+                artifact_format: cli.artifact_format,
             };
             run_cli(args).await
         }
@@ -780,4 +936,99 @@ pub(crate) async fn start_http_server(
     shutdown_handler.abort();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn parse_run_onnx_flags() {
+        let cli = Cli::try_parse_from([
+            "aha",
+            "run",
+            "--model",
+            "qwen3-embedding-0.6b",
+            "--input",
+            "hello",
+            "--artifact-format",
+            "onnx",
+            "--onnx-path",
+            "D:\\model_download\\Qwen3-Embedding-0.6B-ONNX",
+            "--tokenizer-dir",
+            "D:\\model_download\\Qwen3-Embedding-0.6B-ONNX",
+        ])
+        .expect("run args should parse");
+
+        let Some(Commands::Run(args)) = cli.command else {
+            panic!("expected run subcommand");
+        };
+        assert!(matches!(args.artifact_format, Some(ArtifactArg::Onnx)));
+        assert_eq!(
+            args.onnx_path.as_deref(),
+            Some("D:\\model_download\\Qwen3-Embedding-0.6B-ONNX")
+        );
+        assert_eq!(
+            args.tokenizer_dir.as_deref(),
+            Some("D:\\model_download\\Qwen3-Embedding-0.6B-ONNX")
+        );
+    }
+
+    #[test]
+    fn parse_serv_onnx_flags() {
+        let cli = Cli::try_parse_from([
+            "aha",
+            "serv",
+            "--model",
+            "qwen3-reranker-0.6b",
+            "--artifact-format",
+            "onnx",
+            "--onnx-path",
+            "D:\\model_download\\Qwen3-Reranker-0.6B-ONNX",
+            "--tokenizer-dir",
+            "D:\\model_download\\Qwen3-Reranker-0.6B-ONNX",
+        ])
+        .expect("serv args should parse");
+
+        let Some(Commands::Serv(args)) = cli.command else {
+            panic!("expected serv subcommand");
+        };
+        assert!(matches!(args.artifact_format, Some(ArtifactArg::Onnx)));
+        assert_eq!(
+            args.onnx_path.as_deref(),
+            Some("D:\\model_download\\Qwen3-Reranker-0.6B-ONNX")
+        );
+        assert_eq!(
+            args.tokenizer_dir.as_deref(),
+            Some("D:\\model_download\\Qwen3-Reranker-0.6B-ONNX")
+        );
+    }
+
+    #[test]
+    fn parse_backward_compatible_root_onnx_flags() {
+        let cli = Cli::try_parse_from([
+            "aha",
+            "--model",
+            "qwen3.5-0.8b",
+            "--artifact-format",
+            "onnx",
+            "--onnx-path",
+            "D:\\model_download\\Qwen3.5-0.8B-ONNX",
+            "--tokenizer-dir",
+            "D:\\model_download\\Qwen3.5-0.8B-ONNX",
+        ])
+        .expect("root args should parse");
+
+        assert!(cli.command.is_none());
+        assert!(matches!(cli.artifact_format, Some(ArtifactArg::Onnx)));
+        assert_eq!(
+            cli.onnx_path.as_deref(),
+            Some("D:\\model_download\\Qwen3.5-0.8B-ONNX")
+        );
+        assert_eq!(
+            cli.tokenizer_dir.as_deref(),
+            Some("D:\\model_download\\Qwen3.5-0.8B-ONNX")
+        );
+    }
 }

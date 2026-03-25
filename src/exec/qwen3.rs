@@ -5,16 +5,15 @@ use std::time::Instant;
 use anyhow::{Ok, Result};
 
 use crate::exec::ExecModel;
-use crate::models::{GenerateModel, qwen3::generate::Qwen3GenerateModel};
+use crate::models::{GenerateModel, LoadSpec, qwen3::generate::Qwen3GenerateModel};
 use crate::utils::get_file_path;
 
 pub struct Qwen3Exec;
 
-impl ExecModel for Qwen3Exec {
-    fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
+impl Qwen3Exec {
+    pub fn run_with_spec(input: &[String], output: Option<&str>, spec: &LoadSpec) -> Result<()> {
         let input_text = &input[0];
         let target_text = if input_text.starts_with("file://") {
-            // let path = &input[7..];
             let path = get_file_path(input_text)?;
             std::fs::read_to_string(path)?
         } else {
@@ -22,7 +21,7 @@ impl ExecModel for Qwen3Exec {
         };
 
         let i_start = Instant::now();
-        let mut model = Qwen3GenerateModel::init(weight_path, None, None)?;
+        let mut model = Qwen3GenerateModel::init_from_spec(spec, None, None)?;
         let i_duration = i_start.elapsed();
         println!("Time elapsed in load model is: {:?}", i_duration);
 
@@ -53,5 +52,12 @@ impl ExecModel for Qwen3Exec {
         }
 
         Ok(())
+    }
+}
+
+impl ExecModel for Qwen3Exec {
+    fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
+        let spec = LoadSpec::for_safetensors(crate::models::WhichModel::Qwen3_0_6B, weight_path);
+        Self::run_with_spec(input, output, &spec)
     }
 }
