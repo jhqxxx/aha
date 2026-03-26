@@ -96,6 +96,15 @@ aha -m qwen3asr-0.6b
 # 直接运行推理（无需启动服务）
 aha run -m qwen3asr-0.6b -i "audio.wav"
 
+# 本地运行 all-MiniLM-L6-v2 向量模型（原生 safetensors）
+aha run -m all-minilm-l6-v2 -i "Rust embedding test" --weight-path D:\model_download\all-MiniLM-L6-v2
+
+# 本地运行 all-MiniLM-L6-v2 向量模型（GGUF）
+aha run -m all-minilm-l6-v2 -i "Rust embedding test" --artifact-format gguf --gguf-path D:\model_download\All-MiniLM-L6-v2-Embedding-GGUF --tokenizer-dir D:\model_download\all-MiniLM-L6-v2
+
+# 本地运行 all-MiniLM-L6-v2 向量模型（ONNX）
+aha run -m all-minilm-l6-v2 -i "Rust embedding test" --artifact-format onnx --onnx-path D:\model_download\all-MiniLM-L6-v2\onnx --tokenizer-dir D:\model_download\all-MiniLM-L6-v2
+
 # 仅启动服务（模型已下载）
 aha serv -m qwen3asr-0.6b -p 10100
 
@@ -125,6 +134,7 @@ curl http://localhost:10100/chat/completions \
 | 类别 | 模型 |
 |------|------|
 | **文本** | Qwen3, MiniCPM4 |
+| **向量** | Qwen3-Embedding, all-MiniLM-L6-v2 |
 | **视觉** | Qwen2.5-VL, Qwen3-VL |
 | **OCR** | DeepSeek-OCR, Hunyuan-OCR, PaddleOCR-VL |
 | **ASR** | GLM-ASR-Nano, Fun-ASR-Nano,Qwen3-ASR |

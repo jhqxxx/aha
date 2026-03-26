@@ -16,6 +16,7 @@ aha 支持多个领域的最先进 AI 模型集合。
 | **Qwen3-Embedding-0.6B** | 0.6B | 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Qwen3-Embedding-4B** | 4B | 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Qwen3-Embedding-8B** | 8B | 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **all-MiniLM-L6-v2** | 22M | sentence-transformers 文本向量（safetensors / gguf / onnx） | [Apache 2.0](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/main/LICENSE) |
 
 ## Reranker
 
@@ -123,7 +124,6 @@ aha 支持多个领域的最先进 AI 模型集合。
 - jinaai/jina-embeddings-v5-text-nano
 - jinaai/jina-embeddings-v5-text-small-text-matching
 - jinaai/jina-embeddings-v5-text-small-text-matching-GGUF
-- sentence-transformers/all-MiniLM-L6-v2
 - sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 
 ### Reranker 模型

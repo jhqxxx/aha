@@ -3,6 +3,7 @@
 //! This module provides model-specific exec implementations for the `run` subcommand.
 //! Each model has its own exec module that handles input/output parsing and model invocation.
 
+pub mod all_minilm_l6_v2;
 pub mod deepseek_ocr;
 pub mod fun_asr_nano;
 pub mod glm_asr_nano;

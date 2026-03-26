@@ -16,6 +16,39 @@ fn load_spec_auto_resolves_to_safetensors_default() {
 }
 
 #[test]
+fn load_spec_all_minilm_accepts_onnx() {
+    let spec = LoadSpec {
+        model: WhichModel::AllMiniLML6V2,
+        artifact: ArtifactKind::Onnx,
+        paths: ModelPaths {
+            onnx_path: Some("D:/model_download/all-MiniLM-L6-v2/onnx".to_string()),
+            tokenizer_dir: Some("D:/model_download/all-MiniLM-L6-v2".to_string()),
+            ..Default::default()
+        },
+    };
+
+    assert!(spec.validate().is_ok());
+}
+
+#[test]
+fn load_spec_all_minilm_accepts_gguf() {
+    let spec = LoadSpec {
+        model: WhichModel::AllMiniLML6V2,
+        artifact: ArtifactKind::Gguf,
+        paths: ModelPaths {
+            gguf_path: Some(
+                "D:/model_download/All-MiniLM-L6-v2-Embedding-GGUF/all-MiniLM-L6-v2-ggml-model-f16.gguf"
+                    .to_string(),
+            ),
+            tokenizer_dir: Some("D:/model_download/all-MiniLM-L6-v2".to_string()),
+            ..Default::default()
+        },
+    };
+
+    assert!(spec.validate().is_ok());
+}
+
+#[test]
 fn load_spec_gguf_requires_gguf_path() {
     let spec = LoadSpec {
         model: WhichModel::Qwen3_5Gguf,

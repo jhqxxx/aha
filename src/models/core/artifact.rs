@@ -28,6 +28,11 @@ pub struct LoadSpec {
 
 pub fn supported_artifacts(model: WhichModel) -> &'static [ArtifactKind] {
     match model {
+        WhichModel::AllMiniLML6V2 => &[
+            ArtifactKind::Safetensors,
+            ArtifactKind::Gguf,
+            ArtifactKind::Onnx,
+        ],
         WhichModel::Qwen3_0_6B => &[
             ArtifactKind::Safetensors,
             ArtifactKind::Gguf,

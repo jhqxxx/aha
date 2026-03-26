@@ -1,3 +1,4 @@
+pub mod all_minilm_l6_v2;
 pub mod bigvgan;
 pub mod campplus;
 pub mod common;
@@ -30,6 +31,7 @@ use anyhow::{Result, anyhow};
 use rocket::futures::Stream;
 
 use crate::models::{
+    all_minilm_l6_v2::generate::AllMiniLML6V2Model,
     deepseek_ocr::generate::DeepseekOCRGenerateModel,
     fun_asr_nano::generate::FunAsrNanoGenerateModel,
     glm_asr_nano::generate::GlmAsrNanoGenerateModel, glm_ocr::generate::GlmOcrGenerateModel,
@@ -63,6 +65,8 @@ pub enum WhichModel {
     Qwen2_5vl7B,
     #[value(name = "qwen3-0.6b", hide = true)]
     Qwen3_0_6B,
+    #[value(name = "all-minilm-l6-v2", hide = true)]
+    AllMiniLML6V2,
     #[value(name = "qwen3-embedding-0.6b", hide = true)]
     Qwen3Embedding0_6B,
     #[value(name = "qwen3-embedding-4b", hide = true)]
@@ -138,6 +142,7 @@ pub const LISTED_MODELS: &[WhichModel] = &[
     WhichModel::Qwen2_5vl3B,
     WhichModel::Qwen2_5vl7B,
     WhichModel::Qwen3_0_6B,
+    WhichModel::AllMiniLML6V2,
     WhichModel::Qwen3Embedding0_6B,
     WhichModel::Qwen3Embedding4B,
     WhichModel::Qwen3Embedding8B,
@@ -188,10 +193,11 @@ impl WhichModel {
     }
 
     pub fn is_download_managed(self) -> bool {
-        !matches!(
-            self.artifact_format(),
-            ModelArtifactFormat::Gguf | ModelArtifactFormat::Onnx
-        )
+        !matches!(self, WhichModel::AllMiniLML6V2)
+            && !matches!(
+                self.artifact_format(),
+                ModelArtifactFormat::Gguf | ModelArtifactFormat::Onnx
+            )
     }
 
     pub fn openai_model_id(self) -> &'static str {
@@ -200,6 +206,7 @@ impl WhichModel {
             WhichModel::Qwen2_5vl3B => "qwen2.5vl-3b",
             WhichModel::Qwen2_5vl7B => "qwen2.5vl-7b",
             WhichModel::Qwen3_0_6B => "qwen3-0.6b",
+            WhichModel::AllMiniLML6V2 => "all-minilm-l6-v2",
             WhichModel::Qwen3Embedding0_6B => "qwen3-embedding-0.6b",
             WhichModel::Qwen3Embedding4B => "qwen3-embedding-4b",
             WhichModel::Qwen3Embedding8B => "qwen3-embedding-8b",
@@ -241,6 +248,7 @@ impl WhichModel {
         match self {
             WhichModel::MiniCPM4_0_5B => "OpenBMB",
             WhichModel::Qwen2_5vl3B | WhichModel::Qwen2_5vl7B => "Qwen",
+            WhichModel::AllMiniLML6V2 => "sentence-transformers",
             WhichModel::Qwen3_0_6B
             | WhichModel::Qwen3Embedding0_6B
             | WhichModel::Qwen3Embedding4B
@@ -282,6 +290,7 @@ impl WhichModel {
             WhichModel::Qwen2_5vl3B => "Qwen/Qwen2.5-VL-3B-Instruct",
             WhichModel::Qwen2_5vl7B => "Qwen/Qwen2.5-VL-7B-Instruct",
             WhichModel::Qwen3_0_6B => "Qwen/Qwen3-0.6B",
+            WhichModel::AllMiniLML6V2 => "sentence-transformers/all-MiniLM-L6-v2",
             WhichModel::Qwen3Embedding0_6B => "Qwen/Qwen3-Embedding-0.6B",
             WhichModel::Qwen3Embedding4B => "Qwen/Qwen3-Embedding-4B",
             WhichModel::Qwen3Embedding8B => "Qwen/Qwen3-Embedding-8B",
@@ -324,7 +333,8 @@ impl WhichModel {
         match self {
             // LLM models
             WhichModel::MiniCPM4_0_5B | WhichModel::Qwen3_0_6B => "llm",
-            WhichModel::Qwen3Embedding0_6B
+            WhichModel::AllMiniLML6V2
+            | WhichModel::Qwen3Embedding0_6B
             | WhichModel::Qwen3Embedding4B
             | WhichModel::Qwen3Embedding8B => "embedding",
             WhichModel::Qwen3Reranker0_6B
@@ -384,6 +394,7 @@ pub enum ModelInstance<'a> {
     MiniCPM4(MiniCPMGenerateModel<'a>),
     Qwen2_5VL(Qwen2_5VLGenerateModel<'a>),
     Qwen3(Qwen3GenerateModel<'a>),
+    AllMiniLML6V2(AllMiniLML6V2Model),
     Qwen3Embedding(Qwen3EmbeddingModel),
     Qwen3Reranker(Qwen3RerankerModel),
     Qwen3_5(Qwen3_5GenerateModel<'a>),
@@ -405,6 +416,9 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::MiniCPM4(model) => model.generate(mes),
             ModelInstance::Qwen2_5VL(model) => model.generate(mes),
             ModelInstance::Qwen3(model) => model.generate(mes),
+            ModelInstance::AllMiniLML6V2(_) => {
+                Err(anyhow!("embedding model does not support chat completions"))
+            }
             ModelInstance::Qwen3Embedding(_) => {
                 Err(anyhow!("embedding model does not support chat completions"))
             }
@@ -440,6 +454,9 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::MiniCPM4(model) => model.generate_stream(mes),
             ModelInstance::Qwen2_5VL(model) => model.generate_stream(mes),
             ModelInstance::Qwen3(model) => model.generate_stream(mes),
+            ModelInstance::AllMiniLML6V2(_) => Err(anyhow!(
+                "embedding model does not support streaming chat completions"
+            )),
             ModelInstance::Qwen3Embedding(_) => Err(anyhow!(
                 "embedding model does not support streaming chat completions"
             )),
@@ -464,6 +481,7 @@ impl<'a> GenerateModel for ModelInstance<'a> {
 impl<'a> ModelInstance<'a> {
     pub fn embedding(&mut self, input: &[String]) -> Result<Vec<Vec<f32>>> {
         match self {
+            ModelInstance::AllMiniLML6V2(model) => model.embed(input),
             ModelInstance::Qwen3Embedding(model) => model.embed(input),
             _ => Err(anyhow!("current model does not support embeddings")),
         }
@@ -503,6 +521,10 @@ pub fn load_model_legacy<'a>(
         WhichModel::Qwen3_0_6B => {
             let model = Qwen3GenerateModel::init(path, None, None)?;
             ModelInstance::Qwen3(model)
+        }
+        WhichModel::AllMiniLML6V2 => {
+            let model = AllMiniLML6V2Model::init(path, None, None)?;
+            ModelInstance::AllMiniLML6V2(model)
         }
         WhichModel::Qwen3Embedding0_6B
         | WhichModel::Qwen3Embedding4B

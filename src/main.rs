@@ -428,6 +428,11 @@ fn resolve_load_spec_for_run(args: &RunArgs) -> anyhow::Result<LoadSpec> {
 
 fn run_target_model_with_spec(args: &RunArgs, spec: &LoadSpec) -> anyhow::Result<bool> {
     match args.model {
+        WhichModel::AllMiniLML6V2 => {
+            use aha::exec::all_minilm_l6_v2::AllMiniLML6V2Exec;
+            AllMiniLML6V2Exec::run_with_spec(&args.input, args.output.as_deref(), spec)?;
+            Ok(true)
+        }
         WhichModel::Qwen3_0_6B => {
             use aha::exec::qwen3::Qwen3Exec;
             Qwen3Exec::run_with_spec(&args.input, args.output.as_deref(), spec)?;
@@ -620,6 +625,10 @@ fn run_run(args: RunArgs) -> anyhow::Result<()> {
         None => get_default_weight_path(model),
     };
     match model {
+        WhichModel::AllMiniLML6V2 => {
+            use aha::exec::all_minilm_l6_v2::AllMiniLML6V2Exec;
+            AllMiniLML6V2Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::MiniCPM4_0_5B => {
             use aha::exec::minicpm4::MiniCPM4Exec;
             MiniCPM4Exec::run(&input, output.as_deref(), &weight_path)?;
@@ -972,6 +981,39 @@ mod tests {
         assert_eq!(
             args.tokenizer_dir.as_deref(),
             Some("D:\\model_download\\Qwen3-Embedding-0.6B-ONNX")
+        );
+    }
+
+    #[test]
+    fn parse_all_minilm_run_onnx_flags() {
+        let cli = Cli::try_parse_from([
+            "aha",
+            "run",
+            "--model",
+            "all-minilm-l6-v2",
+            "--input",
+            "hello",
+            "--artifact-format",
+            "onnx",
+            "--onnx-path",
+            "D:\\model_download\\all-MiniLM-L6-v2\\onnx",
+            "--tokenizer-dir",
+            "D:\\model_download\\all-MiniLM-L6-v2",
+        ])
+        .expect("run args should parse");
+
+        let Some(Commands::Run(args)) = cli.command else {
+            panic!("expected run subcommand");
+        };
+        assert!(matches!(args.artifact_format, Some(ArtifactArg::Onnx)));
+        assert_eq!(args.model, WhichModel::AllMiniLML6V2);
+        assert_eq!(
+            args.onnx_path.as_deref(),
+            Some("D:\\model_download\\all-MiniLM-L6-v2\\onnx")
+        );
+        assert_eq!(
+            args.tokenizer_dir.as_deref(),
+            Some("D:\\model_download\\all-MiniLM-L6-v2")
         );
     }
 
