@@ -4,8 +4,7 @@ use candle_nn::{Init, Linear, Module, RmsNorm, VarBuilder, linear, linear_no_bia
 
 use crate::{
     models::{
-        common::{GateUpDownMLP, eager_attention_forward},
-        qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling},
+        common::{GateUpDownMLP, eager_attention_forward}, qwen2::Qwen2DecoderLayer, qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling}
     },
     position_embed::rope::{
         Qwen2_5VLTextRotaryEmbedding, Qwen2_5VisionRotaryEmbedding, apply_rotary_pos_emb,
@@ -512,158 +511,11 @@ impl Qwen2_5VLVisionModel {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Qwen2_5VLTextAttention {
-    q_proj: Linear,
-    k_proj: Linear,
-    v_proj: Linear,
-    o_proj: Linear,
-    num_heads: usize,
-    num_kv_heads: usize,
-    num_kv_groups: usize,
-    head_dim: usize,
-    hidden_size: usize,
-    kv_cache: Option<(Tensor, Tensor)>,
-}
-
-impl Qwen2_5VLTextAttention {
-    fn new(cfg: &Qwen2_5VLConfig, vb: VarBuilder) -> Result<Self> {
-        let hidden_size = cfg.hidden_size;
-        let num_heads = cfg.num_attention_heads;
-        let num_kv_heads = cfg.num_key_value_heads;
-        let num_kv_groups = num_heads / num_kv_heads;
-        let head_dim = hidden_size / num_heads;
-        let q_proj = linear(hidden_size, num_heads * head_dim, vb.pp("q_proj"))?;
-        let k_proj = linear(hidden_size, num_kv_heads * head_dim, vb.pp("k_proj"))?;
-        let v_proj = linear(hidden_size, num_kv_heads * head_dim, vb.pp("v_proj"))?;
-        let o_proj = linear_no_bias(hidden_size, hidden_size, vb.pp("o_proj"))?;
-        Ok(Self {
-            q_proj,
-            k_proj,
-            v_proj,
-            o_proj,
-            num_heads,
-            num_kv_heads,
-            num_kv_groups,
-            head_dim,
-            hidden_size,
-            kv_cache: None,
-        })
-    }
-
-    fn forward(
-        &mut self,
-        xs: &Tensor,
-        cos: &Tensor,
-        sin: &Tensor,
-        attention_mask: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let (b_sz, q_len, _) = xs.dims3()?;
-        let query_states = self.q_proj.forward(xs)?;
-        let key_states = self.k_proj.forward(xs)?;
-        let value_states = self.v_proj.forward(xs)?;
-        let query_states = query_states
-            .reshape((b_sz, q_len, self.num_heads, self.head_dim))?
-            .transpose(1, 2)?;
-        let key_states = key_states
-            .reshape((b_sz, q_len, self.num_kv_heads, self.head_dim))?
-            .transpose(1, 2)?;
-        let value_states = value_states
-            .reshape((b_sz, q_len, self.num_kv_heads, self.head_dim))?
-            .transpose(1, 2)?;
-        let (query_states, key_states) =
-            apply_rotary_pos_emb(&query_states, &key_states, cos, sin, false)?;
-        let (key_states, value_states) = match &self.kv_cache {
-            None => (key_states, value_states),
-            Some((prev_k, prev_v)) => {
-                let key_states = Tensor::cat(&[prev_k, &key_states], 2)?;
-                let value_states = Tensor::cat(&[prev_v, &value_states], 2)?;
-                (key_states, value_states)
-            }
-        };
-
-        self.kv_cache = Some((key_states.clone(), value_states.clone()));
-        let scale = 1f64 / f64::sqrt(self.head_dim as f64);
-        let attn_output = eager_attention_forward(
-            &query_states,
-            &key_states,
-            &value_states,
-            Some(self.num_kv_groups),
-            attention_mask,
-            scale,
-        )?;
-        let attn_output = attn_output.reshape((b_sz, q_len, self.hidden_size))?;
-        let attn_output = attn_output.apply(&self.o_proj)?;
-        Ok(attn_output)
-    }
-
-    fn clear_kv_cache(&mut self) {
-        self.kv_cache = None
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Qwen2_5VLTextDecoderLayer {
-    self_attn: Qwen2_5VLTextAttention,
-    mlp: GateUpDownMLP,
-    input_layernorm: RmsNorm,
-    post_attention_layernorm: RmsNorm,
-}
-
-impl Qwen2_5VLTextDecoderLayer {
-    fn new(cfg: &Qwen2_5VLConfig, vb: VarBuilder) -> Result<Self> {
-        let self_attn = Qwen2_5VLTextAttention::new(cfg, vb.pp("self_attn"))?;
-        let mlp = GateUpDownMLP::new(
-            vb.pp("mlp"),
-            cfg.hidden_size,
-            cfg.intermediate_size,
-            cfg.hidden_act,
-            false,
-            None,
-            None,
-            None,
-        )?;
-        let input_layernorm =
-            rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("input_layernorm"))?;
-        let post_attention_layernorm = rms_norm(
-            cfg.hidden_size,
-            cfg.rms_norm_eps,
-            vb.pp("post_attention_layernorm"),
-        )?;
-        Ok(Self {
-            self_attn,
-            mlp,
-            input_layernorm,
-            post_attention_layernorm,
-        })
-    }
-
-    fn forward(
-        &mut self,
-        xs: &Tensor,
-        cos: &Tensor,
-        sin: &Tensor,
-        attention_mask: Option<&Tensor>,
-    ) -> Result<Tensor> {
-        let residual = xs;
-        let xs = self.input_layernorm.forward(xs)?;
-        let xs = self.self_attn.forward(&xs, cos, sin, attention_mask)?;
-        let xs = (xs + residual)?;
-        let residual = &xs;
-        let xs = xs.apply(&self.post_attention_layernorm)?.apply(&self.mlp)?;
-        let xs = (residual + xs)?;
-        Ok(xs)
-    }
-
-    fn clear_kv_cache(&mut self) {
-        self.self_attn.clear_kv_cache()
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Qwen2_5VLTextModel {
     pub embed_tokens: candle_nn::Embedding,
-    layers: Vec<Qwen2_5VLTextDecoderLayer>,
+    layers: Vec<Qwen2DecoderLayer>,
     norm: RmsNorm,
     rotary_emb: Qwen2_5VLTextRotaryEmbedding,
     dtype: DType,
@@ -677,9 +529,10 @@ impl Qwen2_5VLTextModel {
         let head_dim = cfg.hidden_size / cfg.num_attention_heads;
         let rotary_emb = Qwen2_5VLTextRotaryEmbedding::new(head_dim, cfg.rope_theta);
         let mut layers = Vec::with_capacity(cfg.num_hidden_layers);
+        let qwen2cfg = cfg.to_qwen2cfg();
         let vb_l = vb.pp("layers");
         for layer_idx in 0..cfg.num_hidden_layers {
-            let layer = Qwen2_5VLTextDecoderLayer::new(cfg, vb_l.pp(layer_idx))?;
+            let layer = Qwen2DecoderLayer::new(&qwen2cfg, vb_l.pp(layer_idx))?;
             layers.push(layer)
         }
         let norm = rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("norm"))?;

@@ -42,9 +42,10 @@ impl DeepseekOCRGenerateModel {
         let device = &get_device(device);
         let dtype = get_dtype(dtype, &cfg_dtype);
         let model_name = std::path::Path::new(path)
-            .file_stem() // 获取文件名主干（不含扩展名）
+            .file_name() 
             .and_then(|s| s.to_str())
-            .unwrap_or("deepseek-ocr");
+            .unwrap_or("deepseek-ocr")
+            .to_string();
         let version = if model_name.contains("2") || cfg.vision_config.width.qwen2_0_5b.is_some() {
             2usize
         } else {

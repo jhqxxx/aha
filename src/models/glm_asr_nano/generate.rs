@@ -48,6 +48,11 @@ impl<'a> GlmAsrNanoGenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let glm_asr_nano = GlmAsrNanoModel::new(vb, cfg)?;
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("glm-asr-nano")
+            .to_string();
         Ok(Self {
             chat_template,
             tokenizer,
@@ -58,7 +63,7 @@ impl<'a> GlmAsrNanoGenerateModel<'a> {
             eos_token_id1: 59246,
             eos_token_id2: 59253,
             eos_token_id3: 59255,
-            model_name: "glm-asr-nano".to_string(),
+            model_name,
         })
     }
 }

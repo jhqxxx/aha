@@ -45,7 +45,11 @@ impl<'a> PaddleOCRVLGenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, device)? };
         let paddleocr_vl = PaddleOCRVLModel::new(cfg.clone(), vb)?;
-
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("paddleocr_vl")
+            .to_string();
         Ok(PaddleOCRVLGenerateModel {
             chat_template,
             tokenizer,
@@ -54,7 +58,7 @@ impl<'a> PaddleOCRVLGenerateModel<'a> {
             cfg,
             device: device.clone(),
             end_token_id,
-            model_name: "paddleocr_vl".to_string(),
+            model_name,
         })
     }
 }

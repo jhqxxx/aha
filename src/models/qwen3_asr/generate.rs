@@ -57,7 +57,11 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let qwen3_asr = Qwen3ASRModel::new(vb, &cfg)?;
-
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("qwen3-asr")
+            .to_string();
         Ok(Self {
             chat_template,
             tokenizer,
@@ -68,7 +72,7 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
             eos_token_id1: generation_config.eos_token_id[0] as u32,
             eos_token_id2: generation_config.eos_token_id[1] as u32,
             generation_config,
-            model_name: "qwen3-asr".to_string(),
+            model_name,
         })
     }
 }

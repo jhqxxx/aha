@@ -1,5 +1,7 @@
 use candle_nn::Activation;
 
+use crate::models::qwen2::Qwen2Config;
+
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub struct VisionConfig {
     pub depth: usize,
@@ -51,6 +53,27 @@ pub struct Qwen2_5VLConfig {
     pub vision_config: VisionConfig,
     pub rope_scaling: RopeScaling,
     pub vocab_size: usize,
+}
+
+impl Qwen2_5VLConfig {
+    pub fn to_qwen2cfg(&self) -> Qwen2Config {
+        Qwen2Config {
+            vocab_size: self.vocab_size,
+            hidden_size: self.hidden_size,
+            intermediate_size: self.intermediate_size,
+            num_hidden_layers: self.num_hidden_layers,
+            num_attention_heads: self.num_attention_heads,
+            num_key_value_heads: self.num_key_value_heads,
+            max_position_embeddings: self.max_position_embeddings,
+            sliding_window: self.sliding_window,
+            max_window_layers: self.max_window_layers,
+            tie_word_embeddings: self.tie_word_embeddings,
+            rope_theta: self.rope_theta,
+            rms_norm_eps: self.rms_norm_eps,
+            use_sliding_window: self.use_sliding_window,
+            hidden_act: self.hidden_act,
+        }
+    }
 }
 
 pub struct VisionSetting {

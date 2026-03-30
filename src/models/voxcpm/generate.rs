@@ -62,11 +62,16 @@ impl VoxCPMGenerate {
                 sample_rate: 16000,
             },
         };
-        let model_name = if audio_config.sample_rate == 16000 {
-            "VoxCPM".to_string()
-        } else {
-            "VoxCPM1.5".to_string()
-        };
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("VoxCPM")
+            .to_string();
+        // let model_name = if audio_config.sample_rate == 16000 {
+        //     "VoxCPM".to_string()
+        // } else {
+        //     "VoxCPM1.5".to_string()
+        // };
         let audio_vae = AudioVAE::new(
             vb_vae,
             audio_config.encoder_dim,

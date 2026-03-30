@@ -78,6 +78,11 @@ impl FunAsrNanoGenerateModel {
         }
         let vb = VarBuilder::from_tensors(dict_to_hashmap, dtype, &device);
         let fun_asr_nano = FunAsrNanoModel::new(vb, &cfg, &llm_cfg)?;
+        let model_name = std::path::Path::new(path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("fun-asr-nano")
+            .to_string();
         Ok(Self {
             tokenizer,
             processor,
@@ -87,7 +92,7 @@ impl FunAsrNanoGenerateModel {
             eos_token_id1: generation_config.eos_token_id[0] as u32,
             eos_token_id2: generation_config.eos_token_id[1] as u32,
             generation_config,
-            model_name: "fun-asr-nano".to_string(),
+            model_name,
         })
     }
 }

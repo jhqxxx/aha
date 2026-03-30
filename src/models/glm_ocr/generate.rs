@@ -57,7 +57,11 @@ impl GlmOcrGenerateModel {
         let generation_config_path = path.to_string() + "/generation_config.json";
         let generation_config: GlmOcrGenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
-
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("glm-ocr")
+            .to_string();
         Ok(Self {
             // chat_template,
             tokenizer,
@@ -65,7 +69,7 @@ impl GlmOcrGenerateModel {
             model,
             device,
             eos_token_ids: generation_config.eos_token_id.clone(),
-            model_name: "glm-ocr".to_string(),
+            model_name,
             image_token_id: cfg.image_token_id,
             image_start_token_id: cfg.image_start_token_id,
             image_end_token_id: cfg.image_end_token_id,

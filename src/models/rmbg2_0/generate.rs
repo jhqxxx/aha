@@ -41,6 +41,11 @@ impl RMBG2_0Model {
             Tensor::from_slice(&[0.485, 0.456, 0.406], (3, 1, 1), &device)?.to_dtype(dtype)?;
         let img_std =
             Tensor::from_slice(&[0.229, 0.224, 0.225], (3, 1, 1), &device)?.to_dtype(dtype)?;
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("rmbg2.0")
+            .to_string();
         Ok(Self {
             model,
             h: 1024,
@@ -49,7 +54,7 @@ impl RMBG2_0Model {
             img_std,
             device,
             dtype,
-            model_name: "rmbg2.0".to_string(),
+            model_name,
         })
     }
 

@@ -52,6 +52,11 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
         let generation_config_path = path.to_string() + "/generation_config.json";
         let generation_config: HunyuanOCRGenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("hunyuan_ocr")
+            .to_string();
         Ok(Self {
             chat_template,
             tokenizer,
@@ -61,7 +66,7 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
             eos_token_id1: generation_config.eos_token_id[0] as u32,
             eos_token_id2: generation_config.eos_token_id[1] as u32,
             generation_config,
-            model_name: "hunyuan_ocr".to_string(),
+            model_name,
         })
     }
 }

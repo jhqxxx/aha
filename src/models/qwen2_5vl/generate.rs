@@ -48,7 +48,11 @@ impl<'a> Qwen2_5VLGenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, device)? };
         let qwen2_5_vl = Qwen2_5VLModel::new(cfg, vb)?;
-
+        let model_name = std::path::Path::new(path)
+            .file_name() 
+            .and_then(|s| s.to_str())
+            .unwrap_or("qwen2.5vl")
+            .to_string();
         Ok(Qwen2_5VLGenerateModel {
             chat_template,
             tokenizer,
@@ -57,7 +61,7 @@ impl<'a> Qwen2_5VLGenerateModel<'a> {
             device: device.clone(),
             endoftext_id,
             im_end_id,
-            model_name: "qwen2.5vl".to_string(),
+            model_name,
         })
     }
 }
