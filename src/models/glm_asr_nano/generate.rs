@@ -49,7 +49,7 @@ impl<'a> GlmAsrNanoGenerateModel<'a> {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let glm_asr_nano = GlmAsrNanoModel::new(vb, cfg)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("glm-asr-nano")
             .to_string();

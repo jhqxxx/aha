@@ -43,7 +43,7 @@ impl<'a> Qwen3GenerateModel<'a> {
         let generation_config: Qwen3GenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("qwen3")
             .to_string();

@@ -4,11 +4,12 @@ use candle_nn::{Init, Linear, Module, RmsNorm, VarBuilder, linear, linear_no_bia
 
 use crate::{
     models::{
-        common::{GateUpDownMLP, eager_attention_forward}, qwen2::Qwen2DecoderLayer, qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling}
+        common::{GateUpDownMLP, eager_attention_forward},
+        qwen2::Qwen2DecoderLayer,
+        qwen2_5vl::config::{Qwen2_5VLConfig, RopeScaling},
     },
     position_embed::rope::{
-        Qwen2_5VLTextRotaryEmbedding, Qwen2_5VisionRotaryEmbedding, apply_rotary_pos_emb,
-        apply_rotary_pos_emb_vision,
+        Qwen2_5VLTextRotaryEmbedding, Qwen2_5VisionRotaryEmbedding, apply_rotary_pos_emb_vision,
     },
     utils::tensor_utils::{
         get_equal_mask, get_vision_next_indices, masked_scatter_dim0, nonzero_index,
@@ -510,7 +511,6 @@ impl Qwen2_5VLVisionModel {
         Ok(hidden_states)
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Qwen2_5VLTextModel {

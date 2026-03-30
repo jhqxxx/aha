@@ -42,7 +42,7 @@ impl RMBG2_0Model {
         let img_std =
             Tensor::from_slice(&[0.229, 0.224, 0.225], (3, 1, 1), &device)?.to_dtype(dtype)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("rmbg2.0")
             .to_string();

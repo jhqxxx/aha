@@ -53,7 +53,7 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
         let generation_config: HunyuanOCRGenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("hunyuan_ocr")
             .to_string();

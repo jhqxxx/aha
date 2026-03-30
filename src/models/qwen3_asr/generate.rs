@@ -58,7 +58,7 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let qwen3_asr = Qwen3ASRModel::new(vb, &cfg)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("qwen3-asr")
             .to_string();

@@ -58,7 +58,7 @@ impl GlmOcrGenerateModel {
         let generation_config: GlmOcrGenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("glm-ocr")
             .to_string();

@@ -41,7 +41,7 @@ impl<'a> MiniCPMGenerateModel<'a> {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, device)? };
         let minicpm = MiniCPMModel::new(vb, cfg)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("minicpm4")
             .to_string();

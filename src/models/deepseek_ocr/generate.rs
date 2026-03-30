@@ -42,7 +42,7 @@ impl DeepseekOCRGenerateModel {
         let device = &get_device(device);
         let dtype = get_dtype(dtype, &cfg_dtype);
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("deepseek-ocr")
             .to_string();

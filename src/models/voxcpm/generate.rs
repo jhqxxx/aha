@@ -63,7 +63,7 @@ impl VoxCPMGenerate {
             },
         };
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("VoxCPM")
             .to_string();

@@ -46,7 +46,7 @@ impl<'a> PaddleOCRVLGenerateModel<'a> {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, device)? };
         let paddleocr_vl = PaddleOCRVLModel::new(cfg.clone(), vb)?;
         let model_name = std::path::Path::new(path)
-            .file_name() 
+            .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("paddleocr_vl")
             .to_string();
