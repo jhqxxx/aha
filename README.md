@@ -45,6 +45,29 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 - **🛡️ Memory Safe** — Built with Rust for reliability
 - **🧠 Attention Optimization** - Optional Flash Attention support for optimized long sequence processing
 
+## Changelog
+
+### 2026-03-31
+- add server adn cli mod
+- aha model name use modelscope id replace 
+- update WhichModel 
+- Usage add time info
+- dependencies delete aha_openai_dive,chrono
+
+### v0.2.5 (2026-03-30)
+- add LFM2.5VL-1.6B
+- add LFM2VL-1.6B
+
+### v0.2.4 (2026-03-23)
+- add LFM2.5-1.2B-Instruct
+- add LFM2-1.2B
+
+### v0.2.3 (2026-03-18)
+- add DeepSeek-OCR-2
+
+**[View full changelog](docs/changelog.md)** →
+
+
 ## Quick Start
 
 ### Installation
@@ -110,40 +133,6 @@ curl http://localhost:10100/v1/chat/completions \
   }
 '
 ```
-
-## Changelog
-
-### 2026-03-31
-- add server adn cli mod
-- aha model name use modelscope id replace 
-- update WhichModel 
-- Usage add time info
-- dependencies delete aha_openai_dive,chrono
-
-### v0.2.5 (2026-03-30)
-- add LFM2.5VL-1.6B
-- add LFM2VL-1.6B
-
-### v0.2.4 (2026-03-23)
-- add LFM2.5-1.2B-Instruct
-- add LFM2-1.2B
-
-### v0.2.3 (2026-03-18)
-- add DeepSeek-OCR-2
-
-### 2026-03-17
-- add PaddleOCR-VL1.5 model
-- fix qwen3.5 position_ids create bug
-- cli param add 
-  - gguf_path: Local GGUF model weight path (required for loading models with GGUF)
-  - mmproj_path: Local path to mmproj GGUF weights (required for multimodal GGUF loading)
-- WhichModel add qwen3.5-gguf
-
-### 2026-03-16
-- Added Qwen3.5 mmproj
-
-**[View full changelog](docs/changelog.md)** →
-
 
 ## Documentation
 
