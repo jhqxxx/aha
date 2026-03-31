@@ -114,6 +114,7 @@ curl http://localhost:10100/v1/chat/completions \
 ## Changelog
 
 ### 2026-03-31
+- add server adn cli mod
 - aha model name use modelscope id replace 
 - update WhichModel 
 - Usage add time info

@@ -4,7 +4,6 @@ use std::sync::{Arc, OnceLock};
 
 use aha::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
 use aha::params::chat::ChatCompletionParameters;
-use aha::process::cleanup_pid_file;
 use aha::utils::string_to_static_str;
 use rocket::futures::StreamExt;
 use rocket::serde::{Serialize, json::Json};
@@ -18,17 +17,12 @@ use rocket::{
 };
 use tokio::sync::RwLock;
 
-// ASR (Automatic Speech Recognition) API module
-pub(crate) mod asr;
-pub(crate) mod asr_types;
-
-// Re-export ASR routes
-pub(crate) use asr::transcriptions;
+use crate::server::process::cleanup_pid_file;
 
 /// Wrapper to store model type together with the model instance
 pub(crate) struct StoredModel {
-    which_model: WhichModel,
-    instance: ModelInstance<'static>,
+    pub which_model: WhichModel,
+    pub instance: ModelInstance<'static>,
 }
 
 // Export MODEL for use in ASR module

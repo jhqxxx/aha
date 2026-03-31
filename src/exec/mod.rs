@@ -19,7 +19,6 @@ pub mod qwen3_asr;
 pub mod qwen3vl;
 pub mod rmbg2_0;
 pub mod voxcpm;
-pub mod voxcpm1_5;
 
 use anyhow::Result;
 

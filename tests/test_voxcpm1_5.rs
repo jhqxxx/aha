@@ -12,7 +12,7 @@ use anyhow::{Ok, Result};
 
 #[test]
 fn voxcpm1_5_use_message_generate() -> Result<()> {
-    // RUST_BACKTRACE=1 cargo test -F cuda voxcpm1_5_use_message_generate -r -- --nocapture
+    // RUST_BACKTRACE=1 cargo test -F cuda --test test_voxcpm1_5 voxcpm1_5_use_message_generate -r -- --nocapture
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
     let model_path = format!("{}/OpenBMB/VoxCPM1.5/", save_dir);

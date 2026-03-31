@@ -9,6 +9,7 @@ use std::io::{Cursor, Read};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, fs, path::PathBuf, process::Command, time::Duration};
 
+use crate::models::common::model_mapping::WhichModel;
 use crate::params::{
     chat::{
         AudioUrlType, ChatCompletionChoice, ChatCompletionChunkChoice, ChatCompletionChunkResponse,
@@ -972,6 +973,65 @@ pub fn clean_asr_response(raw: &str) -> String {
         raw[start + "<asr_text>".len()..].trim().to_string()
     } else {
         raw.trim().to_string()
+    }
+}
+
+/// Get the default weight path for a given model
+/// Returns ~/.aha/{model_id} e.g., ~/.aha/OpenBMB/VoxCPM1.5
+pub fn get_default_weight_path(model: WhichModel) -> String {
+    let model_id = model.as_string();
+    let save_dir = get_default_save_dir().expect("Failed to get home directory");
+    format!("{}/{}", save_dir, model_id)
+}
+
+/// Check if a model is downloaded by verifying the model directory exists
+/// Returns true if ~/.aha/{model_id} directory exists, false otherwise
+pub fn is_model_downloaded(model: WhichModel) -> bool {
+    let model_id = model.as_string();
+    let save_dir = match get_default_save_dir() {
+        Some(dir) => dir,
+        None => return false,
+    };
+    let model_path = format!("{}/{}", save_dir, model_id);
+    std::path::Path::new(&model_path).exists()
+}
+
+/// Calculate total size of a directory recursively
+pub fn dir_size(path: &std::path::Path) -> anyhow::Result<u64> {
+    let mut total = 0;
+    if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                total += dir_size(&entry_path)?;
+            } else {
+                total += entry.metadata()?.len();
+            }
+        }
+    } else {
+        total = std::fs::metadata(path)?.len();
+    }
+    Ok(total)
+}
+
+/// Convert bytes to human readable format
+pub fn bytes_to_human(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes >= TB {
+        format!("{:.2} TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
     }
 }
 

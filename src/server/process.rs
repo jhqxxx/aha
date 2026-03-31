@@ -30,6 +30,7 @@ pub struct ServiceInfo {
 
 /// Service status
 #[derive(Debug, Clone, PartialEq)]
+#[allow(unused)]
 pub enum ServiceStatus {
     Running,
     Stopping,
@@ -102,7 +103,8 @@ pub fn cleanup_pid_file(port: u16) -> Result<()> {
 ///
 /// # Arguments
 /// * `port` - Listen port
-pub fn get_pid_from_file(port: u16) -> Option<u32> {
+#[allow(unused)]
+fn get_pid_from_file(port: u16) -> Option<u32> {
     let pid_dir = get_pid_dir().ok()?;
     let pid_file = pid_dir.join(format!("{}.pid", port));
 

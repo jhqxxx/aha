@@ -28,8 +28,10 @@ impl ExecModel for VoxCPMExec {
         let i_start = Instant::now();
         let audio = voxcpm_generate.inference(
             target_text,
-            Some("啥子小师叔，打狗还要看主人，你再要继续，我就是你的对手".to_string()), // todo args
-            Some("file://./assets/audio/voice_01.wav".to_string()),                     // todo args
+            // Some("啥子小师叔，打狗还要看主人，你再要继续，我就是你的对手".to_string()), // todo args
+            // Some("file://./assets/audio/voice_01.wav".to_string()),                     // todo args
+            None,
+            None,
             2,
             100, // max_len (voxcpm uses 100 vs OpenBMB/VoxCPM1.5's 4096)
             10,

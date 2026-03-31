@@ -19,7 +19,7 @@ fn qwen3_0_6b_generate() -> Result<()> {
         "messages": [
             {
                 "role": "user",
-                "content": "你吃饭了没"
+                "content": "你好啊，你是谁"
             }
         ]
     }

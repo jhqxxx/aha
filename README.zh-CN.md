@@ -112,6 +112,7 @@ curl http://localhost:10100/v1/chat/completions \
 ## 更新日志
 
 ### 2026-03-31
+- 新增 server 和 cli 模块
 - aha模型名称使用 modelscope id 替换
 - 更新 WhichModel 枚举
 - Usage 增加时间信息
