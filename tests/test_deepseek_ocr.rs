@@ -1,7 +1,7 @@
 use std::{pin::pin, time::Instant};
 
-use aha::params::chat::ChatCompletionParameters;
 use aha::models::{GenerateModel, deepseek_ocr::generate::DeepseekOCRGenerateModel};
+use aha::params::chat::ChatCompletionParameters;
 use anyhow::Result;
 use rocket::futures::StreamExt;
 

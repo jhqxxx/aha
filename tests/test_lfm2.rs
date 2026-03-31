@@ -1,6 +1,6 @@
 use aha::{
-    params::chat::ChatCompletionParameters,
     models::{GenerateModel, lfm2::generate::Lfm2GenerateModel},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::Result;
 use rocket::futures::StreamExt;

@@ -2,8 +2,8 @@ use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use aha::params::chat::ChatCompletionParameters;
 use aha::models::{GenerateModel, ModelInstance, WhichModel, load_model};
+use aha::params::chat::ChatCompletionParameters;
 use aha::process::cleanup_pid_file;
 use aha::utils::string_to_static_str;
 use rocket::futures::StreamExt;

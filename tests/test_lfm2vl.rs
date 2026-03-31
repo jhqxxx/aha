@@ -1,8 +1,8 @@
 use std::{pin::pin, time::Instant};
 
 use aha::{
-    params::chat::ChatCompletionParameters,
     models::{GenerateModel, lfm2vl::generate::Lfm2VLGenerateModel},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::Result;
 use rocket::futures::StreamExt;

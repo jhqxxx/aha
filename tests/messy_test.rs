@@ -38,7 +38,7 @@ fn messy_test() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -F cuda --test messy_test messy_test -r -- --nocapture
     println!("当前秒级时间戳: {}", timestamp());
     println!("当前毫秒级时间戳: {}", timestamp_millis());
-    
+
     // let t1 = Tensor::randn(0.0, 1.0, (1, 2, 6), device)?;
     // println!(" t1: {}", t1);
     // let t2 = t1.pad_with_zeros(D::Minus1, -3, 0)?;

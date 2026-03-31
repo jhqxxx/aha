@@ -1,8 +1,8 @@
 use std::time::Instant;
 
 use aha::{
-    params::chat::ChatCompletionParameters,
     models::{GenerateModel, qwen3_5::generate::Qwen3_5GenerateModel},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::Result;
 // use candle_core::{DType, Device, quantized::gguf_file};

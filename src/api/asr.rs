@@ -1,11 +1,11 @@
 // OpenAI-compatible ASR (Automatic Speech Recognition) API endpoint
 // Implements POST /audio/transcriptions and /v1/audio/transcriptions
 
+use aha::models::GenerateModel;
 use aha::params::chat::{
     AudioUrlType, ChatCompletionParameters, ChatMessage, ChatMessageAudioContentPart,
     ChatMessageContent, ChatMessageContentPart,
 };
-use aha::models::GenerateModel;
 use aha::utils::{clean_asr_response, map_language_code};
 use rocket::http::Status;
 use rocket::serde::json::Json;

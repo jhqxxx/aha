@@ -534,7 +534,7 @@ pub struct AudioUrlType {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct VideoUrlType {
-    /// video  URL 
+    /// video  URL
     pub url: String,
 }
 
@@ -613,7 +613,7 @@ pub struct ChatMessageImageContentPart {
     /// The type of the content part.
     pub r#type: String,
     /// The text content.
-    pub image_url: ImageUrlType
+    pub image_url: ImageUrlType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -621,7 +621,7 @@ pub struct ChatMessageAudioContentPart {
     /// The type of the content part. Always input_audio.
     pub r#type: String,
     /// The input audio data.
-    pub audio_url: AudioUrlType
+    pub audio_url: AudioUrlType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

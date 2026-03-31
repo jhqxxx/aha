@@ -394,7 +394,6 @@ pub fn timestamp_millis() -> u128 {
         .as_millis()
 }
 
-
 pub fn round_by_factor(num: u32, factor: u32) -> u32 {
     let round = (num as f32 / factor as f32).round() as u32;
     round * factor
