@@ -18,16 +18,19 @@ aha [COMMAND] [OPTIONS]
 | `--weight-path <WEIGHT_PATH>` | Local model weight path | - |
 | `--save-dir <SAVE_DIR>` | Model download save directory | ~/.aha/ |
 | `--download-retries <DOWNLOAD_RETRIES>` | Download retry count | 3 |
-| `--gguf-path <GGUF_PATH>` | Local GGUF weight | - |
+| `--gguf-path <GGUF_PATH>` | Local GGUF weight（required when using GGUF models） | - |
 | `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight | - |
+| `--onnx-path <ONNX_PATH>` | Local ONNX weight（required when using ONNX models） | - |
+| `--config-path <ONNX_PATH>` | extra config path for gguf/onnx | - |
 | `-h, --help` | Display help information | - |
 | `-V, --version` | Display version number | - |
 
 ## Commands
 
-### cli - Download model and start service (default)
+### cli - Download model and start service 
 
-Download the specified model and start an HTTP service. This command is used by default when no subcommand is specified.
+Download the specified model and start an HTTP service. 
+Download only supports models in safetensors format; for GGUF/ONNX models, you must specify a local file path.
 
 **Syntax:**
 ```bash
@@ -44,8 +47,10 @@ aha cli [OPTIONS] --model <MODEL>
 | `--weight-path <WEIGHT_PATH>` | Local model weight path (skip download if specified) | - |
 | `--save-dir <SAVE_DIR>` | Model download save directory | ~/.aha/ |
 | `--download-retries <DOWNLOAD_RETRIES>` | Download retry count | 3 |
-| `--gguf-path <GGUF_PATH>` | Local GGUF weight | - |
+| `--gguf-path <GGUF_PATH>` | Local GGUF weight（required when using GGUF models） | - |
 | `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight | - |
+| `--onnx-path <ONNX_PATH>` | Local ONNX weight（required when using ONNX models） | - |
+| `--config-path <ONNX_PATH>` | extra config path for gguf/onnx | - |
 
 **Examples:**
 
@@ -59,9 +64,6 @@ aha cli -m Qwen/Qwen3-VL-2B-Instruct -p 8080 --save-dir /data/models
 # Use local model (skip download)
 aha cli -m Qwen/Qwen3-VL-2B-Instruct --weight-path /path/to/model
 
-# Backward compatible way (equivalent to cli subcommand)
-aha -m Qwen/Qwen3-VL-2B-Instruct
-
 # use gguf-path and mmproj-path
 aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
 ```
@@ -72,7 +74,7 @@ Run model inference directly without starting an HTTP service. Suitable for one-
 
 **Syntax:**
 ```bash
-aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
+aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>] [--onnx-path <ONNX_PATH>] [--config-path <CONFIG_PATH>]
 ```
 
 **Options:**
@@ -82,9 +84,12 @@ aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-p
 | `-m, --model <MODEL>` | Model type (required) | - |
 | `-i, --input <INPUT>` | Input text or file path (model-specific interpretation, supports 1-2 parameters: input1: prompt text, input2: file path) | - |
 | `-o, --output <OUTPUT>` | Output file path (optional, auto-generated if not specified) | - |
-| `--weight-path <WEIGHT_PATH>` | Local model weight path (required when using non-GGUF models) | - |
+| `--weight-path <WEIGHT_PATH>` | Local model weight path (required when using safetensors models) | - |
 | `--gguf-path <GGUF_PATH>` | Local GGUF model weight path（required when using GGUF models） | - |
 | `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight path（optional，If not specified, the module will not be loaded） | - |
+| `--onnx-path <ONNX_PATH>` | Local ONNX weight（required when using ONNX models） | - |
+| `--config-path <ONNX_PATH>` | extra config path for gguf/onnx | - |
+
 **Examples:**
 
 ```bash
@@ -129,11 +134,13 @@ aha run -m qwen3.5-gguf -i 提取图片中的文本 -i https://ai.bdstatic.com/f
 
 ### serv - Start service
 
-Start HTTP service with a model. The `--weight-path` is optional - if not specified, it defaults to `~/.aha/{model_id}`.
+Start HTTP service with a model. 
+Safetensors model: The `--weight-path` is optional - if not specified, it defaults to `~/.aha/{model_id}`.
+GGUF/ONNX model: The `--gguf-path`/ `--onnx-path` must be specified
 
 **Syntax:**
 ```bash
-aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
+aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>] [--onnx-path <ONNX_PATH>] [--config-path <CONFIG_PATH>]
 ```
 
 **Options:**
@@ -336,7 +343,7 @@ Example:
 
 ```bash
 # One command to download and start service
-aha -m Qwen/Qwen3-VL-2B-Instruct
+aha cli -m Qwen/Qwen3-VL-2B-Instruct
 ```
 
 ### Scenario 2: Start service with existing model
@@ -360,7 +367,7 @@ aha serv -m Qwen/Qwen3-VL-2B-Instruct --weight-path /data/models/Qwen/Qwen3-VL-2
 
 ```bash
 # Start service on 0.0.0.0:8080, allow external access
-aha -m Qwen/Qwen3-VL-2B-Instruct -a 0.0.0.0 -p 8080
+aha cli -m Qwen/Qwen3-VL-2B-Instruct -a 0.0.0.0 -p 8080
 ```
 
 ## API Endpoints
@@ -394,18 +401,6 @@ After the service starts, the following API endpoints are available:
 - **Security**: Localhost only by default, use `--allow-remote-shutdown` flag to enable remote access (not recommended)
 - **Format**: JSON response
 
-
-## Backward Compatibility
-
-To maintain compatibility with older versions, the following two usage methods are equivalent:
-
-```bash
-# New way (recommended)
-aha cli -m Qwen/Qwen3-VL-2B-Instruct
-
-# Old way (backward compatible)
-aha -m Qwen/Qwen3-VL-2B-Instruct
-```
 
 ## Notes
 

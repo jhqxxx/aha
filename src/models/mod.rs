@@ -129,12 +129,27 @@ impl<'a> GenerateModel for ModelInstance<'a> {
     }
 }
 
-pub fn load_model<'a>(
+#[allow(unused)]
+pub fn load_gguf_model<'a>(
     model_type: WhichModel,
-    path: &str,
-    gguf: Option<&str>,
-    mmproj: Option<&str>,
+    config_path: Option<&str>, // 有些gguf未包含模型其他配置，需额外指定
+    gguf_path: &str,
+    mmproj_path: Option<&str>,
 ) -> Result<ModelInstance<'a>> {
+    let model = match model_type {
+        WhichModel::Qwen3_5Gguf => {
+            let model = Qwen3_5GenerateModel::init_from_gguf(gguf_path, mmproj_path, None)?;
+            ModelInstance::Qwen3_5(model)
+        }
+        _ => {
+            let model_id = model_type.as_string();
+            return Err(anyhow!("model id {model_id} is not gguf model"));
+        }
+    };
+    Ok(model)
+}
+
+pub fn load_model<'a>(model_type: WhichModel, path: &str) -> Result<ModelInstance<'a>> {
     let model = match model_type {
         WhichModel::MiniCPM4_0_5B => {
             let model = MiniCPMGenerateModel::init(path, None, None)?;
@@ -172,6 +187,10 @@ pub fn load_model<'a>(
             let model = Qwen3GenerateModel::init(path, None, None)?;
             ModelInstance::Qwen3(model)
         }
+        WhichModel::Qwen3_4B => {
+            let model = Qwen3GenerateModel::init(path, None, None)?;
+            ModelInstance::Qwen3(model)
+        }
         WhichModel::Qwen3_5_0_8B => {
             let model = Qwen3_5GenerateModel::init(path, None, None)?;
             ModelInstance::Qwen3_5(model)
@@ -186,14 +205,6 @@ pub fn load_model<'a>(
         }
         WhichModel::Qwen3_5_9B => {
             let model = Qwen3_5GenerateModel::init(path, None, None)?;
-            ModelInstance::Qwen3_5(model)
-        }
-        WhichModel::Qwen3_5Gguf => {
-            if gguf.is_none() {
-                return Err(anyhow!("Qwen3_5Gguf gguf model path is required"));
-            }
-            let gguf = gguf.unwrap();
-            let model = Qwen3_5GenerateModel::init_from_gguf(gguf, mmproj, None)?;
             ModelInstance::Qwen3_5(model)
         }
         WhichModel::Qwen3ASR0_6B => {
@@ -263,6 +274,10 @@ pub fn load_model<'a>(
         WhichModel::GlmOCR => {
             let model = GlmOcrGenerateModel::init(path, None, None)?;
             ModelInstance::GlmOCR(model)
+        }
+        _ => {
+            let model_id = model_type.as_string();
+            return Err(anyhow!("model id {model_id} is not safetensor model"));
         }
     };
     Ok(model)

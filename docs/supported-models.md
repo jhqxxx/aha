@@ -15,7 +15,8 @@ OpenBMB/MiniCPM4-0.5B                    OpenBMB              llm          ✔
 Qwen/Qwen2.5-VL-3B-Instruct              Qwen                 vlm          ✔       
 Qwen/Qwen2.5-VL-7B-Instruct              Qwen                 vlm                  
 Qwen/Qwen3-0.6B                          Qwen                 llm          ✔
-Qwen/Qwen3-1.7B                          Qwen                 llm          ✔       
+Qwen/Qwen3-1.7B                          Qwen                 llm          
+Qwen/Qwen3-4B                            Qwen                 llm                 
 Qwen/Qwen3.5-0.8B                        Qwen                 vlm          ✔       
 Qwen/Qwen3.5-2B                          Qwen                 vlm                  
 Qwen/Qwen3.5-4B                          Qwen                 vlm                  
@@ -44,7 +45,7 @@ ZhipuAI/GLM-OCR                          ZhipuAI              ocr          ✔
 
 | Model | Parameters | Model Id | License |
 |-------|-----------|--------|---------|
-| **Qwen3-0.6B** | 0.6B | Qwen/Qwen3-0.6B <br> Qwen/Qwen3-1.7B | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **Qwen3-0.6B** | 0.6B | Qwen/Qwen3-0.6B <br> Qwen/Qwen3-1.7B <br> Qwen/Qwen3-4B | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **MiniCPM4-0.5B** | 0.5B | OpenBMB/MiniCPM4-0.5B | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **LFM2-1.2B** | 1.2B | LiquidAI/LFM2-1.2B | [lfm1.0](https://huggingface.co/LiquidAI/LFM2-1.2B/blob/main/LICENSE) |
 | **LFM2.5-1.2B-Instruct** | 1.2B | LiquidAI/LFM2.5-1.2B-Instruct | [lfm1.0](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/blob/main/LICENSE) |

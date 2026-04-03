@@ -76,22 +76,27 @@ pub(crate) fn run_list(args: ListArgs) -> anyhow::Result<()> {
 /// Run the 'cli' subcommand: download model (if needed) and start service
 pub(crate) async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
     let CliArgs {
-        common,
-        weight_path,
+        model,
+        server_common,
         save_dir,
         download_retries,
-        gguf_path,
-        mmproj_path,
+        path_common,
     } = args;
-    let model_id = common.model.as_string();
+    let model_id = model.as_string();
 
-    let (model_path, gguf, mmproj) = if model_id.contains("gguf") {
-        if gguf_path.is_none() {
+    let (model_path, gguf, mmproj) = if model.is_gguf() {
+        if path_common.gguf_path.is_none() {
             return Err(anyhow!("gguf model path is required"));
         }
-        ("GGUF".to_string(), gguf_path, mmproj_path)
+        (
+            "GGUF".to_string(),
+            path_common.gguf_path,
+            path_common.mmproj_path,
+        )
+    } else if model.is_onnx() {
+        return Err(anyhow!("onnx model not support now"));
     } else {
-        let model_path = match weight_path {
+        let model_path = match path_common.weight_path {
             Some(path) => path,
             None => {
                 let save_dir = match save_dir {
@@ -106,8 +111,13 @@ pub(crate) async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         (model_path, None, None)
     };
 
-    init(common.model, model_path, gguf, mmproj)?;
-    start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
+    init(model, model_path, gguf, mmproj)?;
+    start_http_server(
+        server_common.address,
+        server_common.port,
+        server_common.allow_remote_shutdown,
+    )
+    .await?;
 
     Ok(())
 }
@@ -115,27 +125,41 @@ pub(crate) async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
 /// Run the 'serv' subcommand: start service only (no download)
 pub(crate) async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
     let ServArgs {
-        common,
-        weight_path,
-        gguf_path,
-        mmproj_path,
+        model,
+        server_common,
+        path_common,
     } = args;
-    let model_id = common.model.as_string();
-    let (model_path, gguf, mmproj) = if model_id.contains("gguf") {
-        if gguf_path.is_none() {
+    let (model_path, gguf, mmproj) = if model.is_gguf() {
+        if path_common.gguf_path.is_none() {
             return Err(anyhow!("gguf model path is required"));
         }
-        ("GGUF".to_string(), gguf_path, mmproj_path)
+        (
+            "GGUF".to_string(),
+            path_common.gguf_path,
+            path_common.mmproj_path,
+        )
+    } else if model.is_onnx() {
+        return Err(anyhow!("onnx model not support now"));
     } else {
-        let model_path = match weight_path {
+        let model_path = match path_common.weight_path {
             Some(path) => path,
-            None => get_default_weight_path(common.model),
+            None => get_default_weight_path(model),
         };
+        if !std::path::Path::new(&model_path).exists() {
+            return Err(anyhow!(
+                "serv subcommand will not download model, use `weight-path` to pass the model path"
+            ));
+        }
         (model_path, None, None)
     };
 
-    init(common.model, model_path, gguf, mmproj)?;
-    start_http_server(common.address, common.port, common.allow_remote_shutdown).await?;
+    init(model, model_path, gguf, mmproj)?;
+    start_http_server(
+        server_common.address,
+        server_common.port,
+        server_common.allow_remote_shutdown,
+    )
+    .await?;
 
     Ok(())
 }
@@ -205,13 +229,11 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         model,
         input,
         output,
-        weight_path,
-        gguf_path,
-        mmproj_path,
+        path_common,
     } = args;
 
     // Use default weight path if not specified
-    let weight_path = match weight_path {
+    let weight_path = match path_common.weight_path {
         Some(path) => path,
         None => get_default_weight_path(model),
     };
@@ -243,6 +265,9 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::Qwen3_1_7B => {
             qwen3::Qwen3Exec::run(&input, output.as_deref(), &weight_path)?;
         }
+        WhichModel::Qwen3_4B => {
+            qwen3::Qwen3Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::Qwen3_5_0_8B => {
             qwen3_5::Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
         }
@@ -256,7 +281,12 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
             qwen3_5::Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::Qwen3_5Gguf => {
-            qwen3_5::Qwen3_5Exec::run_gguf(&input, output.as_deref(), gguf_path, mmproj_path)?;
+            qwen3_5::Qwen3_5Exec::run_gguf(
+                &input,
+                output.as_deref(),
+                path_common.gguf_path,
+                path_common.mmproj_path,
+            )?;
         }
         WhichModel::Qwen3ASR0_6B => {
             qwen3_asr::Qwen3ASRExec::run(&input, output.as_deref(), &weight_path)?;

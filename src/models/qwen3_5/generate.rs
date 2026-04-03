@@ -59,7 +59,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             qwen3_5,
             device,
             model_name: model_name.to_string(),
-            repeat_penalty: 1.01,
+            repeat_penalty: 1.0,
             repeat_last_n: 64,
         })
     }
@@ -116,7 +116,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             qwen3_5,
             device,
             model_name: stem.to_string(),
-            repeat_penalty: 1.1,
+            repeat_penalty: 1.2,
             repeat_last_n: 64,
         })
     }

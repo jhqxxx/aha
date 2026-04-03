@@ -47,8 +47,9 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 
 ## Changelog
 ### 2026-04-03
+- CLI update: subcommand must be specified
 - ChatCompletionParameters add repeat_penalty and repeat_last_n
-- generate add penalty repeat code
+- generate add penalty repeat
 
 ### 2026-04-02
 - refactor generate code 
@@ -113,7 +114,7 @@ aha list
 aha download -m Qwen/Qwen3-ASR-0.6B
 
 # Download model and start service
-aha -m Qwen/Qwen3-ASR-0.6B
+aha cli -m Qwen/Qwen3-ASR-0.6B
 
 # Run inference directly (without starting service)
 aha run -m Qwen/Qwen3-ASR-0.6B -i "audio.wav"

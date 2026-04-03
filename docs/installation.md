@@ -291,7 +291,8 @@ OpenBMB/MiniCPM4-0.5B                    OpenBMB              llm          ✔
 Qwen/Qwen2.5-VL-3B-Instruct              Qwen                 vlm          ✔       
 Qwen/Qwen2.5-VL-7B-Instruct              Qwen                 vlm                  
 Qwen/Qwen3-0.6B                          Qwen                 llm          ✔  
-Qwen/Qwen3-1.7B                          Qwen                 llm          ✔     
+Qwen/Qwen3-1.7B                          Qwen                 llm               
+Qwen/Qwen3-4B                            Qwen                 llm            
 Qwen/Qwen3.5-0.8B                        Qwen                 vlm          ✔       
 Qwen/Qwen3.5-2B                          Qwen                 vlm                  
 Qwen/Qwen3.5-4B                          Qwen                 vlm                  

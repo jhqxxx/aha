@@ -20,6 +20,8 @@ pub enum WhichModel {
     Qwen3_0_6B,
     #[value(name = "Qwen/Qwen3-1.7B")]
     Qwen3_1_7B,
+    #[value(name = "Qwen/Qwen3-4B")]
+    Qwen3_4B,
     #[value(name = "Qwen/Qwen3.5-0.8B")]
     Qwen3_5_0_8B,
     #[value(name = "Qwen/Qwen3.5-2B")]
@@ -67,18 +69,40 @@ pub enum WhichModel {
 }
 
 impl WhichModel {
-    /// Get the ModelScope model ID for this model variant
+    /// Get the model ID for this model variant
     pub fn as_string(&self) -> String {
         self.to_possible_value()
             .expect("not exists")
             .get_name()
             .to_string()
     }
+
+    /// Checks if the model is in GGUF format
+    ///
+    /// Returns true if the model ID contains "gguf", false otherwise
+    pub fn is_gguf(&self) -> bool {
+        let model_id = self.as_string();
+        model_id.to_lowercase().contains("gguf")
+    }
+
+    /// Checks if the model is in ONNX format
+    ///
+    /// Returns true if the model ID contains "onnx", false otherwise
+    pub fn is_onnx(&self) -> bool {
+        let model_id = self.as_string();
+        model_id.to_lowercase().contains("onnx")
+    }
+
     /// Get the WhichModel enum list
     pub fn model_list() -> Vec<Self> {
         WhichModel::value_variants().to_vec()
     }
 
+    /// Extracts the model owner/organization from the model ID
+    ///
+    /// Splits the model ID string on '/' and returns the first part which typically represents
+    /// the organization or user who owns the model in Hugging Face format (e.g., "Qwen" from "Qwen/Qwen3-0.6B")
+    /// Returns "none" if the model ID doesn't contain a '/' separator
     pub fn model_owner(&self) -> String {
         let name = self.as_string();
         let names: Vec<&str> = name.split("/").collect();
@@ -96,6 +120,7 @@ impl WhichModel {
             WhichModel::MiniCPM4_0_5B
             | WhichModel::Qwen3_0_6B
             | WhichModel::Qwen3_1_7B
+            | WhichModel::Qwen3_4B
             | WhichModel::LFM2_1_2B
             | WhichModel::LFM2_5_1_2BInstruct => "llm",
             // VLM models

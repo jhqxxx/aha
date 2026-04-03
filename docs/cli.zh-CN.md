@@ -15,19 +15,22 @@ aha [COMMAND] [OPTIONS]
 | `-a, --address <ADDRESS>` | 服务监听地址 | 127.0.0.1 |
 | `-p, --port <PORT>` | 服务监听端口 | 10100 |
 | `-m, --model <MODEL>` | 模型类型（必选） | - |
-| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径 | - |
+| `--weight-path <WEIGHT_PATH>` | 本地safetensors模型权重路径 | - |
 | `--save-dir <SAVE_DIR>` | 模型下载保存目录 | ~/.aha/ |
 | `--download-retries <DOWNLOAD_RETRIES>` | 下载重试次数 | 3 |
-| `--gguf-path <GGUF_PATH>` | 本地 GGUF 模型权重 | - |
-| `--mmproj-path <MMPROJ_PATH>` | 本地 mmproj GGUF 模型权重 | - |
+| `--gguf-path <GGUF_PATH>` | 本地 GGUF 模型权重（使用GGUF模型时必选） | - |
+| `--mmproj-path <MMPROJ_PATH>` | 本地 mmproj GGUF 模型权重（可选，未指定则不加载该模块） | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型权重 （使用ONNX模型时必选） | - |
+| `--config-path <ONNX_PATH>` | GGUF/ONNX 需要的额外配置路径(可选) | - |
 | `-h, --help` | 显示帮助信息 | - |
 | `-V, --version` | 显示版本号 | - |
 
 ## 子命令
 
-### cli - 下载模型并启动服务（默认）
+### cli - 下载模型并启动服务
 
-下载指定的模型并启动 HTTP 服务。当不指定子命令时，默认使用此命令。
+下载指定的模型并启动 HTTP 服务。
+下载仅支持safetensors格式模型, GGUF/ONNX模型必须指定本地文件路径
 
 **语法：**
 ```bash
@@ -41,11 +44,13 @@ aha cli [OPTIONS] --model <MODEL>
 | `-a, --address <ADDRESS>` | 服务监听地址 | 127.0.0.1 |
 | `-p, --port <PORT>` | 服务监听端口 | 10100 |
 | `-m, --model <MODEL>` | 模型类型（必选） | - |
-| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径（如指定则跳过下载） | - |
+| `--weight-path <WEIGHT_PATH>` | 本地safetensors模型权重路径（如指定则跳过下载） | - |
 | `--save-dir <SAVE_DIR>` | 模型下载保存目录 | ~/.aha/ |
 | `--download-retries <DOWNLOAD_RETRIES>` | 下载重试次数 | 3 |
-| `--gguf-path <GGUF_PATH>` | 本地 GGUF 模型权重 | - |
-| `--mmproj-path <MMPROJ_PATH>` | 本地 mmproj GGUF 模型权重 | - |
+| `--gguf-path <GGUF_PATH>` | 本地 GGUF 模型权重（使用GGUF模型时必选） | - |
+| `--mmproj-path <MMPROJ_PATH>` | 本地 mmproj GGUF 模型权重（可选，未指定则不加载该模块） | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型权重 （使用ONNX模型时必选） | - |
+| `--config-path <ONNX_PATH>` | GGUF/ONNX 需要的额外配置路径(可选) | - |
 
 **示例：**
 
@@ -59,9 +64,6 @@ aha cli -m Qwen/Qwen3-VL-2B-Instruct -p 8080 --save-dir /data/models
 # 使用本地模型（不下载）
 aha cli -m Qwen/Qwen3-VL-2B-Instruct --weight-path /path/to/model
 
-# 向后兼容方式（等同于 cli 子命令）
-aha -m Qwen/Qwen3-VL-2B-Instruct
-
 # 指定gguf-path和mmproj-path
 aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
 ```
@@ -72,7 +74,7 @@ aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmp
 
 **语法：**
 ```bash
-aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>]
+aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] [--mmproj-path <MMPROJ_PATH>] [--onnx-path <ONNX_PATH>] [--config-path <CONFIG_PATH>]
 ```
 
 **选项：**
@@ -82,9 +84,11 @@ aha run [OPTIONS] --model <MODEL> --input <INPUT> [--input <INPUT2>] [--weight-p
 | `-m, --model <MODEL>` | 模型类型（必选） | - |
 | `-i, --input <INPUT>` | 输入文本或文件路径（模型特定解释，支持1-2个参数, input1： 提示文本, input2: 文件地址） | - |
 | `-o, --output <OUTPUT>` | 输出文件路径（可选，未指定则自动生成） | - |
-| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径（使用非GGUF模型时必选） | - |
+| `--weight-path <WEIGHT_PATH>` | 本地模型权重路径（使用Safetensors模型时必选） | - |
 | `--gguf-path <GGUF_PATH>` | 本地GGUF模型权重路径（使用GGUF模型时必选） | - |
 | `--mmproj-path <MMPROJ_PATH>` | 本地mmproj GGUF模型权重路径（可选，未指定则不加载该模块） | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型权重 （使用ONNX模型时必选） | - |
+| `--config-path <ONNX_PATH>` | GGUF/ONNX 需要的额外配置路径(可选) | - |
 
 **示例：**
 
@@ -129,7 +133,9 @@ aha run -m qwen3.5-gguf -i 提取图片中的文本 -i https://ai.bdstatic.com/f
 
 ### serv - 启动服务
 
-使用指定模型启动 HTTP 服务。`--weight-path` 是可选的 - 如果不指定，默认使用 `~/.aha/{model_id}`。
+使用指定模型启动 HTTP 服务。
+safetensors模型`--weight-path` 是可选的 - 如果不指定，默认使用 `~/.aha/{model_id}`。
+GGUF/ONNX模型必须指定本地文件路径
 
 **语法：**
 ```bash
@@ -147,6 +153,8 @@ aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <G
 | `--allow-remote-shutdown` | 允许远程关机请求（不推荐） | false |
 | `--gguf-path <GGUF_PATH>` | 本地GGUF模型权重路径（使用GGUF模型时必选） | - |
 | `--mmproj-path <MMPROJ_PATH>` | 本地mmproj GGUF模型权重路径（可选，未指定则不加载该模块） | - |
+| `--onnx-path <ONNX_PATH>` | 本地 ONNX 模型权重 （使用ONNX模型时必选） | - |
+| `--config-path <ONNX_PATH>` | GGUF/ONNX 需要的额外配置路径(可选) | - |
 
 **示例：**
 
@@ -336,7 +344,7 @@ aha list -j
 
 ```bash
 # 一条命令下载并启动服务
-aha -m Qwen/Qwen3-VL-2B-Instruct
+aha cli -m Qwen/Qwen3-VL-2B-Instruct
 ```
 
 ### 场景 2：使用已有模型启动服务
@@ -360,7 +368,7 @@ aha serv -m Qwen/Qwen3-VL-2B-Instruct --weight-path /data/models/Qwen/Qwen3-VL-2
 
 ```bash
 # 在 0.0.0.0:8080 启动服务，允许外部访问
-aha -m Qwen/Qwen3-VL-2B-Instruct -a 0.0.0.0 -p 8080
+aha cli -m Qwen/Qwen3-VL-2B-Instruct -a 0.0.0.0 -p 8080
 ```
 
 ## API 接口
@@ -394,17 +402,6 @@ aha -m Qwen/Qwen3-VL-2B-Instruct -a 0.0.0.0 -p 8080
 - **安全性**: 默认仅允许本地访问，使用 `--allow-remote-shutdown` 标志启用远程访问（不推荐）
 - **格式**: JSON 响应
 
-## 向后兼容性
-
-为了保持与旧版本的兼容性，以下两种使用方式是等效的：
-
-```bash
-# 新方式（推荐）
-aha cli -m Qwen/Qwen3-VL-2B-Instruct
-
-# 旧方式（向后兼容）
-aha -m Qwen/Qwen3-VL-2B-Instruct
-```
 
 ## 注意事项
 

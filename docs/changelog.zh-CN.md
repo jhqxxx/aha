@@ -6,6 +6,7 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
 ### 2026-04-03
+- CLI 更新: 必须指定子命令
 - ChatCompletionParameters 新增 repeat_penalty 和 repeat_last_n 参数
 - 生成添加重复惩罚代码
 

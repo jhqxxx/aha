@@ -5,40 +5,8 @@ use clap::{Args, Parser, Subcommand};
 #[command(name = "aha")]
 #[command(version, about, long_about = None)]
 pub(crate) struct Cli {
-    /// Service listen address
-    #[arg(short, long, default_value = "127.0.0.1")]
-    pub address: Option<String>,
-
-    /// Service listen port
-    #[arg(short, long)]
-    pub port: Option<u16>,
-
-    /// Model type (required for backward compatibility)
-    #[arg(short, long)]
-    pub model: Option<WhichModel>,
-
-    /// Local model weight path
-    #[arg(long)]
-    pub weight_path: Option<String>,
-
-    /// Model download save directory
-    #[arg(long)]
-    pub save_dir: Option<String>,
-
-    /// Download retry count
-    #[arg(long)]
-    pub download_retries: Option<u32>,
-
-    /// Local GGUF model weight path (required for loading models with GGUF).
-    #[arg(long)]
-    pub gguf_path: Option<String>,
-
-    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
-    #[arg(long)]
-    pub mmproj_path: Option<String>,
-
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
@@ -61,7 +29,7 @@ pub(crate) enum Commands {
 
 /// Common/shared arguments for server operations
 #[derive(Args, Debug)]
-pub(crate) struct CommonArgs {
+pub(crate) struct ServerCommonArgs {
     /// Service listen address
     #[arg(short, long, default_value = "127.0.0.1")]
     pub address: String,
@@ -70,24 +38,42 @@ pub(crate) struct CommonArgs {
     #[arg(short, long, default_value_t = 10100)]
     pub port: u16,
 
-    /// Model type (required)
-    #[arg(short, long)]
-    pub model: WhichModel,
-
     /// Allow remote shutdown requests (default: local only, use with caution)
     #[arg(long)]
     pub allow_remote_shutdown: bool,
 }
 
-/// Arguments for the 'cli' subcommand (download + serve)
 #[derive(Args, Debug)]
-pub(crate) struct CliArgs {
-    #[command(flatten)]
-    pub common: CommonArgs,
-
+pub(crate) struct PathCommonArgs {
     /// Local model weight path (skip download if provided)
     #[arg(long)]
     pub weight_path: Option<String>,
+    /// Local GGUF model weight path (required for loading models with GGUF).
+    #[arg(long)]
+    pub gguf_path: Option<String>,
+
+    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
+    #[arg(long)]
+    pub mmproj_path: Option<String>,
+
+    /// Local path for onnx model weights (required for loading with onnx)
+    #[arg(long)]
+    pub onnx_path: Option<String>,
+
+    /// config path for onnx/gguf model need extra config file
+    #[arg(long)]
+    pub config_path: Option<String>,
+}
+
+/// Arguments for the 'cli' subcommand (download + serve)
+#[derive(Args, Debug)]
+pub(crate) struct CliArgs {
+    /// Model type (required)
+    #[arg(short, long)]
+    pub model: WhichModel,
+
+    #[command(flatten)]
+    pub server_common: ServerCommonArgs,
 
     /// Model download save directory
     #[arg(long)]
@@ -97,32 +83,22 @@ pub(crate) struct CliArgs {
     #[arg(long)]
     pub download_retries: Option<u32>,
 
-    /// Local GGUF model weight path (required for loading models with GGUF).
-    #[arg(long)]
-    pub gguf_path: Option<String>,
-
-    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
-    #[arg(long)]
-    pub mmproj_path: Option<String>,
+    #[command(flatten)]
+    pub path_common: PathCommonArgs,
 }
 
 /// Arguments for the 'serv start' subcommand
 #[derive(Args, Debug)]
 pub(crate) struct ServArgs {
+    /// Model type (required)
+    #[arg(short, long)]
+    pub model: WhichModel,
+
     #[command(flatten)]
-    pub common: CommonArgs,
+    pub server_common: ServerCommonArgs,
 
-    /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
-    #[arg(long)]
-    pub weight_path: Option<String>,
-
-    /// Local GGUF model weight path (required for loading models with GGUF).
-    #[arg(long)]
-    pub gguf_path: Option<String>,
-
-    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
-    #[arg(long)]
-    pub mmproj_path: Option<String>,
+    #[command(flatten)]
+    pub path_common: PathCommonArgs,
 }
 
 /// Arguments for the 'serv list' subcommand
@@ -164,17 +140,8 @@ pub(crate) struct RunArgs {
     #[arg(short, long)]
     pub output: Option<String>,
 
-    /// Local model weight path (defaults to ~/.aha/{model_id} if not specified)
-    #[arg(long)]
-    pub weight_path: Option<String>,
-
-    /// Local GGUF model weight path (required for loading models with GGUF).
-    #[arg(long)]
-    pub gguf_path: Option<String>,
-
-    /// Local path for mmproj GGUF model weights (required for loading with multimodel GGUF)
-    #[arg(long)]
-    pub mmproj_path: Option<String>,
+    #[command(flatten)]
+    pub path_common: PathCommonArgs,
 }
 
 /// Arguments for the 'delete' subcommand (delete model from default location)

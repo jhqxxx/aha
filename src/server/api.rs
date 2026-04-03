@@ -2,9 +2,11 @@ use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
+use aha::models::load_gguf_model;
 use aha::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
 use aha::params::chat::ChatCompletionParameters;
 use aha::utils::string_to_static_str;
+use anyhow::anyhow;
 use rocket::futures::StreamExt;
 use rocket::serde::{Serialize, json::Json};
 use rocket::{
@@ -37,10 +39,21 @@ pub fn init(
     gguf: Option<String>,
     mmproj: Option<String>,
 ) -> anyhow::Result<()> {
-    let model_path = string_to_static_str(path);
-    let gguf = gguf.map(string_to_static_str);
-    let mmproj = mmproj.map(string_to_static_str);
-    let model = load_model(model_type, model_path, gguf, mmproj)?;
+    let model = if model_type.is_gguf() {
+        if let Some(gguf_path) = gguf {
+            let gguf_path = string_to_static_str(gguf_path);
+            let mmproj_path = mmproj.map(string_to_static_str);
+            load_gguf_model(model_type, None, gguf_path, mmproj_path)?
+        } else {
+            return Err(anyhow!("gguf model need gguf model path"));
+        }
+    } else if model_type.is_onnx() {
+        return Err(anyhow!("onnx comming soon but now not support"));
+    } else {
+        let model_path = string_to_static_str(path);
+        load_model(model_type, model_path)?
+    };
+
     MODEL.get_or_init(|| {
         Arc::new(RwLock::new(StoredModel {
             which_model: model_type,
