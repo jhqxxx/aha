@@ -19,7 +19,9 @@ impl ExecModel for Qwen2_5VLExec {
         } else {
             input_text.clone()
         };
-        let url = &input[1];
+        let url = input.get(1).ok_or_else(|| {
+            anyhow::anyhow!("qwen2.5vl requires a second input: image path or URL")
+        })?;
         let input_url = if url.starts_with("http://")
             || url.starts_with("https://")
             || url.starts_with("file://")

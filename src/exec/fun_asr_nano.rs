@@ -27,7 +27,9 @@ impl ExecModel for FunASRNanoExec {
         println!("Time elapsed in load model is: {:?}", i_duration);
 
         // Create ChatCompletionParameters for ASR
-        let url = &input[1];
+        let url = input.get(1).ok_or_else(|| {
+            anyhow::anyhow!("fun-asr-nano requires a second input: audio path or URL")
+        })?;
         let input_url = if url.starts_with("http://")
             || url.starts_with("https://")
             || url.starts_with("file://")

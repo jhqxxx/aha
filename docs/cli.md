@@ -66,6 +66,11 @@ aha cli -m Qwen/Qwen3-VL-2B-Instruct --weight-path /path/to/model
 
 # use gguf-path and mmproj-path
 aha cli -m qwen3.5-gguf --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
+
+# run service with ONNX artifact
+aha cli -m qwen3-embedding-0.6b --artifact-format onnx \
+  --onnx-path /path/to/Qwen3-Embedding-0.6B-ONNX \
+  --tokenizer-dir /path/to/Qwen3-Embedding-0.6B-ONNX
 ```
 
 ### run - Direct model inference
@@ -117,6 +122,9 @@ aha run -m FunAudioLLM/Fun-ASR-Nano-2512 -i "语音转写：" -i "audio.wav" --w
 # qwen3 text generation (single input)
 aha run -m Qwen/Qwen3-0.6B -i "你好" --weight-path /path/to/model
 
+# qwen3 GGUF text generation (single input)
+aha run -m qwen3-0.6b -i "hello" --artifact-format gguf --gguf-path /path/to/Qwen3-0.6B-Q8_0.gguf
+
 # qwen2.5vl image understanding (two inputs: prompt text + image file)
 aha run -m Qwen/Qwen2.5-VL-3B-Instruct -i "请分析图片并提取所有可见文本内容，按从左到右、从上到下的布局，返回纯文本" -i "image.jpg" --weight-path /path/to/model
 
@@ -129,6 +137,11 @@ aha run -m qwen3.5-gguf -i 你如何看待AI --gguf-path /path/to/xxx.gguf
 # Qwen3.5-GGUF with mmproj (two inputs：prompt text + file)
 aha run -m qwen3.5-gguf -i 提取图片中的文本 -i https://ai.bdstatic.com/file/C56CC9B274CF460CA33
 63E59ECD94423 --gguf-path /path/to/xxx.gguf --mmproj-path /path/to/mmproj-xxx.gguf
+
+# Qwen3.5 ONNX text-only generation
+aha run -m qwen3.5-0.8b -i "hello" --artifact-format onnx \
+  --onnx-path /path/to/Qwen3.5-0.8B-ONNX \
+  --tokenizer-dir /path/to/Qwen3.5-0.8B-ONNX
 
 ```
 
@@ -154,6 +167,9 @@ aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <G
 | `--allow-remote-shutdown` | Allow remote shutdown requests (not recommended) | false |
 | `--gguf-path <GGUF_PATH>` | Local GGUF model weight path（required when using GGUF models） | - |
 | `--mmproj-path <MMPROJ_PATH>` | Local mmproj GGUF weight path（optional，If not specified, the module will not be loaded） | - |
+| `--onnx-path <ONNX_PATH>` | Local ONNX model directory/file path（required when using ONNX models） | - |
+| `--tokenizer-dir <TOKENIZER_DIR>` | Tokenizer/config directory for GGUF/ONNX | - |
+| `--artifact-format <ARTIFACT_FORMAT>` | Artifact format (`auto|safetensors|gguf|onnx`) | auto |
 
 **Examples:**
 
@@ -395,6 +411,20 @@ After the service starts, the following API endpoints are available:
 - **Format**: OpenAI Chat Completion format
 - **Streaming Support**: No
 
+### Embeddings Endpoint
+- **Endpoint**: `POST /embeddings` or `POST /v1/embeddings`
+- **Function**: Text embedding generation
+- **Supported Models**: Qwen3-Embedding family
+- **Format**: OpenAI embeddings format
+- **Streaming Support**: No
+
+### Rerank Endpoint
+- **Endpoint**: `POST /rerank` or `POST /v1/rerank`
+- **Function**: Query-document reranking
+- **Supported Models**: Qwen3-Reranker family
+- **Format**: Rerank JSON response (`results[index,relevance_score,document]`)
+- **Streaming Support**: No
+
 ### Shutdown Endpoint
 - **Endpoint**: `POST /shutdown`
 - **Function**: Gracefully shut down the server
@@ -404,15 +434,19 @@ After the service starts, the following API endpoints are available:
 
 ## Notes
 
-1. **serv subcommand requires `--weight-path`**: Since the `serv` subcommand does not download models, you must specify the path to an already downloaded model via `--weight-path`.
+1. **Local-path rule for GGUF/ONNX**: GGUF and ONNX artifacts are local-path only; use `--gguf-path` or `--onnx-path`. Remote download management is only for safetensors models.
 
-2. **Download retry mechanism**: By default, retries 3 times, waiting 2 seconds after each failure before retrying. You can adjust the retry count with `--download-retries`.
+2. **Artifact selection**: `--artifact-format auto` uses model default; you can force `safetensors|gguf|onnx` explicitly.
 
-3. **Default save directory**: Models are saved to `~/.aha/` directory by default, which can be customized via `--save-dir` or `-s` parameter.
+3. **Tokenizer directory**: For GGUF/ONNX, if tokenizer files are not colocated with model files, set `--tokenizer-dir`.
 
-4. **Port occupation**: Ensure the specified port is not occupied before starting the service. The default port is 10100.
+4. **Download retry mechanism**: By default, retries 3 times, waiting 2 seconds after each failure before retrying. You can adjust the retry count with `--download-retries`.
 
-5. **Permission issues**: If saving to a system directory (such as `/data/models`), ensure you have the corresponding write permissions.
+5. **Default save directory**: Models are saved to `~/.aha/` directory by default, which can be customized via `--save-dir` or `-s` parameter.
+
+6. **Port occupation**: Ensure the specified port is not occupied before starting the service. The default port is 10100.
+
+7. **Permission issues**: If saving to a system directory (such as `/data/models`), ensure you have the corresponding write permissions.
 
 ## Getting Help
 

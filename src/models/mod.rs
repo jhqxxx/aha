@@ -98,14 +98,16 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::Lfm2VL(model) => model.generate(mes),
             ModelInstance::Qwen2_5VL(model) => model.generate(mes),
             ModelInstance::Qwen3(model) => model.generate(mes),
-            ModelInstance::Qwen3_5(model) => model.generate(mes),
+
             ModelInstance::Qwen3Embedding(_) => {
                 Err(anyhow!("embedding model does not support chat completions"))
             }
-            ModelInstance::Qwen3ASR(model) => model.generate(mes),
             ModelInstance::Qwen3Reranker(_) => {
                 Err(anyhow!("reranker model does not support chat completions"))
             }
+            ModelInstance::Qwen3_5(model) => model.generate(mes),
+
+            ModelInstance::Qwen3ASR(model) => model.generate(mes),
             ModelInstance::Qwen3VL(model) => model.generate(mes),
             ModelInstance::DeepSeekOCR(model) => model.generate(mes),
             ModelInstance::HunyuanOCR(model) => model.generate(mes),
@@ -138,14 +140,15 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::Lfm2VL(model) => model.generate_stream(mes),
             ModelInstance::Qwen2_5VL(model) => model.generate_stream(mes),
             ModelInstance::Qwen3(model) => model.generate_stream(mes),
-            ModelInstance::Qwen3_5(model) => model.generate_stream(mes),
-            ModelInstance::Qwen3ASR(model) => model.generate_stream(mes),
+
             ModelInstance::Qwen3Embedding(_) => Err(anyhow!(
                 "embedding model does not support streaming chat completions"
             )),
-            ModelInstance::Qwen3Reranker(_) => {
-                Err(anyhow!("reranker model does not support chat completions"))
-            }
+            ModelInstance::Qwen3Reranker(_) => Err(anyhow!(
+                "reranker model does not support streaming chat completions"
+            )),
+            ModelInstance::Qwen3_5(model) => model.generate_stream(mes),
+            ModelInstance::Qwen3ASR(model) => model.generate_stream(mes),
             ModelInstance::Qwen3VL(model) => model.generate_stream(mes),
             ModelInstance::DeepSeekOCR(model) => model.generate_stream(mes),
             ModelInstance::HunyuanOCR(model) => model.generate_stream(mes),

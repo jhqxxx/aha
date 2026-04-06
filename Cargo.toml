@@ -45,6 +45,9 @@ sentencepiece = "0.13.1"
 ahash = "0.8.12"
 derive_builder = "0.20.2"
 
+[patch.crates-io]
+esaxx-rs = { path = "vendor/esaxx-rs" }
+
 [features]
 flash-attn = ["candle-flash-attn"]
 cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
@@ -55,3 +58,5 @@ ffmpeg = ["ffmpeg-next"]
 needless_range_loop = "allow"
 single_range_in_vec_init = "allow"
 manual_div_ceil = "allow"
+
+[dev-dependencies]
