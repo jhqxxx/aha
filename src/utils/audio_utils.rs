@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::{f64::consts::PI, io::Cursor};
 
+use crate::models::common::modules::log10;
 use crate::params::chat::{
     ChatCompletionParameters, ChatCompletionResponse, ChatMessage, ChatMessageContent,
     ChatMessageContentPart,
@@ -33,7 +34,7 @@ use symphonia::core::probe::Hint;
 
 use crate::utils::get_default_save_dir;
 use crate::utils::tensor_utils::{
-    linspace, log10, pad_reflect_last_dim, pad_replicate_last_dim, split_tensor,
+    linspace, pad_reflect_last_dim, pad_replicate_last_dim, split_tensor,
 };
 
 // 重采样方法枚举

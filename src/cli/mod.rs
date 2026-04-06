@@ -238,46 +238,28 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         None => get_default_weight_path(model),
     };
     match model {
+        WhichModel::AllMiniLML6V2 => {
+            all_minilm_l6_v2::AllMiniLML6V2Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::MiniCPM4_0_5B => {
             minicpm4::MiniCPM4Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::LFM2_1_2B => {
+        WhichModel::LFM2_1_2B | WhichModel::LFM2_5_1_2BInstruct => {
             lfm2::Lfm2Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::LFM2_5_1_2BInstruct => {
-            lfm2::Lfm2Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::LFM2_5VL1_6B => {
+        WhichModel::LFM2_5VL1_6B | WhichModel::LFM2VL1_6B => {
             lfm2vl::Lfm2VLExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::LFM2VL1_6B => {
-            lfm2vl::Lfm2VLExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen2_5VL3B => {
+        WhichModel::Qwen2_5VL3B | WhichModel::Qwen2_5VL7B => {
             qwen2_5vl::Qwen2_5VLExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::Qwen2_5VL7B => {
-            qwen2_5vl::Qwen2_5VLExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_0_6B => {
+        WhichModel::Qwen3_0_6B | WhichModel::Qwen3_1_7B | WhichModel::Qwen3_4B => {
             qwen3::Qwen3Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::Qwen3_1_7B => {
-            qwen3::Qwen3Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_4B => {
-            qwen3::Qwen3Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_5_0_8B => {
-            qwen3_5::Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_5_2B => {
-            qwen3_5::Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_5_4B => {
-            qwen3_5::Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3_5_9B => {
+        WhichModel::Qwen3_5_0_8B
+        | WhichModel::Qwen3_5_2B
+        | WhichModel::Qwen3_5_4B
+        | WhichModel::Qwen3_5_9B => {
             qwen3_5::Qwen3_5Exec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::Qwen3_5Gguf => {
@@ -288,46 +270,33 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
                 path_common.mmproj_path,
             )?;
         }
-        WhichModel::Qwen3ASR0_6B => {
+        WhichModel::Qwen3ASR0_6B | WhichModel::Qwen3ASR1_7B => {
             qwen3_asr::Qwen3ASRExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::Qwen3ASR1_7B => {
-            qwen3_asr::Qwen3ASRExec::run(&input, output.as_deref(), &weight_path)?;
+        WhichModel::Qwen3Embedding0_6B
+        | WhichModel::Qwen3Embedding4B
+        | WhichModel::Qwen3Embedding8B => {
+            qwen3_embedding::Qwen3EmbeddingExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::Qwen3VL2B => {
+        WhichModel::Qwen3VL2B
+        | WhichModel::Qwen3VL4B
+        | WhichModel::Qwen3VL8B
+        | WhichModel::Qwen3VL32B => {
             qwen3vl::Qwen3VLExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::Qwen3VL4B => {
-            qwen3vl::Qwen3VLExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3VL8B => {
-            qwen3vl::Qwen3VLExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::Qwen3VL32B => {
-            qwen3vl::Qwen3VLExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::DeepSeekOCR => {
-            deepseek_ocr::DeepSeekORExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::DeepSeekOCR2 => {
+        WhichModel::DeepSeekOCR | WhichModel::DeepSeekOCR2 => {
             deepseek_ocr::DeepSeekORExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::HunyuanOCR => {
             hunyuan_ocr::HunyuanORExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::PaddleOCRVL => {
-            paddleocr_vl::PaddleOVLExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::PaddleOCRVL1_5 => {
+        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 => {
             paddleocr_vl::PaddleOVLExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::RMBG2_0 => {
             rmbg2_0::RMBG2_0Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::VoxCPM => {
-            voxcpm::VoxCPMExec::run(&input, output.as_deref(), &weight_path)?;
-        }
-        WhichModel::VoxCPM1_5 => {
+        WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => {
             voxcpm::VoxCPMExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::GlmASRNano2512 => {

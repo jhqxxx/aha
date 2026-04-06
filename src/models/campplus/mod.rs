@@ -2,9 +2,8 @@ use anyhow::Result;
 use candle_core::{D, Tensor};
 use candle_nn::{BatchNorm, Conv1d, Conv2d, Module, ModuleT, VarBuilder, ops::sigmoid};
 
-use crate::{
-    models::common::modules::{get_batch_norm, get_conv1d, get_conv2d},
-    utils::tensor_utils::{pool1d, statistics_pooling},
+use crate::models::common::modules::{
+    get_batch_norm, get_conv1d, get_conv2d, pool1d, statistics_pooling,
 };
 
 pub struct Shortcut {

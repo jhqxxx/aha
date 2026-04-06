@@ -1,9 +1,12 @@
 use anyhow::Result;
 use candle_core::{D, Device, Tensor};
 
-use crate::utils::{
-    audio_utils::{create_povey_window, mel_filter_bank, spectrogram},
-    tensor_utils::{PaddingSide, z_score_normalize},
+use crate::{
+    models::common::modules::z_score_normalize,
+    utils::{
+        audio_utils::{create_povey_window, mel_filter_bank, spectrogram},
+        tensor_utils::PaddingSide,
+    },
 };
 
 pub struct SeamlessM4TFeatureExtractor {

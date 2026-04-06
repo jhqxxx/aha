@@ -12,14 +12,16 @@ use crate::{
         common::{
             InferenceModel,
             gguf::{GateUpDownMLPGguf, Gguf, ProjKind, QuantizedLinear},
-            modules::{conv1d_depthwise, eager_attention_forward, get_conv1d, softplus},
+            modules::{
+                conv1d_depthwise, eager_attention_forward, get_conv1d, l2_normalize, softplus,
+            },
         },
         qwen3_5::config::{Qwen3_5Config, Qwen3_5TextConfig},
         qwen3vl::model::Qwen3VLVisionModel,
     },
     position_embed::rope::{Qwen3VLTextRotaryEmbedding, glm_asr_apply_rotary_pos_emb},
     utils::tensor_utils::{
-        get_equal_mask, get_vision_next_indices, l2_normalize, masked_scatter_dim0, nonzero_index,
+        get_equal_mask, get_vision_next_indices, masked_scatter_dim0, nonzero_index,
         prepare_causal_attention_mask, repeat_interleave, split_tensor, zero_index,
     },
 };

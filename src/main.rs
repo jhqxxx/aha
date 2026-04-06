@@ -6,6 +6,8 @@ use crate::cli::{
 };
 
 mod cli;
+#[allow(unused)]
+mod params;
 mod server;
 
 #[tokio::main]

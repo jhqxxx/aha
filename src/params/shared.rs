@@ -179,7 +179,7 @@ pub enum FinishReason {
     EndTurn,
     /// The finish reason is unspecified. [Gemini]
     #[serde(rename = "FINISH_REASON_UNSPECIFIED	")]
-    FinishReasonUnspecified,
+    Unspecified,
     #[serde(rename = "MALFORMED_FUNCTION_CALL")]
     MalformedFunctionCall,
     #[serde(rename = "OTHER")]

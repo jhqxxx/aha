@@ -11,10 +11,8 @@ use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{form::Form, post};
 
+use crate::params::asr::{ErrorDetail, ErrorResponse, TranscriptionRequest, TranscriptionResponse};
 use crate::server::api::MODEL;
-use crate::server::asr_types::{
-    ErrorDetail, ErrorResponse, TranscriptionRequest, TranscriptionResponse,
-};
 
 /// Handle audio transcription requests
 ///

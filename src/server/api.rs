@@ -43,7 +43,7 @@ pub fn init(
         if let Some(gguf_path) = gguf {
             let gguf_path = string_to_static_str(gguf_path);
             let mmproj_path = mmproj.map(string_to_static_str);
-            load_gguf_model(model_type, None, gguf_path, mmproj_path)?
+            load_gguf_model(model_type, None, gguf_path, mmproj_path, None)?
         } else {
             return Err(anyhow!("gguf model need gguf model path"));
         }
@@ -51,7 +51,7 @@ pub fn init(
         return Err(anyhow!("onnx comming soon but now not support"));
     } else {
         let model_path = string_to_static_str(path);
-        load_model(model_type, model_path)?
+        load_model(model_type, model_path, None, None)?
     };
 
     MODEL.get_or_init(|| {

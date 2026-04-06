@@ -1,5 +1,6 @@
 use anyhow::Result;
 use candle_core::Tensor;
+pub mod embedding;
 pub mod generate;
 pub mod gguf;
 pub mod model_mapping;

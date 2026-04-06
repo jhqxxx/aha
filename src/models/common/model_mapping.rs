@@ -2,6 +2,8 @@ use clap::ValueEnum;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum WhichModel {
+    #[value(name = "sentence-transformers/all-MiniLM-L6-v2")]
+    AllMiniLML6V2,
     #[value(name = "LiquidAI/LFM2-1.2B")]
     LFM2_1_2B,
     #[value(name = "LiquidAI/LFM2.5-1.2B-Instruct")]
@@ -36,6 +38,12 @@ pub enum WhichModel {
     Qwen3ASR0_6B,
     #[value(name = "Qwen/Qwen3-ASR-1.7B")]
     Qwen3ASR1_7B,
+    #[value(name = "Qwen/Qwen3-Embedding-0.6B")]
+    Qwen3Embedding0_6B,
+    #[value(name = "Qwen/Qwen3-Embedding-4B")]
+    Qwen3Embedding4B,
+    #[value(name = "Qwen/Qwen3-Embedding-8B")]
+    Qwen3Embedding8B,
     #[value(name = "Qwen/Qwen3-VL-2B-Instruct")]
     Qwen3VL2B,
     #[value(name = "Qwen/Qwen3-VL-4B-Instruct")]
@@ -153,6 +161,10 @@ impl WhichModel {
             WhichModel::RMBG2_0 => "image",
             // TTS models
             WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => "tts",
+            WhichModel::Qwen3Embedding0_6B
+            | WhichModel::Qwen3Embedding4B
+            | WhichModel::Qwen3Embedding8B
+            | WhichModel::AllMiniLML6V2 => "embedding",
         }
     }
 }

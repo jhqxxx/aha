@@ -16,7 +16,7 @@ use crate::{
             InferenceModel,
             modules::{
                 GateUpDownMLP, NaiveAttention, QKVCatAttention, TwoLinearMLP,
-                eager_attention_forward, get_conv2d, get_layer_norm,
+                eager_attention_forward, get_conv2d, get_layer_norm, quick_gelu,
             },
         },
         deepseek_ocr::config::{DeepseekOCRConfig, DeepseekV2Config},
@@ -27,7 +27,7 @@ use crate::{
         interpolate::{interpolate_bicubic, interpolate_linear_1d},
         tensor_utils::{
             attn_masked_fill, index_select_2d, masked_scatter_dim0, nonzero, onehot,
-            prepare_causal_attention_mask, quick_gelu, topk,
+            prepare_causal_attention_mask, topk,
         },
     },
 };

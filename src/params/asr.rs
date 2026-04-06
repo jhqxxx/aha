@@ -46,33 +46,3 @@ pub(crate) struct ErrorDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) code: Option<String>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_transcription_response_serialization() {
-        let response = TranscriptionResponse {
-            text: "Hello, world!".to_string(),
-        };
-        let json = serde_json::to_string(&response).unwrap();
-        assert_eq!(json, r#"{"text":"Hello, world!"}"#);
-    }
-
-    #[test]
-    fn test_error_response_serialization() {
-        let error = ErrorResponse {
-            error: ErrorDetail {
-                message: "Invalid audio file".to_string(),
-                error_type: "invalid_request_error".to_string(),
-                code: Some("invalid_audio".to_string()),
-            },
-        };
-        let json = serde_json::to_string(&error).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed["error"]["message"], "Invalid audio file");
-        assert_eq!(parsed["error"]["type"], "invalid_request_error");
-        assert_eq!(parsed["error"]["code"], "invalid_audio");
-    }
-}

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use aha::utils::{find_type_files, get_device};
 use anyhow::Result;
-use candle_core::{Device, pickle::read_all_with_key, safetensors};
+use candle_core::{Device, pickle::read_all_with_key, quantized::gguf_file, safetensors};
 use candle_nn::VarBuilder;
 
 #[test]
@@ -308,5 +308,23 @@ fn lfm2vl_weight() -> Result<()> {
         }
     }
     println!("model_list: {:?}", model_list);
+    Ok(())
+}
+
+#[test]
+fn gguf_weight() -> Result<()> {
+    // cargo test -F cuda --test weight_test gguf_weight -r -- --nocapture
+    let gguf_path = "/home/jhq/.aha/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-f16.gguf";
+    let mut model_file = std::fs::File::open(gguf_path)?;
+    let model = gguf_file::Content::read(&mut model_file)?;
+    for (key, value) in model.tensor_infos {
+        println!("{key}: {:#?}", value);
+    }
+    // for (key, value) in model.metadata {
+    //     if key.contains("tokeni") {
+    //         continue;
+    //     }
+    //     println!("{key}: {:#?}", value);
+    // }
     Ok(())
 }

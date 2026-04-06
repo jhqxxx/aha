@@ -1,9 +1,12 @@
 use anyhow::Result;
 use candle_core::{D, Device, Tensor};
 
-use crate::utils::{
-    audio_utils::{create_hann_window, mel_filter_bank, torch_stft},
-    tensor_utils::{log10, pad_reflect_last_dim},
+use crate::{
+    models::common::modules::log10,
+    utils::{
+        audio_utils::{create_hann_window, mel_filter_bank, torch_stft},
+        tensor_utils::pad_reflect_last_dim,
+    },
 };
 
 pub struct WhisperFeatureExtractor {

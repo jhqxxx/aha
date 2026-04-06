@@ -1,4 +1,6 @@
-use crate::params::chat::ChatCompletionParameters;
+use crate::{
+    models::common::modules::float_range_normalize, params::chat::ChatCompletionParameters,
+};
 use anyhow::Result;
 use candle_core::{Device, Tensor};
 
@@ -10,7 +12,6 @@ use crate::{
     utils::{
         audio_utils::{extract_audios, split_audio_into_chunks},
         capitalize_first_letter,
-        tensor_utils::float_range_normalize,
     },
 };
 

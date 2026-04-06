@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 // ASR (Automatic Speech Recognition) API module
 pub(crate) mod api;
 pub(crate) mod asr;
-pub(crate) mod asr_types;
+pub(crate) mod embedding;
 pub(crate) mod process;
 
 pub(crate) async fn start_http_server(
@@ -61,6 +61,9 @@ pub(crate) async fn start_http_server(
     builder = builder.mount("/audio", routes![api::speech, asr::transcriptions]);
     // /v1/audio/transcriptions (OpenAI standard ASR transcription endpoint)
     builder = builder.mount("/v1/audio", routes![asr::transcriptions]);
+    // /embeddings and /v1/embeddings (OpenAI-compatible embeddings endpoint)
+    builder = builder.mount("/", routes![embedding::embeddings]);
+    builder = builder.mount("/v1", routes![embedding::embeddings]);
     // Health check and model info endpoints
     builder = builder.mount("/", routes![api::health, api::models]);
     // Shutdown endpoint

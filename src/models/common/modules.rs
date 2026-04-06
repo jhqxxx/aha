@@ -1,5 +1,5 @@
-use anyhow::Result;
-use candle_core::{D, IndexOp, Tensor};
+use anyhow::{Result, anyhow};
+use candle_core::{D, DType, IndexOp, Tensor};
 use candle_nn::{
     Activation, BatchNorm, BatchNormConfig, Conv1d, Conv1dConfig, Conv2d, Conv2dConfig,
     ConvTranspose1d, ConvTranspose1dConfig, Embedding, LayerNorm, LayerNormConfig, Linear, Module,
@@ -9,7 +9,7 @@ use candle_nn::{
 
 use crate::{
     position_embed::rope::{RoPE, apply_rotary_pos_emb, apply_rotary_pos_emb_roformer},
-    utils::tensor_utils::{prepare_causal_attention_mask, repeat_kv},
+    utils::tensor_utils::{pad_replicate_last_dim, prepare_causal_attention_mask, repeat_kv},
 };
 
 #[derive(Debug, Clone)]
@@ -1326,4 +1326,135 @@ pub fn conv1d_depthwise(input: &Tensor, weight: &Tensor, bias: Option<&Tensor>) 
             Ok(out.broadcast_add(&bias)?)
         }
     }
+}
+
+pub fn log10(t: &Tensor) -> Result<Tensor> {
+    Ok(t.log()?.affine(1.0 / 10.0_f64.ln(), 0.0)?)
+}
+
+pub fn max_abs_normalize(t: &Tensor, dim: usize) -> Result<Tensor> {
+    let rank = t.rank();
+    if dim >= rank {
+        return Err(anyhow!(format!("input dim {} must < rank {}", dim, rank)));
+    }
+    Ok(t.broadcast_div(&t.abs()?.max_keepdim(dim)?)?)
+}
+
+pub fn min_max_normalize(t: &Tensor, dim: usize) -> Result<Tensor> {
+    let rank = t.rank();
+    if dim >= rank {
+        return Err(anyhow!(format!("input dim {} must < rank {}", dim, rank)));
+    }
+    let t_min = t.min_keepdim(dim)?;
+    Ok(t.broadcast_sub(&t_min)?
+        .broadcast_div(&t.max_keepdim(dim)?.sub(&t_min)?)?)
+}
+
+pub fn z_score_normalize(t: &Tensor, dim: usize) -> Result<Tensor> {
+    let rank = t.rank();
+    if dim >= rank {
+        return Err(anyhow!(format!("input dim {} must < rank {}", dim, rank)));
+    }
+    Ok(t.broadcast_sub(&t.mean_keepdim(dim)?)?
+        .broadcast_div(&t.var_keepdim(dim)?.sqrt()?)?)
+}
+
+pub fn l2_normalize(t: &Tensor, dim: usize) -> Result<Tensor> {
+    let rank = t.rank();
+    if dim >= rank {
+        return Err(anyhow!(format!("input dim {} must < rank {}", dim, rank)));
+    }
+    let l2_norm = t.sqr()?.sum_keepdim(dim)?.affine(1.0, 1e-6)?.sqrt()?;
+    Ok(t.broadcast_div(&l2_norm)?)
+}
+
+pub fn l1_normalize(t: &Tensor, dim: usize) -> Result<Tensor> {
+    let rank = t.rank();
+    if dim >= rank {
+        return Err(anyhow!(format!("input dim {} must < rank {}", dim, rank)));
+    }
+    let l1_norm = t.abs()?.sum_keepdim(dim)?;
+    Ok(t.broadcast_div(&l1_norm)?)
+}
+
+pub fn pool1d(xs: &Tensor, pool_size: usize, ceil_mode: bool, stype: &str) -> Result<Tensor> {
+    // xs: (bs, c, dim)
+    // ceil_mode: 是否保留不完整窗口，为true时通过pad实现
+    if pool_size == 0 {
+        return Err(anyhow!("pool_size must be greater than 0"));
+    }
+    let (bs, c, dim) = xs.dims3()?;
+    let xs_reshape = if ceil_mode {
+        let remain = dim % pool_size;
+        if remain > 0 {
+            let pad = pool_size - remain;
+            let xs_pad = pad_replicate_last_dim(xs, (0, pad))?;
+            xs_pad.reshape((bs, c, (), pool_size))?
+        } else {
+            xs.reshape((bs, c, (), pool_size))?
+        }
+    } else {
+        let remain = dim % pool_size;
+        if remain > 0 {
+            let xs_del = xs.narrow(D::Minus1, 0, dim - remain)?;
+            xs_del.reshape((bs, c, (), pool_size))?
+        } else {
+            xs.reshape((bs, c, (), pool_size))?
+        }
+    };
+    let xs_pool = match stype {
+        "avg" => xs_reshape.mean(D::Minus1)?,
+        "max" => xs_reshape.max(D::Minus1)?,
+        "min" => xs_reshape.min(D::Minus1)?,
+        _ => {
+            return Err(anyhow!(
+                "unsupported pool type: {}, supported types are: avg, max, min",
+                stype
+            ));
+        }
+    };
+    Ok(xs_pool)
+}
+
+pub fn statistics_pooling(xs: &Tensor, dim: D, keepdim: bool) -> Result<Tensor> {
+    let mean = xs.mean(dim)?;
+    let std = xs.var(dim)?.sqrt()?;
+    let mut stats = Tensor::cat(&[mean, std], D::Minus1)?;
+    if keepdim {
+        stats = stats.unsqueeze(dim)?;
+    }
+    Ok(stats)
+}
+pub fn float_range_normalize(t: &Tensor) -> Result<Tensor> {
+    let peak = t
+        .to_dtype(DType::F32)?
+        .abs()?
+        .max_all()?
+        .to_scalar::<f32>()?;
+    if peak == 0.0 {
+        return Ok(t.clone());
+    }
+    let mut t = t.clone();
+    if peak > 1.0 {
+        t = t.affine(1.0 / peak as f64, 0.0)?;
+    }
+    t = t.clamp(-1.0, 1.0)?;
+    Ok(t)
+}
+
+pub fn cosine_similarity(query_vector: &Tensor, matrix: &Tensor) -> Result<Tensor> {
+    // query_vector: (n, dim)
+    // matrix: (m, dim)
+    let query_norm = l2_normalize(query_vector, query_vector.rank() - 1)?;
+    let matrix_norm = l2_normalize(matrix, matrix.rank() - 1)?;
+    let similarity = query_norm
+        .matmul(&matrix_norm.transpose(D::Minus1, D::Minus2)?)?
+        .squeeze(D::Minus1)?;
+    Ok(similarity)
+}
+
+pub fn quick_gelu(xs: &Tensor) -> Result<Tensor> {
+    let x = xs.affine(1.702, 0.0)?;
+    let x = sigmoid(&x)?;
+    Ok(xs.mul(&x)?)
 }
