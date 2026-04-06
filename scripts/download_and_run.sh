@@ -14,24 +14,44 @@ show_help() {
     echo "  model_alias       The model alias to download (e.g., voxcpm, Qwen/Qwen2.5-VL-3B-Instruct)"
     echo ""
     echo "Available models:"
+    echo "  sentence-transformers/all-MiniLM-L6-v2"
+    echo "  LiquidAI/LFM2-1.2B"
+    echo "  LiquidAI/LFM2.5-1.2B-Instruct"
+    echo "  LiquidAI/LFM2.5-VL-1.6B"
+    echo "  LiquidAI/LFM2-VL-1.6B"
     echo "  OpenBMB/MiniCPM4-0.5B"
     echo "  Qwen/Qwen2.5-VL-3B-Instruct"
     echo "  Qwen/Qwen2.5-VL-7B-Instruct" 
     echo "  Qwen/Qwen3-0.6B" 
+    echo "  Qwen/Qwen3-1.7B" 
+    echo "  Qwen/Qwen3-4B" 
+    echo "  Qwen/Qwen3.5-0.8B" 
+    echo "  Qwen/Qwen3.5-2B" 
+    echo "  Qwen/Qwen3.5-4B" 
+    echo "  Qwen/Qwen3.5-9B" 
     echo "  Qwen/Qwen3-ASR-0.6B"
     echo "  Qwen/Qwen3-ASR-1.7B"
+    echo "  Qwen/Qwen3-Embedding-0.6B"
+    echo "  Qwen/Qwen3-Embedding-4B"
+    echo "  Qwen/Qwen3-Embedding-8B"
+    echo "  Qwen/Qwen3-Reranker-0.6B"
+    echo "  Qwen/Qwen3-Reranker-4B"
+    echo "  Qwen/Qwen3-Reranker-8B"
     echo "  Qwen/Qwen3-VL-2B-Instruct"
     echo "  Qwen/Qwen3-VL-4B-Instruct"
     echo "  Qwen/Qwen3-VL-8B-Instruct"
     echo "  Qwen/Qwen3-VL-32B-Instruct"
     echo "  deepseek-ai/DeepSeek-OCR"
+    echo "  deepseek-ai/DeepSeek-OCR-2"
     echo "  Tencent-Hunyuan/HunyuanOCR"
     echo "  PaddlePaddle/PaddleOCR-VL"
+    echo "  PaddlePaddle/PaddleOCR-VL-1.5"
     echo "  AI-ModelScope/RMBG-2.0"
     echo "  OpenBMB/VoxCPM-0.5B"
     echo "  OpenBMB/VoxCPM1.5"
     echo "  ZhipuAI/GLM-ASR-Nano-2512"
     echo "  FunAudioLLM/Fun-ASR-Nano-2512"
+    echo "  ZhipuAI/GLM-OCR"
     echo ""
     exit 1
 }
@@ -44,8 +64,24 @@ fi
 MODEL_ALIAS=$1
 
 # Map alias to Repo ID
+
 MODEL_ID=""
 case $MODEL_ALIAS in
+    "sentence-transformers/all-MiniLM-L6-v2")
+        MODEL_ID="sentence-transformers/all-MiniLM-L6-v2"
+        ;;
+    "LiquidAI/LFM2-1.2B")
+        MODEL_ID="LiquidAI/LFM2-1.2B"
+        ;;
+    "LiquidAI/LFM2.5-1.2B-Instruct")
+        MODEL_ID="LiquidAI/LFM2.5-1.2B-Instruct"
+        ;;
+    "LiquidAI/LFM2.5-VL-1.6B")
+        MODEL_ID="LiquidAI/LFM2.5-VL-1.6B"
+        ;;
+    "LiquidAI/LFM2-VL-1.6B")
+        MODEL_ID="LiquidAI/LFM2-VL-1.6B"
+        ;;
     "OpenBMB/MiniCPM4-0.5B")
         MODEL_ID="OpenBMB/MiniCPM4-0.5B"
         ;;
@@ -54,15 +90,51 @@ case $MODEL_ALIAS in
         ;;
     "Qwen/Qwen2.5-VL-7B-Instruct")
         MODEL_ID="Qwen/Qwen2.5-VL-7B-Instruct"
-        ;;
+        ;; 
     "Qwen/Qwen3-0.6B")
         MODEL_ID="Qwen/Qwen3-0.6B"
+        ;;
+    "Qwen/Qwen3-1.7B")
+        MODEL_ID="Qwen/Qwen3-1.7B"
+        ;;
+    "Qwen/Qwen3-4B")
+        MODEL_ID="Qwen/Qwen3-4B"
+        ;;
+    "Qwen/Qwen3.5-0.8B")
+        MODEL_ID="Qwen/Qwen3.5-0.8B"
+        ;;
+    "Qwen/Qwen3.5-2B")
+        MODEL_ID="Qwen/Qwen3.5-2B"
+        ;;
+    "Qwen/Qwen3.5-4B")
+        MODEL_ID="Qwen/Qwen3.5-4B"
+        ;;
+    "Qwen/Qwen3.5-9B")
+        MODEL_ID="Qwen/Qwen3.5-9B"
         ;;
     "Qwen/Qwen3-ASR-0.6B")
         MODEL_ID="Qwen/Qwen3-ASR-0.6B"
         ;;
     "Qwen/Qwen3-ASR-1.7B")
         MODEL_ID="Qwen/Qwen3-ASR-1.7B"
+        ;;
+    "Qwen/Qwen3-Embedding-0.6B")
+        MODEL_ID="Qwen/Qwen3-Embedding-0.6B"
+        ;;
+    "Qwen/Qwen3-Embedding-4B")
+        MODEL_ID="Qwen/Qwen3-Embedding-4B"
+        ;;
+    "Qwen/Qwen3-Embedding-8B")
+        MODEL_ID="Qwen/Qwen3-Embedding-8B"
+        ;;
+    "Qwen/Qwen3-Reranker-0.6B")
+        MODEL_ID="Qwen/Qwen3-Reranker-0.6B"
+        ;;
+    "Qwen/Qwen3-Reranker-4B")
+        MODEL_ID="Qwen/Qwen3-Reranker-4B"
+        ;;
+    "Qwen/Qwen3-Reranker-8B")
+        MODEL_ID="Qwen/Qwen3-Reranker-8B"
         ;;
     "Qwen/Qwen3-VL-2B-Instruct")
         MODEL_ID="Qwen/Qwen3-VL-2B-Instruct"
@@ -79,11 +151,17 @@ case $MODEL_ALIAS in
     "deepseek-ai/DeepSeek-OCR")
         MODEL_ID="deepseek-ai/DeepSeek-OCR"
         ;;
+    "deepseek-ai/DeepSeek-OCR-2")
+        MODEL_ID="deepseek-ai/DeepSeek-OCR-2"
+        ;;
     "Tencent-Hunyuan/HunyuanOCR")
         MODEL_ID="Tencent-Hunyuan/HunyuanOCR"
         ;;
     "PaddlePaddle/PaddleOCR-VL")
         MODEL_ID="PaddlePaddle/PaddleOCR-VL"
+        ;;
+    "PaddlePaddle/PaddleOCR-VL-1.5")
+        MODEL_ID="PaddlePaddle/PaddleOCR-VL-1.5"
         ;;
     "AI-ModelScope/RMBG-2.0")
         MODEL_ID="briaai/RMBG-2.0"
@@ -99,6 +177,9 @@ case $MODEL_ALIAS in
         ;;
     "FunAudioLLM/Fun-ASR-Nano-2512")
         MODEL_ID="FunAudioLLM/Fun-ASR-Nano-2512"
+        ;;
+    "ZhipuAI/GLM-OCR")
+        MODEL_ID="zai-org/GLM-OCR"
         ;;
     *)
         echo "Error: Unknown model alias '$MODEL_ALIAS'"
