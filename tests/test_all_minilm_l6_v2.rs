@@ -1,6 +1,4 @@
-use aha::models::{
-    all_minilm_l6_v2::AllMiniLML6V2Embedding, common::embedding::TextEmbedding,
-};
+use aha::models::{all_minilm_l6_v2::AllMiniLML6V2Embedding, common::embedding::TextEmbedding};
 use anyhow::Result;
 use std::time::Instant;
 

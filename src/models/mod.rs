@@ -19,6 +19,7 @@ pub mod qwen3;
 pub mod qwen3_5;
 pub mod qwen3_asr;
 pub mod qwen3_embedding;
+pub mod qwen3_reranker;
 pub mod qwen3vl;
 pub mod rmbg2_0;
 pub mod voxcpm;
@@ -27,8 +28,9 @@ pub mod w2v_bert_2_0;
 use crate::{
     models::{
         all_minilm_l6_v2::AllMiniLML6V2Embedding,
-        common::{embedding::TextEmbedding, model_mapping::WhichModel},
+        common::{embedding::TextEmbedding, model_mapping::WhichModel, reranker::TextRerank},
         qwen3_embedding::Qwen3Embedding,
+        qwen3_reranker::Qwen3Reranker,
     },
     params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
 };
@@ -73,6 +75,7 @@ pub enum ModelInstance<'a> {
     Qwen3_5(Qwen3_5GenerateModel<'a>),
     Qwen3ASR(Qwen3AsrGenerateModel<'a>),
     Qwen3Embedding(Qwen3Embedding),
+    Qwen3Reranker(Qwen3Reranker),
     Qwen3VL(Box<Qwen3VLGenerateModel<'a>>),
     DeepSeekOCR(DeepseekOCRGenerateModel),
     HunyuanOCR(HunyuanOCRGenerateModel<'a>),
@@ -100,6 +103,9 @@ impl<'a> GenerateModel for ModelInstance<'a> {
                 Err(anyhow!("embedding model does not support chat completions"))
             }
             ModelInstance::Qwen3ASR(model) => model.generate(mes),
+            ModelInstance::Qwen3Reranker(_) => {
+                Err(anyhow!("reranker model does not support chat completions"))
+            }
             ModelInstance::Qwen3VL(model) => model.generate(mes),
             ModelInstance::DeepSeekOCR(model) => model.generate(mes),
             ModelInstance::HunyuanOCR(model) => model.generate(mes),
@@ -133,11 +139,14 @@ impl<'a> GenerateModel for ModelInstance<'a> {
             ModelInstance::Qwen2_5VL(model) => model.generate_stream(mes),
             ModelInstance::Qwen3(model) => model.generate_stream(mes),
             ModelInstance::Qwen3_5(model) => model.generate_stream(mes),
+            ModelInstance::Qwen3ASR(model) => model.generate_stream(mes),
             ModelInstance::Qwen3Embedding(_) => Err(anyhow!(
                 "embedding model does not support streaming chat completions"
             )),
+            ModelInstance::Qwen3Reranker(_) => {
+                Err(anyhow!("reranker model does not support chat completions"))
+            }
             ModelInstance::Qwen3VL(model) => model.generate_stream(mes),
-            ModelInstance::Qwen3ASR(model) => model.generate_stream(mes),
             ModelInstance::DeepSeekOCR(model) => model.generate_stream(mes),
             ModelInstance::HunyuanOCR(model) => model.generate_stream(mes),
             ModelInstance::PaddleOCRVL(model) => model.generate_stream(mes),
@@ -156,6 +165,12 @@ impl<'a> ModelInstance<'a> {
             ModelInstance::Qwen3Embedding(model) => model.embed_texts(input),
             ModelInstance::AllMiniLML6V2(model) => model.embed_texts(input),
             _ => Err(anyhow!("current model does not support embeddings")),
+        }
+    }
+    pub fn rerank(&mut self, query: &str, documents: &[String]) -> Result<Vec<f32>> {
+        match self {
+            ModelInstance::Qwen3Reranker(model) => model.rerank(query, documents),
+            _ => Err(anyhow!("current model does not support rerank")),
         }
     }
 }
@@ -228,6 +243,12 @@ pub fn load_model<'a>(
         | WhichModel::Qwen3Embedding8B => {
             let model = Qwen3Embedding::init(path, device, dtype)?;
             ModelInstance::Qwen3Embedding(model)
+        }
+        WhichModel::Qwen3Reranker0_6B
+        | WhichModel::Qwen3Reranker4B
+        | WhichModel::Qwen3Reranker8B => {
+            let model = Qwen3Reranker::init(path, device, dtype)?;
+            ModelInstance::Qwen3Reranker(model)
         }
         WhichModel::Qwen3VL2B
         | WhichModel::Qwen3VL4B

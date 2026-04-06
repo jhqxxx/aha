@@ -9,15 +9,15 @@ pub(crate) struct RerankRequest {
 }
 
 #[derive(Debug, Serialize)]
-struct RerankResult {
-    index: usize,
-    relevance_score: f32,
-    document: String,
+pub(crate) struct RerankResult {
+    pub index: usize,
+    pub relevance_score: f32,
+    pub document: String,
 }
 
 #[derive(Debug, Serialize)]
-struct RerankResponse {
-    object: String,
-    model: String,
-    results: Vec<RerankResult>,
+pub(crate) struct RerankResponse {
+    pub object: String,
+    pub model: String,
+    pub results: Vec<RerankResult>,
 }

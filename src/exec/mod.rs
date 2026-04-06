@@ -18,6 +18,7 @@ pub mod qwen3;
 pub mod qwen3_5;
 pub mod qwen3_asr;
 pub mod qwen3_embedding;
+pub mod qwen3_reranker;
 pub mod qwen3vl;
 pub mod rmbg2_0;
 pub mod voxcpm;

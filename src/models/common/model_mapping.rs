@@ -44,6 +44,12 @@ pub enum WhichModel {
     Qwen3Embedding4B,
     #[value(name = "Qwen/Qwen3-Embedding-8B")]
     Qwen3Embedding8B,
+    #[value(name = "Qwen/Qwen3-Reranker-0.6B")]
+    Qwen3Reranker0_6B,
+    #[value(name = "Qwen/Qwen3-Reranker-4B")]
+    Qwen3Reranker4B,
+    #[value(name = "Qwen/Qwen3-Reranker-8B")]
+    Qwen3Reranker8B,
     #[value(name = "Qwen/Qwen3-VL-2B-Instruct")]
     Qwen3VL2B,
     #[value(name = "Qwen/Qwen3-VL-4B-Instruct")]
@@ -165,6 +171,9 @@ impl WhichModel {
             | WhichModel::Qwen3Embedding4B
             | WhichModel::Qwen3Embedding8B
             | WhichModel::AllMiniLML6V2 => "embedding",
+            WhichModel::Qwen3Reranker0_6B
+            | WhichModel::Qwen3Reranker4B
+            | WhichModel::Qwen3Reranker8B => "reranker",
         }
     }
 }

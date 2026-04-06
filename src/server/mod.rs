@@ -12,6 +12,7 @@ pub(crate) mod api;
 pub(crate) mod asr;
 pub(crate) mod embedding;
 pub(crate) mod process;
+pub(crate) mod reranker;
 
 pub(crate) async fn start_http_server(
     address: String,
@@ -64,6 +65,11 @@ pub(crate) async fn start_http_server(
     // /embeddings and /v1/embeddings (OpenAI-compatible embeddings endpoint)
     builder = builder.mount("/", routes![embedding::embeddings]);
     builder = builder.mount("/v1", routes![embedding::embeddings]);
+
+    // /rerank and /v1/rerank (OpenAI-compatible embeddings endpoint)
+    builder = builder.mount("/", routes![reranker::rerank]);
+    builder = builder.mount("/v1", routes![reranker::rerank]);
+
     // Health check and model info endpoints
     builder = builder.mount("/", routes![api::health, api::models]);
     // Shutdown endpoint

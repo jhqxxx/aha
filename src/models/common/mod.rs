@@ -5,6 +5,7 @@ pub mod generate;
 pub mod gguf;
 pub mod model_mapping;
 pub mod modules;
+pub mod reranker;
 
 /// 多模态模型的特征数据
 /// 每个模型数据不一样

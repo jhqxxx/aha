@@ -7,7 +7,7 @@ use crate::{
     utils::{find_type_files, get_device, get_dtype},
 };
 use anyhow::{Result, anyhow};
-use candle_core::{DType, Device};
+use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 
 pub struct Qwen3Embedding {
@@ -35,32 +35,39 @@ impl Qwen3Embedding {
         })
     }
 
-    fn embed_one(&mut self, text: &str) -> Result<Vec<f32>> {
-        let input_ids = self.tokenizer.text_encode(text.to_string(), &self.device)?;
-        let hidden = self
-            .model
-            .forward_hidden(Some(&input_ids), None, 0)?
-            .squeeze(0)?
-            .to_dtype(DType::F32)?;
-        let norm = self
-            .normalize
-            .normalize(&hidden, hidden.rank() - 1)?
-            .squeeze(0)?;
-        let norm = norm.to_vec1::<f32>()?;
-        Ok(norm)
-    }
-}
-
-impl TextEmbedding for Qwen3Embedding {
-    fn embed_texts(&mut self, input: &[String]) -> Result<Vec<Vec<f32>>> {
+    pub fn embed_multi(&mut self, input: &[String]) -> Result<Tensor> {
         if input.is_empty() {
             return Err(anyhow!("embedding input cannot be empty"));
         }
         let mut out = Vec::with_capacity(input.len());
         for text in input {
             out.push(self.embed_one(text)?);
-            self.model.clear_kv_cache();
         }
+        let out = Tensor::stack(&out, 0)?;
         Ok(out)
+    }
+
+    pub fn embed_one(&mut self, text: &str) -> Result<Tensor> {
+        let input_ids = self.tokenizer.text_encode(text.to_string(), &self.device)?;
+        let hidden = self
+            .model
+            .forward_hidden(Some(&input_ids), None, 0)?
+            .squeeze(0)?
+            .to_dtype(DType::F32)?;
+
+        self.model.clear_kv_cache();
+        let norm = self
+            .normalize
+            .normalize(&hidden, hidden.rank() - 1)?
+            .squeeze(0)?;
+        Ok(norm)
+    }
+}
+
+impl TextEmbedding for Qwen3Embedding {
+    fn embed_texts(&mut self, input: &[String]) -> Result<Vec<Vec<f32>>> {
+        let embeds = self.embed_multi(input)?;
+        let embeds = embeds.to_vec2::<f32>()?;
+        Ok(embeds)
     }
 }

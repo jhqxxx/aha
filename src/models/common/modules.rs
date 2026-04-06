@@ -1453,6 +1453,16 @@ pub fn cosine_similarity(query_vector: &Tensor, matrix: &Tensor) -> Result<Tenso
     Ok(similarity)
 }
 
+pub fn cosine_similarity_no_l2(query_vector: &Tensor, matrix: &Tensor) -> Result<Tensor> {
+    // query_vector: (n, dim)
+    // matrix: (m, dim)
+    // return (n, m)
+    let similarity = query_vector
+        .matmul(&matrix.transpose(D::Minus1, D::Minus2)?)?
+        .squeeze(D::Minus1)?;
+    Ok(similarity)
+}
+
 pub fn quick_gelu(xs: &Tensor) -> Result<Tensor> {
     let x = xs.affine(1.702, 0.0)?;
     let x = sigmoid(&x)?;

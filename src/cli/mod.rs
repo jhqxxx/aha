@@ -278,6 +278,11 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         | WhichModel::Qwen3Embedding8B => {
             qwen3_embedding::Qwen3EmbeddingExec::run(&input, output.as_deref(), &weight_path)?;
         }
+        WhichModel::Qwen3Reranker0_6B
+        | WhichModel::Qwen3Reranker4B
+        | WhichModel::Qwen3Reranker8B => {
+            qwen3_reranker::Qwen3RerankerExec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::Qwen3VL2B
         | WhichModel::Qwen3VL4B
         | WhichModel::Qwen3VL8B
