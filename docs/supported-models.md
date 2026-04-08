@@ -103,7 +103,7 @@ ZhipuAI/GLM-OCR                          ZhipuAI              ocr          ✔
 
 | Model | version | Model Id | License |
 |-------|-----------|---------|---------|
-| **VoxCPM** | 1<br>1.5 | OpenBMB/VoxCPM-0.5B <br> OpenBMB/VoxCPM1.5 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **VoxCPM** | 1<br>1.5<br>2 | OpenBMB/VoxCPM-0.5B <br> OpenBMB/VoxCPM1.5 <br> OpenBMB/VoxCPM2 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 
 ## Image Processing
 

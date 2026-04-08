@@ -74,6 +74,8 @@ pub enum WhichModel {
     VoxCPM,
     #[value(name = "OpenBMB/VoxCPM1.5")]
     VoxCPM1_5,
+    #[value(name = "OpenBMB/VoxCPM2")]
+    VoxCPM2,
     #[value(name = "ZhipuAI/GLM-ASR-Nano-2512")]
     GlmASRNano2512,
     #[value(name = "FunAudioLLM/Fun-ASR-Nano-2512")]
@@ -166,7 +168,7 @@ impl WhichModel {
             // Image models
             WhichModel::RMBG2_0 => "image",
             // TTS models
-            WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => "tts",
+            WhichModel::VoxCPM | WhichModel::VoxCPM1_5 | WhichModel::VoxCPM2 => "tts",
             WhichModel::Qwen3Embedding0_6B
             | WhichModel::Qwen3Embedding4B
             | WhichModel::Qwen3Embedding8B

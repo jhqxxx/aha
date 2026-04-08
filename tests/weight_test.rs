@@ -328,3 +328,26 @@ fn gguf_weight() -> Result<()> {
     // }
     Ok(())
 }
+
+#[test]
+fn voxcpm2_weight() -> Result<()> {
+    // cargo test -F cuda --test weight_test voxcpm2_weight -r -- --nocapture
+    let save_dir =
+        aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
+    let model_path = format!("{}/OpenBMB/VoxCPM2/", save_dir);
+    let model_list = find_type_files(&model_path, "pth")?;
+    println!("model_list: {:?}", model_list);
+    // let dev = get_device(None);
+    // let mut dict_to_hashmap = HashMap::new();
+    // let mut dtype = candle_core::DType::F32;
+    for m in model_list {
+        let dict = read_all_with_key(m, Some("state_dict"))?;
+        // dtype = dict[0].1.dtype();
+        for (k, v) in dict {
+            println!("key: {}, tensor shape: {:?}", k, v);
+            // dict_to_hashmap.insert(k, v);
+        }
+    }
+
+    Ok(())
+}

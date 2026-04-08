@@ -698,6 +698,29 @@ pub fn bytes_to_human(bytes: u64) -> String {
     }
 }
 
+pub fn bucketize(input: usize, boundaries: &[usize]) -> Result<usize> {
+    if boundaries.is_empty() {
+        return Err(anyhow!("bucketize param boundaries can not be empty"));
+    }
+    match boundaries.binary_search(&input) {
+        Ok(i) => Ok(i),
+        Err(i) => Ok(i),
+    }
+    // let mut index = 0;
+    // let mut change = false;
+    // for i in 0..boundaries.len() {
+    //     if input <= boundaries[i] {
+    //         index = i;
+    //         change = true;
+    //         break;
+    //     }
+    // }
+    // if !change {
+    //     index = boundaries.len();
+    // }
+    // Ok(index)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

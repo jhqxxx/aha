@@ -1018,9 +1018,9 @@ impl DeepseekV2DecoderLayer {
         let residual = xs.clone();
         let xs = self.input_layernorm.forward(xs)?;
 
-        let xs = self
-            .self_attn
-            .forward_with_cache(&xs, cos, sin, attention_mask, false)?;
+        let xs =
+            self.self_attn
+                .forward_with_cache(&xs, Some(cos), Some(sin), attention_mask, false)?;
         let residual = residual.add(&xs)?;
         let xs = self.post_attention_layernorm.forward(&residual)?;
         let xs = self.mlp.forward(&xs)?;

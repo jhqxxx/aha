@@ -25,7 +25,9 @@ pub struct MiniCPMLongRoPE {
 }
 impl MiniCPMLongRoPE {
     pub fn new(cfg: &VoxMiniCPM4Config, device: &Device, dtype: DType) -> Result<Self> {
-        let head_dim = cfg.hidden_size / cfg.num_attention_heads;
+        let head_dim = cfg
+            .kv_channels
+            .unwrap_or(cfg.hidden_size / cfg.num_attention_heads);
         let rope_theta = cfg.rope_theta;
         let short_factor = cfg.rope_scaling.short_factor.clone();
         let long_factor = cfg.rope_scaling.short_factor.clone();
@@ -117,7 +119,10 @@ impl MiniCPMDecoderLayer {
             cfg.hidden_size,
             cfg.num_attention_heads,
             cfg.num_key_value_heads,
-            None,
+            Some(
+                cfg.kv_channels
+                    .unwrap_or(cfg.hidden_size / cfg.num_attention_heads),
+            ),
             false,
             None,
             None,
@@ -155,15 +160,15 @@ impl MiniCPMDecoderLayer {
     pub fn forward(
         &self,
         xs: &Tensor,
-        cos: &Tensor,
-        sin: &Tensor,
+        cos: Option<&Tensor>,
+        sin: Option<&Tensor>,
         attention_mask: Option<&Tensor>,
     ) -> Result<Tensor> {
         let residual = xs.clone();
         let xs = self.input_layernorm.forward(xs)?;
         let xs = self
             .self_attn
-            .forward(&xs, Some(cos), Some(sin), attention_mask, true)?;
+            .forward(&xs, cos, sin, attention_mask, true)?;
         let xs = if self.use_mup {
             (residual
                 + xs.affine(
@@ -191,8 +196,8 @@ impl MiniCPMDecoderLayer {
     pub fn forward_with_cache(
         &mut self,
         xs: &Tensor,
-        cos: &Tensor,
-        sin: &Tensor,
+        cos: Option<&Tensor>,
+        sin: Option<&Tensor>,
         attention_mask: Option<&Tensor>,
     ) -> Result<Tensor> {
         let residual = xs.clone();
@@ -232,7 +237,7 @@ pub struct MiniCPMModel {
     pub embed_tokens: Option<Embedding>,
     layers: Vec<MiniCPMDecoderLayer>,
     norm: RmsNorm,
-    rope_emb: MiniCPMLongRoPE,
+    rope_emb: Option<MiniCPMLongRoPE>,
 }
 
 impl MiniCPMModel {
@@ -255,7 +260,15 @@ impl MiniCPMModel {
             layers.push(layer);
         }
         let norm = rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("norm"))?;
-        let rope_emb = MiniCPMLongRoPE::new(&cfg, vb.device(), vb.dtype())?;
+
+        let rope_emb = if let Some(flag) = cfg.no_rope
+            && flag
+        {
+            None
+        } else {
+            Some(MiniCPMLongRoPE::new(&cfg, vb.device(), vb.dtype())?)
+        };
+
         Ok(Self {
             // cfg,
             embed_tokens,
@@ -284,11 +297,20 @@ impl MiniCPMModel {
                 )?)
             }
         };
-        let (cos, sin) = self.rope_emb.forward(position_id, seq_len)?;
+        let (cos, sin) = if let Some(rope_emb) = &mut self.rope_emb {
+            let (cos, sin) = rope_emb.forward(position_id, seq_len)?;
+            (Some(cos), Some(sin))
+        } else {
+            (None, None)
+        };
         let mut hidden_states = input_embeds.clone();
         for decode_layer in &self.layers {
-            hidden_states =
-                decode_layer.forward(&hidden_states, &cos, &sin, attention_mask.as_ref())?;
+            hidden_states = decode_layer.forward(
+                &hidden_states,
+                cos.as_ref(),
+                sin.as_ref(),
+                attention_mask.as_ref(),
+            )?;
         }
         hidden_states = self.norm.forward(&hidden_states)?;
         Ok(hidden_states)
@@ -317,13 +339,19 @@ impl MiniCPMModel {
                 )?)
             }
         };
-        let (cos, sin) = self.rope_emb.forward(position_id, seq_len)?;
+        // let (cos, sin) = self.rope_emb.forward(position_id, seq_len)?;
+        let (cos, sin) = if let Some(rope_emb) = &mut self.rope_emb {
+            let (cos, sin) = rope_emb.forward(position_id, seq_len)?;
+            (Some(cos), Some(sin))
+        } else {
+            (None, None)
+        };
         let mut hidden_states = input_embeds.clone();
         for decode_layer in &mut self.layers {
             hidden_states = decode_layer.forward_with_cache(
                 &hidden_states,
-                &cos,
-                &sin,
+                cos.as_ref(),
+                sin.as_ref(),
                 attention_mask.as_ref(),
             )?;
         }

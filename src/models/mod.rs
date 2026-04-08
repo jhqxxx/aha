@@ -276,7 +276,7 @@ pub fn load_model<'a>(
             let model = RMBG2_0Model::init(path, device, dtype)?;
             ModelInstance::RMBG2_0(Box::new(model))
         }
-        WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => {
+        WhichModel::VoxCPM | WhichModel::VoxCPM1_5 | WhichModel::VoxCPM2 => {
             let model = VoxCPMGenerate::init(path, device, dtype)?;
             ModelInstance::VoxCPM(Box::new(model))
         }

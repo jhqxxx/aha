@@ -212,8 +212,8 @@ impl NaiveAttention {
     pub fn forward_with_cache(
         &mut self,
         xs: &Tensor,
-        cos: &Tensor,
-        sin: &Tensor,
+        cos: Option<&Tensor>,
+        sin: Option<&Tensor>,
         attention_mask: Option<&Tensor>,
         tof32: bool,
     ) -> Result<Tensor> {
@@ -230,8 +230,15 @@ impl NaiveAttention {
         let value_states = value_states
             .reshape((b_sz, q_len, self.num_kv_heads, self.head_dim))?
             .transpose(1, 2)?;
-        let (query_states, key_states) =
-            apply_rotary_pos_emb(&query_states, &key_states, cos, sin, tof32)?;
+        // let (query_states, key_states) =
+        //     apply_rotary_pos_emb(&query_states, &key_states, cos, sin, tof32)?;
+        let (query_states, key_states) = if let Some(cos) = cos
+            && let Some(sin) = sin
+        {
+            apply_rotary_pos_emb(&query_states, &key_states, cos, sin, tof32)?
+        } else {
+            (query_states, key_states)
+        };
         let (key_states, value_states) = match &self.kv_cache {
             None => (key_states, value_states),
             Some((prev_k, prev_v)) => {
@@ -701,9 +708,9 @@ impl NaiveAttnGateUpDownMLPBlock {
     ) -> Result<Tensor> {
         let residual = xs.clone();
         let xs = self.input_layernorm.forward(xs)?;
-        let xs = self
-            .self_attn
-            .forward_with_cache(&xs, cos, sin, attention_mask, false)?;
+        let xs =
+            self.self_attn
+                .forward_with_cache(&xs, Some(cos), Some(sin), attention_mask, false)?;
         let residual = residual.add(&xs)?;
         let xs = self.post_attention_layernorm.forward(&residual)?;
         let xs = self.mlp.forward(&xs)?;

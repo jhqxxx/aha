@@ -301,7 +301,7 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::RMBG2_0 => {
             rmbg2_0::RMBG2_0Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::VoxCPM | WhichModel::VoxCPM1_5 => {
+        WhichModel::VoxCPM | WhichModel::VoxCPM1_5 | WhichModel::VoxCPM2 => {
             voxcpm::VoxCPMExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::GlmASRNano2512 => {

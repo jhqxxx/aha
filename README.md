@@ -33,7 +33,7 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 | **Vision** | Qwen2.5-VL, Qwen3-VL, Qwen3.5, <br> LFM2.5-VL, LFM2-VL |
 | **OCR** | DeepSeek-OCR, DeepSeek-OCR-2 , PaddleOCR-VL <br> PaddleOCR-VL1.5, Hunyuan-OCR, GLM-OCR |
 | **ASR** | GLM-ASR-Nano, Fun-ASR-Nano, Qwen3-ASR |
-| **TTS** | VoxCPM, VoxCPM1.5 |
+| **TTS** | VoxCPM, VoxCPM1.5, VoxCPM2 |
 | **Image** | RMBG-2.0 (background removal) |
 | **Embedding** | Qwen3-Embedding, all-MiniLM-L6-v2 |
 | **Reranker** | Qwen3-Reranker |
@@ -49,6 +49,9 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 - **🧠 Attention Optimization** - Optional Flash Attention support for optimized long sequence processing
 
 ## Changelog
+### 2026-04-08
+- add VoxCPM2
+
 ### 0.2.5 (2026-04-06)
 - add qwen3-embedding/qwen3-reranker/all-minilm-l6-v2
 

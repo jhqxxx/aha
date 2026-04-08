@@ -181,9 +181,9 @@ impl MiniCPMDecoderLayer {
     ) -> Result<Tensor> {
         let residual = xs.clone();
         let xs = self.input_layernorm.forward(xs)?;
-        let xs = self
-            .self_attn
-            .forward_with_cache(&xs, cos, sin, attention_mask, true)?;
+        let xs =
+            self.self_attn
+                .forward_with_cache(&xs, Some(cos), Some(sin), attention_mask, true)?;
         let xs = (residual
             + xs.affine(
                 self.scale_depth as f64 / (self.num_hidden_layers as f64).sqrt(),

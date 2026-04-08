@@ -49,6 +49,7 @@ show_help() {
     echo "  AI-ModelScope/RMBG-2.0"
     echo "  OpenBMB/VoxCPM-0.5B"
     echo "  OpenBMB/VoxCPM1.5"
+    echo "  OpenBMB/VoxCPM2"
     echo "  ZhipuAI/GLM-ASR-Nano-2512"
     echo "  FunAudioLLM/Fun-ASR-Nano-2512"
     echo "  ZhipuAI/GLM-OCR"
@@ -171,6 +172,9 @@ case $MODEL_ALIAS in
         ;;
     "OpenBMB/VoxCPM1.5")
         MODEL_ID="openbmb/VoxCPM1.5"
+        ;;
+    "OpenBMB/VoxCPM2")
+        MODEL_ID="openbmb/VoxCPM2"
         ;;
     "ZhipuAI/GLM-ASR-Nano-2512")
         MODEL_ID="zai-org/GLM-ASR-Nano-2512"
