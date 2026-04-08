@@ -23,12 +23,12 @@ fn voxcpm2_use_message_generate() -> Result<()> {
                 "content": [  
                     {
                         "type": "text", 
-                        "text": "老板儿，来碗担担面，多放海椒，再加个煎蛋哈"
+                        "text": "哎呀姐姐，好久没看到你了，来来来坐坐坐，我给你摆个龙门阵。你莫看我这两天闲得很，上个月我可是搞了个大事情。"
                     }
                 ]
             }
         ],
-        "metadata": {"control_instruction": "萝莉音"}
+        "metadata": {"control_instruction": "四川话,男生"}
     }
     "#;
     let mes: ChatCompletionParameters = serde_json::from_str(message)?;

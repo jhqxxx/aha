@@ -244,8 +244,8 @@ impl GenerateModel for VoxCPMGenerate {
         let mut target_text = extract_user_text(&mes)?;
         if let Some(instruction) = control_instruction
             && self.model_name.contains("2")
-            && prompt_text.is_none()
-            && prompt_wav_path.is_none()
+            // && prompt_text.is_none()
+            // && prompt_wav_path.is_none()
         {
             target_text = format!("({instruction}){target_text}");
         }
