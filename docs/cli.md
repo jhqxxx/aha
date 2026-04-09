@@ -118,9 +118,6 @@ aha run -m FunAudioLLM/Fun-ASR-Nano-2512 -i "语音转写：" -i "audio.wav" --w
 # qwen3 text generation (single input)
 aha run -m Qwen/Qwen3-0.6B -i "你好" --weight-path /path/to/model
 
-# qwen3 GGUF text generation (single input)
-aha run -m qwen3-0.6b -i "hello" --artifact-format gguf --gguf-path /path/to/Qwen3-0.6B-Q8_0.gguf
-
 # qwen2.5vl image understanding (two inputs: prompt text + image file)
 aha run -m Qwen/Qwen2.5-VL-3B-Instruct -i "请分析图片并提取所有可见文本内容，按从左到右、从上到下的布局，返回纯文本" -i "image.jpg" --weight-path /path/to/model
 

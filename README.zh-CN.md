@@ -130,18 +130,6 @@ aha run -m Qwen/Qwen3-ASR-0.6B -i "audio.wav"
 # 本地运行 all-MiniLM-L6-v2 向量模型（原生 safetensors）
 aha run -m all-minilm-l6-v2 -i "Rust embedding test" --weight-path D:\model_download\all-MiniLM-L6-v2
 
-# 本地运行 all-MiniLM-L6-v2 向量模型（GGUF）
-aha run -m all-minilm-l6-v2 -i "Rust embedding test" --artifact-format gguf --gguf-path D:\model_download\All-MiniLM-L6-v2-Embedding-GGUF --tokenizer-dir D:\model_download\all-MiniLM-L6-v2
-
-# 本地运行 all-MiniLM-L6-v2 向量模型（ONNX）
-aha run -m all-minilm-l6-v2 -i "Rust embedding test" --artifact-format onnx --onnx-path D:\model_download\all-MiniLM-L6-v2\onnx --tokenizer-dir D:\model_download\all-MiniLM-L6-v2
-
-# 本地运行 GLM-OCR（GGUF）
-aha run -m glm-ocr -i .\assets\img\ocr_test1.png --artifact-format gguf --gguf-path D:\model_download\GLM-OCR-GGUF
-
-# 本地运行 GLM-OCR（ONNX）
-aha run -m glm-ocr -i .\assets\img\ocr_test1.png --artifact-format onnx --onnx-path D:\model_download\GLM-OCR-ONNX --tokenizer-dir D:\model_download\GLM-OCR-ONNX
-
 # 仅启动服务（模型已下载）
 aha serv -m Qwen/Qwen3-ASR-0.6B -p 10100
 

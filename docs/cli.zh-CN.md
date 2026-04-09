@@ -118,9 +118,6 @@ aha run -m FunAudioLLM/Fun-ASR-Nano-2512 -i "语音转写：" -i "audio.wav" --w
 # qwen3 文本生成（单个输入）
 aha run -m Qwen/Qwen3-0.6B -i "你好" --weight-path /path/to/model
 
-# qwen3 GGUF 文本生成（单个输入）
-aha run -m qwen3-0.6b -i "你好" --artifact-format gguf --gguf-path /path/to/Qwen3-0.6B-Q8_0.gguf
-
 # qwen2.5vl 图像理解（两个输入：提示文本 + 图片文件）
 aha run -m Qwen/Qwen2.5-VL-3B-Instruct -i "请分析图片并提取所有可见文本内容，按从左到右、从上到下的布局，返回纯文本" -i "image.jpg" --weight-path /path/to/model
 
@@ -145,8 +142,7 @@ GGUF/ONNX模型必须指定本地文件路径
 **语法：**
 ```bash
 aha serv [OPTIONS] --model <MODEL> [--weight-path <WEIGHT_PATH>] [--gguf-path <GGUF_PATH>] \
-  [--mmproj-path <MMPROJ_PATH>] [--onnx-path <ONNX_PATH>] [--tokenizer-dir <TOKENIZER_DIR>] \
-  [--artifact-format <ARTIFACT_FORMAT>]
+  [--mmproj-path <MMPROJ_PATH>] [--onnx-path <ONNX_PATH>] [--config-path <CONFIG_PATH>]
 ```
 
 **选项：**
