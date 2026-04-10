@@ -18,6 +18,7 @@ show_help() {
     echo "  LiquidAI/LFM2-1.2B"
     echo "  LiquidAI/LFM2.5-1.2B-Instruct"
     echo "  LiquidAI/LFM2.5-VL-1.6B"
+    echo "  LiquidAI/LFM2.5-VL-450M"
     echo "  LiquidAI/LFM2-VL-1.6B"
     echo "  OpenBMB/MiniCPM4-0.5B"
     echo "  Qwen/Qwen2.5-VL-3B-Instruct"
@@ -79,6 +80,9 @@ case $MODEL_ALIAS in
         ;;
     "LiquidAI/LFM2.5-VL-1.6B")
         MODEL_ID="LiquidAI/LFM2.5-VL-1.6B"
+        ;;  
+    "LiquidAI/LFM2.5-VL-450M")
+        MODEL_ID="LiquidAI/LFM2.5-VL-450M"
         ;;
     "LiquidAI/LFM2-VL-1.6B")
         MODEL_ID="LiquidAI/LFM2-VL-1.6B"

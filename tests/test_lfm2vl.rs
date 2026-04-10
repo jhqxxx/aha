@@ -12,8 +12,9 @@ fn lfm2vl_generate() -> Result<()> {
 
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/LiquidAI/LFM2.5-VL-1.6B/", save_dir);
+    // let model_path = format!("{}/LiquidAI/LFM2.5-VL-1.6B/", save_dir);
     // let model_path = format!("{}/LiquidAI/LFM2-VL-1.6B/", save_dir);
+    let model_path = format!("{}/LiquidAI/LFM2.5-VL-450M/", save_dir);
     let message = r#"
     {
         "model": "lfm2vl",

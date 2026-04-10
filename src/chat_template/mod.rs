@@ -30,6 +30,8 @@ pub fn fix_template(chat_template: &str) -> String {
             "content.lstrip('\\n')",
             "content | lstrip('\\n')", // 使用自定义的过滤器替换
         )
+        .replace("{%- generation -%}", "") // MiniJinja 不支持 generation 和 endgeneration
+        .replace("{%- endgeneration -%}", "")
 }
 
 pub fn get_template(path: String) -> Result<String> {
@@ -104,6 +106,9 @@ impl<'a> ChatTemplate<'a> {
             Some(chars_str) => s.trim_end_matches(chars_str.as_str()).to_string(),
             None => s.trim_end().to_string(),
         });
+
+        // 添加 string filter
+        env.add_filter("string", |v: MiniJinjaValue| -> String { format!("{}", v) });
     }
     pub fn init(path: &str) -> Result<Self> {
         let path: String = path.to_string();
@@ -112,10 +117,12 @@ impl<'a> ChatTemplate<'a> {
         }
         let template = get_template(path.clone())?;
         let template = string_to_static_str(template);
+        // println!("template: {}", template);
         // 加载jinjaenv处理chat_template
         let mut env = Environment::new();
         Self::setup_environment(&mut env);
-        let _ = env.add_template("chat", template);
+        env.add_template("chat", template)?;
+        // println!("env: {:?}", env);
 
         Ok(Self { env })
     }

@@ -5,6 +5,9 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+### 2026-04-10
+- 修复 LiquidAI/LFM2.5-VL-450M chat_template 加载bug
+
 ### 2026-04-08
 - 添加 VoxCPM2
 

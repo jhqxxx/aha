@@ -10,6 +10,8 @@ pub enum WhichModel {
     LFM2_5_1_2BInstruct,
     #[value(name = "LiquidAI/LFM2.5-VL-1.6B")]
     LFM2_5VL1_6B,
+    #[value(name = "LiquidAI/LFM2.5-VL-450M")]
+    LFM2_5VL450M,
     #[value(name = "LiquidAI/LFM2-VL-1.6B")]
     LFM2VL1_6B,
     #[value(name = "OpenBMB/MiniCPM4-0.5B")]
@@ -152,7 +154,8 @@ impl WhichModel {
             | WhichModel::Qwen3_5_9B
             | WhichModel::Qwen3_5Gguf
             | WhichModel::LFM2_5VL1_6B
-            | WhichModel::LFM2VL1_6B => "vlm",
+            | WhichModel::LFM2VL1_6B
+            | WhichModel::LFM2_5VL450M => "vlm",
             // OCR models
             WhichModel::DeepSeekOCR
             | WhichModel::DeepSeekOCR2

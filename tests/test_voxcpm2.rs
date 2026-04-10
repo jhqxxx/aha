@@ -20,15 +20,21 @@ fn voxcpm2_use_message_generate() -> Result<()> {
         "messages": [
             {
                 "role": "user",
-                "content": [  
+                "content": [ 
+                    {
+                        "type": "audio",
+                        "audio_url": 
+                        {
+                            "url": "https://package-release.coderbox.cn/aiway/test/other/%E5%93%AA%E5%90%92.wav"
+                        }
+                    },  
                     {
                         "type": "text", 
-                        "text": "哎呀姐姐，好久没看到你了，来来来坐坐坐，我给你摆个龙门阵。你莫看我这两天闲得很，上个月我可是搞了个大事情。"
+                        "text": "你好，这是aha在说话"
                     }
                 ]
             }
-        ],
-        "metadata": {"control_instruction": "四川话,男生"}
+        ]
     }
     "#;
     let mes: ChatCompletionParameters = serde_json::from_str(message)?;

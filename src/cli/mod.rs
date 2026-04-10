@@ -247,7 +247,7 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::LFM2_1_2B | WhichModel::LFM2_5_1_2BInstruct => {
             lfm2::Lfm2Exec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::LFM2_5VL1_6B | WhichModel::LFM2VL1_6B => {
+        WhichModel::LFM2_5VL1_6B | WhichModel::LFM2VL1_6B | WhichModel::LFM2_5VL450M => {
             lfm2vl::Lfm2VLExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::Qwen2_5VL3B | WhichModel::Qwen2_5VL7B => {

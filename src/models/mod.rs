@@ -218,7 +218,7 @@ pub fn load_model<'a>(
             let model = Lfm2GenerateModel::init(path, device, dtype)?;
             ModelInstance::Lfm2(model)
         }
-        WhichModel::LFM2_5VL1_6B | WhichModel::LFM2VL1_6B => {
+        WhichModel::LFM2_5VL1_6B | WhichModel::LFM2VL1_6B | WhichModel::LFM2_5VL450M => {
             let model = Lfm2VLGenerateModel::init(path, device, dtype)?;
             ModelInstance::Lfm2VL(model)
         }
