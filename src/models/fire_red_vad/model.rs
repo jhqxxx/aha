@@ -86,8 +86,13 @@ impl FSMN {
         } else {
             residual.clone()
         };
-        let start = inputs.dim(D::Minus1)? - self.lookback_padding;
-        let new_cache = inputs.narrow(D::Minus1, start, self.lookback_padding)?;
+        let len = inputs.dim(D::Minus1)?;
+        let new_cache = if len > self.lookback_padding {
+            let start = len - self.lookback_padding;
+            inputs.narrow(D::Minus1, start, self.lookback_padding)?
+        } else {
+            inputs.clone()
+        };
         // conv1d_depthwise仅支持dilation=1的情况
         let lookback = if self.s1 == 1 {
             let inputs =
