@@ -9,7 +9,8 @@ use crate::{
         processor::{AudioFeat, VadPostprocessor},
     },
     utils::{
-        audio_utils::load_audio_with_resample_from_bytes, find_type_files, get_device,
+        audio_utils::{resample_audio_from_bytes, resample_audio_from_vec_f32},
+        find_type_files, get_device,
         tensor_utils::split_tensor_with_size,
     },
 };
@@ -84,13 +85,7 @@ impl FireRedVad {
         })
     }
 
-    pub fn detect_frame(&mut self, audio_bytes: Vec<u8>) -> Result<Option<VadFrameResult>> {
-        if !self.model_name.to_lowercase().contains("stream") {
-            return Err(anyhow!("only stream model support detect_frame"));
-        }
-        let audio_frame =
-            load_audio_with_resample_from_bytes(audio_bytes, &self.device, Some(16000), true)?
-                .squeeze(0)?;
+    pub fn detect_frame(&mut self, audio_frame: &Tensor) -> Result<Option<VadFrameResult>> {
         if audio_frame.dim(0)? < self.frame_length_sample {
             return Err(anyhow!(
                 "Expected {} samples, got {}",
@@ -98,7 +93,7 @@ impl FireRedVad {
                 audio_frame.dim(0)?
             ));
         }
-        let feats = self.audio_feat.extract(&audio_frame)?;
+        let feats = self.audio_feat.extract(audio_frame)?;
         let (probs, caches) = self
             .vad_model
             .forward(&feats.unsqueeze(0)?, self.caches.as_ref())?;
@@ -112,7 +107,7 @@ impl FireRedVad {
         if preds_sum as f32 > probs.dim(0)? as f32 * self.cfg.speech_threshold {
             Ok(Some(VadFrameResult {
                 is_speech: true,
-                orig_audio: Some(audio_frame),
+                orig_audio: Some(audio_frame.clone()),
                 kaldi_audio: Some(feats),
                 model_name: self.model_name.clone(),
                 mode: "speech".to_string(),
@@ -120,6 +115,36 @@ impl FireRedVad {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn detect_frame_f32(
+        &mut self,
+        audio_vec_f32: Vec<f32>,
+        channels: usize,
+        orig_sr: Option<usize>,
+    ) -> Result<Option<VadFrameResult>> {
+        if !self.model_name.to_lowercase().contains("stream") {
+            return Err(anyhow!("only stream model support detect_frame"));
+        }
+        let audio_frame = resample_audio_from_vec_f32(
+            audio_vec_f32,
+            &self.device,
+            channels,
+            orig_sr,
+            Some(16000),
+            true,
+        )?
+        .squeeze(0)?;
+        self.detect_frame(&audio_frame)
+    }
+
+    pub fn detect_frame_bytes(&mut self, audio_bytes: Vec<u8>) -> Result<Option<VadFrameResult>> {
+        if !self.model_name.to_lowercase().contains("stream") {
+            return Err(anyhow!("only stream model support detect_frame"));
+        }
+        let audio_frame =
+            resample_audio_from_bytes(audio_bytes, &self.device, Some(16000), true)?.squeeze(0)?;
+        self.detect_frame(&audio_frame)
     }
 
     pub fn detect_file(&self, audio_path: &str) -> Result<VadResult> {

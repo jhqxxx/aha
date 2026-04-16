@@ -587,7 +587,39 @@ pub fn load_audio(path: &str, device: &Device) -> Result<(Tensor, usize)> {
     load_audio_use_symphonia(audio_vec, false, device)
 }
 
-pub fn load_audio_with_resample_from_bytes(
+pub fn resample_audio_from_vec_f32(
+    audio_vec: Vec<f32>,
+    device: &Device,
+    channels: usize,
+    orig_sr: Option<usize>,
+    target_sample_rate: Option<usize>,
+    is_i16: bool,
+) -> Result<Tensor> {
+    let frame_len = audio_vec.len() / channels;
+    let audio = Tensor::new(&audio_vec[0..frame_len * channels], device)?;
+    let mut audio = if channels > 1 {
+        audio
+            .reshape((frame_len, channels))?
+            .mean_keepdim(1)?
+            .transpose(0, 1)?
+            .contiguous()?
+    } else {
+        audio.unsqueeze(0)?
+    };
+
+    if let Some(target_sample_rate) = target_sample_rate
+        && let Some(sr) = orig_sr
+        && target_sample_rate != sr
+    {
+        audio = resample_simple(&audio, sr as i64, target_sample_rate as i64)?;
+    }
+    if is_i16 {
+        audio = audio.affine(32768.0, 0.0)?;
+    }
+    Ok(audio)
+}
+
+pub fn resample_audio_from_bytes(
     audio_vec: Vec<u8>,
     device: &Device,
     target_sample_rate: Option<usize>,
@@ -612,7 +644,7 @@ pub fn load_audio_with_resample(
     // let audio_path = get_audio_path(path)?;
     // let (mut audio, sr) = load_audio_use_hound(audio_path, device)?;
     let audio_vec = get_audio_bytes_vec(path)?;
-    load_audio_with_resample_from_bytes(audio_vec, device, target_sample_rate, is_i16)
+    resample_audio_from_bytes(audio_vec, device, target_sample_rate, is_i16)
 }
 
 pub fn save_wav(audio: &Tensor, save_path: &str, sample_rate: u32) -> Result<()> {
