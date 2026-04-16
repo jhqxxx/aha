@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use candle_core::{D, Device, IndexOp, Tensor};
 use kaldi_native_fbank::{
     FbankComputer, FbankOptions,
-    window::{Window, extract_window},
+    window::{Window, extract_window, num_frames},
 };
 
 use crate::{
@@ -94,7 +94,8 @@ impl KaldifeatFbank {
         };
         let mut feats = vec![];
         let mut window_buf = vec![0.0; padded];
-        for frame in 0..230 {
+        let frame_len = num_frames(wave.len(), &self.opts.frame_opts, true);
+        for frame in 0..frame_len {
             let raw_log_energy = extract_window(
                 0,
                 &wave,
