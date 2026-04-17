@@ -246,12 +246,10 @@ impl DFSMN {
         let cache = caches.map(|caches| &caches[0]);
         let (mut memory, mut new_cache) = self.fsmn1.forward(&p, mask.as_ref(), cache)?;
         new_caches.push(new_cache);
-        let mut i = 1;
-        for fsmn in &self.fsmns {
+        for (i, fsmn) in (1..).zip(self.fsmns.iter()) {
             let cache = caches.map(|caches| &caches[i]);
             (memory, new_cache) = fsmn.forward(&memory, mask.as_ref(), cache)?;
             new_caches.push(new_cache);
-            i += 1;
         }
         for dnn in &self.dnns {
             memory = dnn.forward(&memory)?.relu()?;
