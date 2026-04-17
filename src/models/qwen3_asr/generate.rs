@@ -89,9 +89,6 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
         if !vad_res.is_speech || vad_res.orig_audio.is_none() {
             return Ok(AsrResult::init_empty());
         }
-        // if vad_res.is_speech_start {
-        //     self.qwen3_asr.clear_kv_cache();
-        // }
         let audio_data =
             self.processor
                 .process_vad_res(&self.default_template, vad_res, &self.tokenizer)?;

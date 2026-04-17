@@ -35,6 +35,7 @@ pub struct FireRedVad {
     cfg: FireRedVadConfig,
     caches: Option<Vec<Tensor>>,
     frame_length_sample: usize,
+    speech_cache: Vec<Tensor>,
 }
 
 impl FireRedVad {
@@ -76,6 +77,7 @@ impl FireRedVad {
             cfg,
             caches: None,
             frame_length_sample: 400,
+            speech_cache: vec![],
         })
     }
 
@@ -98,18 +100,55 @@ impl FireRedVad {
             .process_thresh(&probs)?
             .to_dtype(DType::U32)?;
         let preds_sum = binary_preds.sum_all()?.to_scalar::<u32>()?;
-        if preds_sum as f32 > probs.dim(0)? as f32 * self.cfg.speech_threshold {
+        let probs_len = probs.dim(0)?;
+        // 输入数据中 is_speech > 0.1, 认为这帧数据可用
+        let final_data = if preds_sum as f32 > probs_len as f32 * 0.1 {
+            // 通过最后10个数据，判断说话是否结束
+            let last_10_preds_sum = binary_preds
+                .narrow(0, probs_len - 10, 10)?
+                .sum_all()?
+                .to_scalar::<u32>()?;
+            // 10个数据中，至少8个是 speech, 认为说话没有结束，缓存数据，等待下一帧
+            if last_10_preds_sum >= 8 {
+                self.speech_cache.push(audio_frame.clone());
+                None
+            } else {
+                // 否则认为此次说话结束，结合缓存数据，一起返回
+                let data = if self.speech_cache.is_empty() {
+                    // 缓存数据为空，直接返回
+                    audio_frame.clone()
+                } else {
+                    // 缓存数据不为空，cat数据
+                    self.speech_cache.push(audio_frame.clone());
+                    let audio_frame = Tensor::cat(&self.speech_cache, 0)?;
+                    self.speech_cache = vec![]; // 清空缓存
+                    audio_frame
+                };
+                Some(data)
+            }
+        } else {
+            // 认为这帧数据不可用，是否有缓存数据
+            if self.speech_cache.is_empty() {
+                // 没有返回None
+                None
+            } else {
+                // 有缓存，返回缓存数据
+                let data = Some(Tensor::cat(&self.speech_cache, 0)?);
+                self.speech_cache.clear(); // 清空缓存
+                data
+            }
+        };
+
+        if final_data.is_none() {
+            Ok(None)
+        } else {
             Ok(Some(VadFrameResult {
                 is_speech: true,
                 is_i16: true,
-                is_speech_start: true, // TODO: is start speech, asr to clear cache
-                orig_audio: Some(audio_frame.clone()),
-                kaldi_audio: Some(feats),
+                orig_audio: final_data,
                 model_name: self.model_name.clone(),
                 mode: "speech".to_string(),
             }))
-        } else {
-            Ok(None)
         }
     }
 

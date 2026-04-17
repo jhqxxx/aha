@@ -15,10 +15,10 @@ use crate::{
 #[derive(Debug)]
 pub struct VadFrameResult {
     pub is_speech: bool,
-    pub is_speech_start: bool,
+    // pub is_speech_start: bool,
     pub is_i16: bool,
     pub orig_audio: Option<Tensor>,
-    pub kaldi_audio: Option<Tensor>,
+    // pub kaldi_audio: Option<Tensor>,
     pub model_name: String,
     pub mode: String,
 }
