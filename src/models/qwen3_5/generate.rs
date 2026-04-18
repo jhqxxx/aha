@@ -1,7 +1,9 @@
 use crate::{
     models::common::{
         MultiModalData,
-        generate::{GenerationContext, generate_generic, generate_stream_generic},
+        generate::{
+            GenerationContext, generate_generic, generate_generic_text, generate_stream_generic,
+        },
     },
     params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
 };
@@ -155,6 +157,54 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             repeat_penalty: 1.2,
             repeat_last_n: 64,
         })
+    }
+
+    pub fn generate_text(&mut self, mes: ChatCompletionParameters) -> Result<String> {
+        let seed = mes.seed.unwrap_or(32768) as u64;
+        let temperature = mes.temperature.unwrap_or(0.4);
+        let top_p = mes.top_p.unwrap_or(0.95);
+        let mes_render = self.chat_template.apply_chat_template(&mes)?;
+        let (mes_text, pixel_values, image_grid_thw, pixel_values_video, video_grid_thw) =
+            if let Some(processor) = &self.pre_processor {
+                let input = processor.process_info(&mes, &mes_render)?;
+                (
+                    input.replace_text,
+                    input.pixel_values,
+                    input.image_grid_thw,
+                    input.pixel_values_video,
+                    input.video_grid_thw,
+                )
+            } else {
+                (mes_render, None, None, None, None)
+            };
+        let input_ids = self.tokenizer.text_encode(mes_text, &self.device)?;
+        let sample_len = mes.max_tokens.unwrap_or(1024);
+        let mut ctx = GenerationContext::new(
+            temperature.into(),
+            top_p.into(),
+            Some(20),
+            self.repeat_penalty.into(),
+            self.repeat_last_n.into(),
+            seed,
+            input_ids.dim(1)?,
+            sample_len,
+            self.device.clone(),
+        );
+        let data_vec = vec![
+            pixel_values,
+            image_grid_thw,
+            pixel_values_video,
+            video_grid_thw,
+        ];
+        let data = MultiModalData::new(data_vec);
+
+        generate_generic_text(
+            &mut self.qwen3_5,
+            &self.tokenizer,
+            input_ids,
+            data,
+            &mut ctx,
+        )
     }
 }
 

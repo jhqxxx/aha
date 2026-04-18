@@ -19,12 +19,7 @@ fn qwen3_5_generate_no_visual() -> Result<()> {
         "messages": [
             {
                 "role": "user",
-                "content": [         
-                    {
-                        "type": "text", 
-                        "text": "你好啊"
-                    }
-                ]
+                "content": "你好啊"
             }
         ]
     }
@@ -35,12 +30,13 @@ fn qwen3_5_generate_no_visual() -> Result<()> {
     let mut qwen3_5 = Qwen3_5GenerateModel::init_without_visual(&model_path, None, None)?;
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
-
-    let res = qwen3_5.generate(mes)?;
-    println!("generate: \n {:?}", res);
-    if let Some(usage) = &res.usage {
-        println!("usage: \n {:?}", usage);
-    }
+    let text = qwen3_5.generate_text(mes)?;
+    println!("text: {}", text);
+    // let res = qwen3_5.generate(mes)?;
+    // println!("generate: \n {:?}", res);
+    // if let Some(usage) = &res.usage {
+    //     println!("usage: \n {:?}", usage);
+    // }
     Ok(())
 }
 
