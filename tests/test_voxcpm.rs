@@ -87,7 +87,7 @@ fn voxcpm_generate() -> Result<()> {
     // )?;
 
     // 创建prompt_cache
-    let _ = voxcpm_generate.build_prompt_cache(
+    voxcpm_generate.build_prompt_cache(
         "啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string(),
         "file://./assets/audio/voice_01.wav".to_string(),
     )?;
