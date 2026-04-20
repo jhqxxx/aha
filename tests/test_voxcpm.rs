@@ -60,7 +60,7 @@ fn voxcpm_use_message_generate() -> Result<()> {
 
 #[test]
 fn voxcpm_generate() -> Result<()> {
-    // RUST_BACKTRACE=1 cargo test -F cuda voxcpm_generate -r -- --nocapture
+    // RUST_BACKTRACE=1 cargo test -F cuda --test test_voxcpm voxcpm_generate -r -- --nocapture
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
     let model_path = format!("{}/OpenBMB/VoxCPM-0.5B/", save_dir);
@@ -70,37 +70,38 @@ fn voxcpm_generate() -> Result<()> {
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
 
-    let i_start = Instant::now();
+    // let i_start = Instant::now();
     // let generate = voxcpm_generate.generate_simple("太阳当空照，花儿对我笑，小鸟说早早早".to_string())?;
-    let generate = voxcpm_generate.inference(
-        "VoxCPM is an innovative end-to-end TTS model from ModelBest, designed to generate highly realistic speech.".to_string(),
-        Some("啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string()),
-        Some("file://./assets/audio/voice_01.wav".to_string()),
-        // Some("一定被灰太狼给吃了，我已经为他准备好了花圈了".to_string()),
-        // Some("file://./assets/audio/voice_05.wav".to_string()),
-        2,
-        100,
-        10,
-        2.0,
-        // false,
-        6.0,
-    )?;
-
-    // 创建prompt_cache
-    // let _ = voxcpm_generate.build_prompt_cache(
-    //     "啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string(),
-    //     "file://./assets/audio/voice_01.wav".to_string(),
-    // )?;
-    // // 使用prompt_cache生成语音
-    // let generate = voxcpm_generate.generate_use_prompt_cache(
-    //     "太阳当空照，花儿对我笑，小鸟说早早早".to_string(),
+    // let generate = voxcpm_generate.inference(
+    //     "VoxCPM is an innovative end-to-end TTS model from ModelBest, designed to generate highly realistic speech.".to_string(),
+    //     Some("啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string()),
+    //     Some("file://./assets/audio/voice_01.wav".to_string()),
+    //     // Some("一定被灰太狼给吃了，我已经为他准备好了花圈了".to_string()),
+    //     // Some("file://./assets/audio/voice_05.wav".to_string()),
     //     2,
     //     100,
     //     10,
     //     2.0,
-    //     false,
+    //     // false,
     //     6.0,
     // )?;
+
+    // 创建prompt_cache
+    let _ = voxcpm_generate.build_prompt_cache(
+        "啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string(),
+        "file://./assets/audio/voice_01.wav".to_string(),
+    )?;
+    // 使用prompt_cache生成语音
+    let i_start = Instant::now();
+    let generate = voxcpm_generate.generate_use_prompt_cache(
+        "太阳当空照，花儿对我笑，小鸟说早早早".to_string(),
+        2,
+        100,
+        10,
+        2.0,
+        false,
+        6.0,
+    )?;
 
     let i_duration = i_start.elapsed();
     println!("Time elapsed in generate is: {:?}", i_duration);

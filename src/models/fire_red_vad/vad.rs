@@ -103,13 +103,14 @@ impl FireRedVad {
         let probs_len = probs.dim(0)?;
         // 输入数据中 is_speech > 0.1, 认为这帧数据可用
         let final_data = if preds_sum as f32 > probs_len as f32 * 0.1 {
-            // 通过最后10个数据，判断说话是否结束
+            // 通过最后10个数据，判断说话是否结束，如果数据长度小于10就取整个长度
+            let select_len = if probs_len > 10 { 10 } else { probs_len };
             let last_10_preds_sum = binary_preds
-                .narrow(0, probs_len - 10, 10)?
+                .narrow(0, probs_len - select_len, select_len)?
                 .sum_all()?
                 .to_scalar::<u32>()?;
-            // 10个数据中，至少8个是 speech, 认为说话没有结束，缓存数据，等待下一帧
-            if last_10_preds_sum >= 8 {
+            // 选中数据中，至少0.8个是 speech, 认为说话没有结束，缓存数据，等待下一帧
+            if last_10_preds_sum >= (select_len as f32 * 0.8).ceil() as u32 {
                 self.speech_cache.push(audio_frame.clone());
                 None
             } else {

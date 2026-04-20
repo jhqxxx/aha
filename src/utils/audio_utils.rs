@@ -388,7 +388,7 @@ pub fn load_audio_use_hound(audio_path: PathBuf, device: &Device) -> Result<(Ten
                     .collect::<Result<Vec<_>, _>>()?,
                 24 => reader
                     .samples::<i32>()
-                    .map(|s| s.map(|sample| sample as f32 / 8388607.0))
+                    .map(|s| s.map(|sample| sample as f32 / i32::MAX as f32))
                     .collect::<Result<Vec<_>, _>>()?,
                 _ => {
                     return Err(anyhow::anyhow!(

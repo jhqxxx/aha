@@ -23,7 +23,7 @@ fn stream_vad() -> Result<()> {
     let device = aha::Device::Cpu;
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/xukaituo/FireRedVAD/Stream-VAD/", save_dir);
+    let model_path = format!("{}/jiangjiangaha/FireRedVAD-Stream-VAD/", save_dir);
 
     let vad = FireRedVad::init(&model_path, Some(&device), None)?;
     let res = vad.detect_file(audio_path)?;
