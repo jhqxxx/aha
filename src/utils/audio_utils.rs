@@ -366,7 +366,15 @@ pub fn get_audio_bytes_vec(path_str: &str) -> Result<Vec<u8>> {
         let data = BASE64_STANDARD.decode(data)?;
         Ok(data)
     } else {
-        Err(anyhow::anyhow!("get audio path error {}", path_str))
+        let wave_u8 = path_str.as_bytes();
+        match get_audio_format_from_bytes(wave_u8) {
+            Ok(_) => Ok(wave_u8.to_vec()),
+            Err(e) => Err(anyhow::anyhow!(
+                "get audio path error {}, et_audio_format error: {}",
+                path_str,
+                e
+            )),
+        }
     }
 }
 

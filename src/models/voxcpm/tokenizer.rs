@@ -1,4 +1,5 @@
-use anyhow::{Ok, Result, anyhow};
+use anyhow::{Result, anyhow};
+use candle_core::{Device, Tensor};
 use tokenizers::Tokenizer;
 
 pub struct SingleChineseTokenizer {
@@ -61,5 +62,10 @@ impl SingleChineseTokenizer {
             .filter_map(|c| self.tokenizer.token_to_id(c))
             .collect();
         Ok(ids)
+    }
+
+    pub fn encode_tensor(&self, text: String, device: &Device) -> Result<(Tensor, usize)> {
+        let ids = self.encode(text)?;
+        Ok((Tensor::from_slice(&ids, ids.len(), device)?, ids.len()))
     }
 }

@@ -265,6 +265,7 @@ impl GenerateModel for VoxCPMGenerate {
                 self.voxcpm.clear_kv_cache();
             })?;
         let wav_u8 = get_audio_wav_u8(&audio, self.out_sample_rate as u32)?;
+        // let wave_u8_str = String::from_utf8(wav_u8)?;
         let base64_audio = BASE64_STANDARD.encode(wav_u8);
         let response = build_audio_completion_response(&base64_audio, &self.model_name);
         self.voxcpm.clear_kv_cache();

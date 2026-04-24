@@ -23,6 +23,7 @@ pub mod qwen3_reranker;
 pub mod qwen3vl;
 pub mod rmbg2_0;
 pub mod voxcpm;
+pub mod voxcpm_refact;
 pub mod w2v_bert_2_0;
 // pub mod sam3;
 pub mod fire_red_vad;
