@@ -376,7 +376,9 @@ impl VoxCPMModelRefact {
                 let audio_len = audio_mask.sum_all()?.to_scalar::<u32>()? as usize;
                 let context_len = audio_len.min(streaming_prefix_len - 1);
                 let start = audio_feat.dim(1)? - context_len;
-                let last_feat = audio_feat.narrow(1, start, context_len)?;
+                let last_feat = audio_feat
+                    .narrow(1, start, context_len)?
+                    .to_dtype(self.dtype)?;
                 pred_feat_seq.push(last_feat);
             }
         }
