@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "aha-ui",
-        "width": 800,
-        "height": 600
+        "title": "AHA 模型启动器",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 900,
+        "minHeight": 600
       }
     ],
     "security": {
