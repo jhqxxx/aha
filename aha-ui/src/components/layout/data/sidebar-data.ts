@@ -1,6 +1,7 @@
 import {
   Package,
   Play,
+  BookOpen,
   Settings,
   UserCog,
   Wrench,
@@ -36,6 +37,11 @@ export const sidebarData: SidebarData = {
           title: '启动服务',
           url: '/launch',
           icon: Play,
+        },
+        {
+          title: '使用指南',
+          url: '/usage',
+          icon: BookOpen,
         },
       ],
     },
