@@ -3,6 +3,7 @@ use crate::{
         MultiModalData,
         generate::{
             GenerationContext, generate_generic, generate_generic_text, generate_stream_generic,
+            generate_stream_generic_text,
         },
     },
     params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
@@ -204,6 +205,50 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             input_ids,
             data,
             &mut ctx,
+        )
+    }
+
+    pub fn generate_stream_text(
+        &mut self,
+        mes: ChatCompletionParameters,
+    ) -> Result<impl Stream<Item = Result<String, anyhow::Error>>> {
+        let mes_render = self.chat_template.apply_chat_template(&mes)?;
+        let (mes_text, pixel_values, image_grid_thw, pixel_values_video, video_grid_thw) =
+            if let Some(processor) = &self.pre_processor {
+                let input = processor.process_info(&mes, &mes_render)?;
+                (
+                    input.replace_text,
+                    input.pixel_values,
+                    input.image_grid_thw,
+                    input.pixel_values_video,
+                    input.video_grid_thw,
+                )
+            } else {
+                (mes_render, None, None, None, None)
+            };
+        let input_ids = self.tokenizer.text_encode(mes_text, &self.device)?;
+        let sample_len = mes.max_tokens.unwrap_or(1024);
+        let data_vec = vec![
+            pixel_values,
+            image_grid_thw,
+            pixel_values_video,
+            video_grid_thw,
+        ];
+        let data = MultiModalData::new(data_vec);
+        let seed = mes.seed.unwrap_or(34562) as u64;
+        generate_stream_generic_text(
+            &mut self.qwen3_5,
+            &self.tokenizer,
+            input_ids,
+            data,
+            mes.temperature,
+            mes.top_p,
+            None,
+            self.repeat_penalty.into(),
+            self.repeat_last_n.into(),
+            seed,
+            sample_len,
+            &self.device,
         )
     }
 }

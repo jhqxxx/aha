@@ -425,7 +425,6 @@ impl VoxCPMModelRefact {
                 let decode_audio = audio_vae
                     .decode(&single_feat_pred.to_dtype(DType::F32)?, None)?
                     .squeeze(1)?;
-                yield Ok(decode_audio);
                 prefix_feat_cond = pred_feat;
                 let stop_flag = self.stop_proj.forward(&lm_hidden)?.silu()?;
                 let stop_flag = self
@@ -435,8 +434,12 @@ impl VoxCPMModelRefact {
                     .i(0)?
                     .to_scalar::<u32>()?;
                 if i > min_len && stop_flag == 1 {
+                    let decode_audio_len = decode_audio.dim(D::Minus1)? - 640;
+                    let decode_audio = decode_audio.narrow(D::Minus1, 0, decode_audio_len)?;
+                    yield Ok(decode_audio);  // 最后一段去除噪音
                     break;
                 }
+                yield Ok(decode_audio);
                 position_id += seq_len;
                 seq_len = 1;
                 lm_hidden = self

@@ -191,6 +191,76 @@ pub fn generate_generic<M: InferenceModel>(
     ))
 }
 
+pub fn generate_stream_generic_text<M: InferenceModel>(
+    model: &mut M,
+    tokenizer: &TokenizerModel,
+    input_ids: Tensor,
+    data: MultiModalData,
+    temperature: Option<f32>,
+    top_p: Option<f32>,
+    top_k: Option<usize>,
+    repeat_penalty: Option<f32>,
+    repeat_last_n: Option<usize>,
+    seed: u64,
+    max_tokens: u32,
+    device: &Device,
+) -> Result<impl Stream<Item = Result<String, anyhow::Error>>> {
+    let mut ctx = GenerationContext::new(
+        temperature,
+        top_p,
+        top_k,
+        repeat_penalty,
+        repeat_last_n,
+        seed,
+        input_ids.dim(1)?,
+        max_tokens,
+        device.clone(),
+    );
+    let mut error_tokens = Vec::new();
+    let eos_ids = model.stop_token_ids();
+    let stream = stream! {
+        let mut input_ids = input_ids;
+        let mut generated = Vec::new();
+        for _ in 0..ctx.sample_len {
+            let logits = if ctx.seqlen_offset == 0 {
+                model.forward_initial(&input_ids, ctx.seqlen_offset, data.clone())
+
+            } else {
+                model.forward_step(&input_ids, ctx.seqlen_offset)
+            }?;
+            let next_token = sample_and_push(&mut ctx, &logits, &mut generated)?;
+
+            // 解码（处理�的累积）
+            let decode_ids = if error_tokens.is_empty() {
+                vec![next_token]
+            } else {
+                let mut ids = error_tokens.clone();
+                ids.push(next_token);
+                ids
+            };
+
+            let decoded = tokenizer.token_decode(decode_ids)?;
+
+            if decoded.contains("�") {
+                error_tokens.push(next_token);
+                if error_tokens.len() > 3 {
+                    error_tokens.clear();
+                }
+                input_ids = ctx.prepare_for_next_token(next_token)?;
+                continue;
+            }
+            error_tokens.clear();
+            yield Ok(decoded);
+            if eos_ids.contains(&next_token) {
+                break;
+            }
+            input_ids = ctx.prepare_for_next_token(next_token)?;
+        }
+        model.clear_cache();
+    };
+    Ok(stream)
+}
+
 pub fn generate_stream_generic<M: InferenceModel>(
     model: &mut M,
     tokenizer: &TokenizerModel,
