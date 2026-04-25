@@ -76,6 +76,7 @@ impl VoxCPMGenerateRefact {
             // Some(128),
             // Some(false),
         )?;
+        let decode_chunk_size = audio_config.decoder_rates.iter().product();
         let processor = VoxCPMProcessor::new(
             audio_vae.sample_rate,
             audio_vae.chunk_size,
@@ -105,7 +106,8 @@ impl VoxCPMGenerateRefact {
             VarBuilder::from_tensors(dict_to_hashmap, m_dtype, device)
         };
         let tokenizer = SingleChineseTokenizer::new(path)?;
-        let voxcpm = VoxCPMModelRefact::new(vb_voxcpm, config, audio_vae.latent_dim)?;
+        let voxcpm =
+            VoxCPMModelRefact::new(vb_voxcpm, config, audio_vae.latent_dim, decode_chunk_size)?;
         let out_sample_rate = audio_config
             .out_sample_rate
             .unwrap_or(audio_config.sample_rate);
