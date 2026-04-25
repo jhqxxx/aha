@@ -60,6 +60,11 @@ struct ServerStatusResponse {
 
 // ── Helpers ──────────────────────────────────────────
 
+#[tauri::command]
+fn get_default_save_dir() -> Result<String, String> {
+    aha::utils::get_default_save_dir().ok_or_else(|| "无法获取 home 目录".to_string())
+}
+
 fn get_save_dir() -> Result<String, String> {
     aha::utils::get_default_save_dir().ok_or_else(|| "无法获取 home 目录".to_string())
 }
@@ -206,10 +211,13 @@ fn get_model_detail(model_id: String) -> Result<ModelDetail, String> {
 }
 
 #[tauri::command]
-async fn download_model(model_id: String) -> Result<(), String> {
+async fn download_model(model_id: String, save_dir: Option<String>) -> Result<(), String> {
     use aha::utils::download_model;
 
-    let save_dir = get_save_dir()?;
+    let save_dir = match save_dir {
+        Some(dir) => dir,
+        None => get_save_dir()?,
+    };
     download_model(&model_id, &save_dir, 3)
         .await
         .map_err(|e| format!("下载失败: {}", e))
@@ -417,6 +425,7 @@ pub fn run() {
             stop_server,
             get_server_status,
             clear_logs,
+            get_default_save_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

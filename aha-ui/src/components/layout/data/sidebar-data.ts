@@ -8,6 +8,7 @@ import {
   Palette,
   Bell,
   Monitor,
+
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -52,6 +53,11 @@ export const sidebarData: SidebarData = {
           title: 'Settings',
           icon: Settings,
           items: [
+            {
+              title: 'Model',
+              url: '/settings/model',
+              icon: Package,
+            },
             {
               title: 'Profile',
               url: '/settings',

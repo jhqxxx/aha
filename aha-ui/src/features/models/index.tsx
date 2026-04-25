@@ -9,6 +9,8 @@ import { Main } from "@/components/layout/main"
 import { ProfileDropdown } from "@/components/profile-dropdown"
 import { ThemeSwitch } from "@/components/theme-switch"
 
+const SAVE_DIR_KEY = "aha-model-save-dir"
+
 interface ModelInfo {
   model_id: string
   owner: string
@@ -67,7 +69,8 @@ export function ModelsPage() {
     setDownloading(modelId)
     setError(null)
     try {
-      await invoke("download_model", { modelId })
+      const saveDir = localStorage.getItem(SAVE_DIR_KEY) || null
+      await invoke("download_model", { modelId, saveDir })
       await loadModels()
     } catch (e) {
       setError(String(e))
