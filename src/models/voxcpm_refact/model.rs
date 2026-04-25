@@ -477,16 +477,16 @@ impl VoxCPMModelRefact {
                 let decode_start = decode_audio.dim(D::Minus1)? - self.decode_patch_len;
                 decode_audio = decode_audio.narrow(D::Minus1, decode_start, self.decode_patch_len)?;
                 if i > min_len && stop_flag == 1 {
-                    // 最后一段去除噪音
-                    let decode_audio_len = decode_audio.dim(D::Minus1)? - 640;
-                    decode_audio = decode_audio.narrow(D::Minus1, 0, decode_audio_len)?;
-                    yield Ok(decode_audio);
+                    // // 最后一段容易有噪音，暂时不返回
+                    // let decode_audio_len = decode_audio.dim(D::Minus1)? - 640;
+                    // decode_audio = decode_audio.narrow(D::Minus1, 0, decode_audio_len)?;
+                    // yield Ok(decode_audio);
                     break;
                 }
                 if first_flag {
                     // 去除初始噪音
-                    let decode_audio_len = decode_audio.dim(D::Minus1)? - 640;
-                    decode_audio = decode_audio.narrow(D::Minus1, 640, decode_audio_len)?;
+                    let decode_audio_len = decode_audio.dim(D::Minus1)? - 1280;
+                    decode_audio = decode_audio.narrow(D::Minus1, 1280, decode_audio_len)?;
                     first_flag = false;
                 }
                 yield Ok(decode_audio);
