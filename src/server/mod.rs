@@ -72,6 +72,8 @@ pub(crate) async fn start_http_server(
 
     // Health check and model info endpoints
     builder = builder.mount("/", routes![api::health, api::models]);
+    // OpenAI-compatible model listing endpoint: /v1/models
+    builder = builder.mount("/v1", routes![api::models]);
     // Shutdown endpoint
     builder = builder.manage(shutdown_flag);
     builder = builder.mount("/", routes![api::shutdown]);
