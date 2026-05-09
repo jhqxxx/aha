@@ -70,22 +70,22 @@ fn get_save_dir() -> Result<String, String> {
 }
 
 fn find_aha_binary() -> Result<PathBuf, String> {
+    // 辅助函数：根据平台生成候选路径
+    fn candidate_path(dir: &std::path::Path, name: &str) -> PathBuf {
+        if cfg!(windows) {
+            dir.join(name).with_extension("exe")
+        } else {
+            dir.join(name)
+        }
+    }
+    let binary_name = "aha";
+
     // 1. 检查 PATH 环境变量
     if let Some(paths) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&paths) {
-            let candidate = dir.join("aha").with_extension("exe");
-            if candidate.exists() || dir.join("aha").exists() {
-                let found = dir.join("aha");
-                // check with extension on Windows
-                if cfg!(windows) {
-                    let with_ext = found.with_extension("exe");
-                    if with_ext.exists() {
-                        return Ok(with_ext);
-                    }
-                }
-                if found.exists() {
-                    return Ok(found);
-                }
+            let candidate = candidate_path(&dir, binary_name);
+            if candidate.exists() {
+                return Ok(candidate);
             }
         }
     }
@@ -93,24 +93,36 @@ fn find_aha_binary() -> Result<PathBuf, String> {
     // 2. 在 Tauri 可执行文件附近查找（开发模式）
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
-            // aha-ui/target/debug/ 同级应该有 aha/target/debug/aha
-            // 或者 workspace 根 target 目录
-            let candidates = vec![
-                exe_dir.join("aha").with_extension("exe"),
-                exe_dir.join("../aha").join("aha").with_extension("exe"),
-            ];
-            for c in &candidates {
-                if c.exists() {
-                    return Ok(c.clone());
-                }
+            // 同级目录
+            let candidate = candidate_path(exe_dir, binary_name);
+            if candidate.exists() {
+                return Ok(candidate);
             }
-
-            // 尝试 workspace target 目录
-            // exe_dir 是 aha-ui/target/debug/ 或 aha-ui/src-tauri/target/debug/
-            if let Some(target_dir) = exe_dir.parent() {
-                let ws = target_dir.join("aha").with_extension("exe");
-                if ws.exists() {
-                    return Ok(ws);
+            // Workspace 目录
+            // aha debug|release workspace/target/
+            // aha-ui debug|release workspace/aha-ui/src-tauri/target/
+            let mut current = exe_dir;
+            for _ in 0..5 {
+                // 最多向上查找 5 层
+                if let Some(parent) = current.parent() {
+                    let dir = if parent.file_name().and_then(|n| n.to_str()) == Some("target") {
+                        parent
+                    } else {
+                        &parent.join("target")
+                    };
+                    let release_dir = dir.join("release");
+                    let candidate = candidate_path(&release_dir, binary_name);
+                    if candidate.exists() {
+                        return Ok(candidate);
+                    }
+                    let debug_dir = dir.join("debug");
+                    let candidate = candidate_path(&debug_dir, binary_name);
+                    if candidate.exists() {
+                        return Ok(candidate);
+                    }
+                    current = parent;
+                } else {
+                    break;
                 }
             }
         }
@@ -119,23 +131,18 @@ fn find_aha_binary() -> Result<PathBuf, String> {
     // 3. 根据 CARGO_MANIFEST_DIR 推断（编译时）
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // manifest = aha-ui/src-tauri
-    let workspace_target = manifest
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.join("target").join("debug").join("aha").with_extension("exe"));
-    if let Some(p) = workspace_target {
-        if p.exists() {
-            return Ok(p);
+
+    if let Some(workspace_root) = manifest.parent().and_then(|p| p.parent()) {
+        // workspace_root = aha
+        let target_release = workspace_root.join("target").join("release");
+        let release_bin = candidate_path(&target_release, binary_name);
+        if release_bin.exists() {
+            return Ok(release_bin);
         }
-        // try release
-        let release = manifest
-            .parent()
-            .and_then(|p| p.parent())
-            .map(|p| p.join("target").join("release").join("aha").with_extension("exe"));
-        if let Some(r) = release {
-            if r.exists() {
-                return Ok(r);
-            }
+        let target_debug = workspace_root.join("target").join("debug");
+        let debug_bin = candidate_path(&target_debug, binary_name);
+        if debug_bin.exists() {
+            return Ok(debug_bin);
         }
     }
 
@@ -225,8 +232,8 @@ async fn download_model(model_id: String, save_dir: Option<String>) -> Result<()
 
 #[tauri::command]
 fn delete_model(model_id: String) -> Result<(), String> {
-    use aha::utils::get_default_weight_path;
     use aha::models::common::model_mapping::WhichModel;
+    use aha::utils::get_default_weight_path;
 
     let model = WhichModel::model_list()
         .into_iter()
@@ -293,9 +300,7 @@ fn start_server(
 
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("启动服务失败: {}", e))?;
+    let mut child = cmd.spawn().map_err(|e| format!("启动服务失败: {}", e))?;
 
     let pid = child.id();
     let logs = state.server_logs.clone();
