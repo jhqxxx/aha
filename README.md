@@ -38,17 +38,10 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 | **Embedding** | Qwen3-Embedding, all-MiniLM-L6-v2 |
 | **Reranker** | Qwen3-Reranker |
 
-
-## Why aha?
-- **🚀 High-Performance Inference** - Powered by Candle framework for efficient tensor computation and model inference
-- **🔧 Unified Interface** — One tool for text, vision, speech, and OCR
-- **📦 Local-First** — All processing runs locally, no data leaves your machine
-- **🎯 Cross-Platform** — Works on Linux, macOS, and Windows
-- **⚡ GPU Accelerated** — Optional CUDA support for faster inference
-- **🛡️ Memory Safe** — Built with Rust for reliability
-- **🧠 Attention Optimization** - Optional Flash Attention support for optimized long sequence processing
-
 ## Changelog
+### 2026-05-11
+- add Moss-TTS-Nano，its performance is worse than the original Python version
+
 ### 2026-05-09
 - merge pr/eastgold15/46, add aha-ui
 
@@ -61,21 +54,16 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 ### 2026-04-16
 - fix FireRedVAD fsmn cache bug
 
-### 2026-04-15
-- add FireRedVAD
-
-### 2026-04-10
-- fix LiquidAI/LFM2.5-VL-450M chat_template load bug
-
-### 2026-04-08
-- add VoxCPM2
-
-### 0.2.5 (2026-04-06)
-- add qwen3-embedding/qwen3-reranker/all-minilm-l6-v2
-
-
 **[View full changelog](docs/changelog.md)** →
 
+## Why aha?
+- **🚀 High-Performance Inference** - Powered by Candle framework for efficient tensor computation and model inference
+- **🔧 Unified Interface** — One tool for text, vision, speech, and OCR
+- **📦 Local-First** — All processing runs locally, no data leaves your machine
+- **🎯 Cross-Platform** — Works on Linux, macOS, and Windows
+- **⚡ GPU Accelerated** — Optional CUDA support for faster inference
+- **🛡️ Memory Safe** — Built with Rust for reliability
+- **🧠 Attention Optimization** - Optional Flash Attention support for optimized long sequence processing
 
 ## Quick Start
 

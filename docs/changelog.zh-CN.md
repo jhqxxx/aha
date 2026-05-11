@@ -5,6 +5,9 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+### 2026-05-11
+- 添加Moss-TTS-Nano，该模型比较小，计算误差影响较大，效果比python原版差
+
 ### 2026-05-09
 - 合并 pr/eastgold15/46, 添加 aha-ui
 
