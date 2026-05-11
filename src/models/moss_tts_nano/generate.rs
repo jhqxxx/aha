@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    models::moss::{
-        audio_tokenizer_nano::MossAudioTokenizer,
-        config::{MossAudioTokenizerConfig, MossTTSConfig},
-        processor::MossTTSProcessor,
-        tts_nano::{MossTTSMode, MossTTSModel},
+    models::{
+        moss_audio_tokenizer_nano::{MossAudioTokenizer, config::MossAudioTokenizerConfig},
+        moss_tts_nano::{
+            config::MossTTSConfig,
+            model::{MossTTSMode, MossTTSModel},
+            processor::MossTTSProcessor,
+        },
     },
     utils::{find_type_files, get_device, get_dtype},
 };
@@ -33,7 +35,7 @@ impl MossTTSGenerate {
         let audio_tokenizer_cfg: MossAudioTokenizerConfig =
             serde_json::from_slice(&std::fs::read(audio_tokenizer_config_path)?)?;
         let model_list = find_type_files(audio_tokenizer_path, "safetensors")?;
-        let audio_dtype = get_dtype(dtype.clone(), &audio_tokenizer_cfg.dtype);
+        let audio_dtype = get_dtype(dtype, &audio_tokenizer_cfg.dtype);
         let device = get_device(device);
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, audio_dtype, &device)? };
         let audio_tokenizer = MossAudioTokenizer::new(vb, &audio_tokenizer_cfg)?;
@@ -50,12 +52,10 @@ impl MossTTSGenerate {
         )?;
         let model_list = find_type_files(tts_path, "bin")?;
         let mut dict_to_hashmap = HashMap::new();
-        // let cfg_dtype = tts_cfg.dtype.as_str();
         let m_dtype = get_dtype(dtype, "bfloat16");
         for m in model_list {
             let dict = read_all_with_key(m, None)?;
             for (k, v) in dict {
-                // println!("key: {}, tensor shape: {:?}", k, v);
                 dict_to_hashmap.insert(k, v);
             }
         }
@@ -78,18 +78,21 @@ impl MossTTSGenerate {
         prompt_text: Option<&str>,
         mode: Option<MossTTSMode>,
     ) -> Result<()> {
-        let (mut input_ids, mask) = self.processor.build_inference_input_ids(
+        let mode = self.processor.resolved_mode(
+            mode,
+            prompt_text.is_some(),
+            prompt_audio_path.is_some(),
+        )?;
+        let input_ids = self.processor.build_inference_input_ids(
             text,
             prompt_audio_path,
             prompt_text,
-            mode,
+            mode.clone(),
             &self.audio_tokenizer,
             &self.text_tokenizer,
             &self.device,
         )?;
-        let _ = self.model.generate(&input_ids, Some(&mask))?;
-        // println!("input_ids: {}", input_ids);
-        // println!("mask: {}", mask);
+        self.model.generate(&input_ids, &self.audio_tokenizer)?;
         Ok(())
     }
 }

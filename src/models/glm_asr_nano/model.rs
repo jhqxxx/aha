@@ -6,11 +6,10 @@ use crate::{
     models::{
         common::{
             InferenceModel,
-            modules::{
-                TwoLinearMLP, eager_attention_forward, get_conv1d, get_layer_norm,
-            },
+            modules::{TwoLinearMLP, eager_attention_forward, get_conv1d, get_layer_norm},
         },
-        glm_asr_nano::config::{GlmAsrAudioConfig, GlmAsrNanoConfig}, llama::LlamaForCausalLM,
+        glm_asr_nano::config::{GlmAsrAudioConfig, GlmAsrNanoConfig},
+        llama::LlamaForCausalLM,
     },
     position_embed::rope::{RoPE, glm_asr_apply_rotary_pos_emb},
     utils::tensor_utils::{get_equal_mask, masked_scatter_dim0},

@@ -1393,3 +1393,16 @@ pub fn quick_gelu(xs: &Tensor) -> Result<Tensor> {
     let x = sigmoid(&x)?;
     Ok(xs.mul(&x)?)
 }
+
+pub fn new_gelu(xs: &Tensor) -> Result<Tensor> {
+    let sqrt_two_over_pi = (2.0f64 / std::f64::consts::PI).sqrt();
+    Ok(xs
+        .powf(3.0)?
+        .affine(0.044715, 0.0)?
+        .add(xs)?
+        .affine(sqrt_two_over_pi, 0.0)?
+        .tanh()?
+        .affine(1.0, 1.0)?
+        .mul(xs)?
+        .affine(0.5, 0.0)?)
+}

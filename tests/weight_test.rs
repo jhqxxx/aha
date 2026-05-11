@@ -444,7 +444,10 @@ fn moss_audio_tokenizer_nano_weight() -> Result<()> {
     // cargo test -F cuda --test weight_test moss_audio_tokenizer_nano_weight -r -- --nocapture
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
-    let model_path = format!("{}/openmoss/MOSS-Audio-Tokenizer-Nano/model-00001-of-00001.safetensors", save_dir);
+    let model_path = format!(
+        "{}/openmoss/MOSS-Audio-Tokenizer-Nano/model-00001-of-00001.safetensors",
+        save_dir
+    );
     let device = get_device(None);
     let weights = safetensors::load(model_path, &device)?;
     for (key, tensor) in weights.iter() {

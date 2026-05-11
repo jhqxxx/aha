@@ -7,7 +7,7 @@ use aha::{
         GenerateModel,
         voxcpm::{generate::VoxCPMGenerate, tokenizer::SingleChineseTokenizer},
     },
-    utils::audio_utils::{extract_and_save_audio_from_response, save_wav},
+    utils::audio_utils::{extract_and_save_audio_from_response, save_wav_mono},
 };
 use anyhow::{Ok, Result};
 
@@ -106,7 +106,7 @@ fn voxcpm1_5_generate() -> Result<()> {
 
     let i_duration = i_start.elapsed();
     println!("Time elapsed in generate is: {:?}", i_duration);
-    save_wav(&generate, "voxcpm1_5.wav", 44100)?;
+    save_wav_mono(&generate, "voxcpm1_5.wav", 44100)?;
     Ok(())
 }
 
@@ -169,7 +169,7 @@ fn voxcpm_refact_generate() -> Result<()> {
     std::thread::sleep(std::time::Duration::from_secs(2));
     let i_duration = i_start.elapsed();
     println!("Time elapsed in generate is: {:?}", i_duration);
-    save_wav(
+    save_wav_mono(
         &generate,
         "voxcpm.wav",
         voxcpm_generate.sample_rate() as u32,

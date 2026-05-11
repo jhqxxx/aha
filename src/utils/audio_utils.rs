@@ -647,7 +647,8 @@ pub fn load_audio_with_resample(
     resample_audio_from_bytes(audio_vec, device, target_sample_rate, target_channels)
 }
 
-pub fn save_wav(audio: &Tensor, save_path: &str, sample_rate: u32) -> Result<()> {
+/// audio: (1, len)
+pub fn save_wav_mono(audio: &Tensor, save_path: &str, sample_rate: u32) -> Result<()> {
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate,
@@ -666,6 +667,49 @@ pub fn save_wav(audio: &Tensor, save_path: &str, sample_rate: u32) -> Result<()>
         writer.write_sample(sample_i16).unwrap();
     }
     writer.finalize().unwrap();
+    Ok(())
+}
+
+/// audio: (channel, len)
+pub fn save_wav(audio: &Tensor, save_path: &str, channels: usize, sample_rate: u32) -> Result<()> {
+    if audio.rank() != 2 {
+        return Err(anyhow!(
+            "Audio tensor must be 2D (channels, len), got shape {:?}",
+            audio.dims()
+        ));
+    }
+
+    let (num_channels, len) = audio.dims2()?;
+    if num_channels != channels {
+        return Err(anyhow!(
+            "Channel mismatch: Tensor has {} channels, but spec requires {}",
+            num_channels,
+            channels
+        ));
+    }
+    let spec = hound::WavSpec {
+        channels: channels as u16,
+        sample_rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+
+    let max_val = audio.abs()?.max_all()?.to_scalar::<f32>()?;
+    let ratio = if max_val > 1.0 {
+        32767.0 / max_val
+    } else {
+        32767.0
+    };
+    let audio_vec_2d = audio.to_vec2::<f32>()?;
+    let mut writer = hound::WavWriter::create(save_path, spec).unwrap();
+    for i in 0..len {
+        for ch in 0..num_channels {
+            let sample_i16 = (audio_vec_2d[ch][i] * ratio).round() as i16;
+            let sample_i16 = sample_i16.clamp(-32768, 32767);
+            writer.write_sample(sample_i16)?;
+        }
+    }
+    writer.finalize()?;
     Ok(())
 }
 

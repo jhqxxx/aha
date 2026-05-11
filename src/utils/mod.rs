@@ -727,7 +727,8 @@ pub fn contains_cjk(text: &str) -> bool {
         if (0x4e00..=0x9fff).contains(&c) // CJK Unified Ideographs
             || (0x3400..=0x4dbf).contains(&c) // CJK Unified Ideographs Extension A
             || (0x3040..=0x30ff).contains(&c) // Hiragana and Katakana
-            || (0xac00..=0xd7af).contains(&c) // Hangul Syllables
+            || (0xac00..=0xd7af).contains(&c)
+        // Hangul Syllables
         {
             return true;
         }
@@ -737,10 +738,10 @@ pub fn contains_cjk(text: &str) -> bool {
 
 pub fn prepare_tts_text(text: &str) -> Result<String> {
     let mut normalized_text = text.trim().to_string();
-    if normalized_text.eq("") {
-        return Err(anyhow!("Text cannot be empty."))
+    if normalized_text.is_empty() {
+        return Err(anyhow!("Text cannot be empty."));
     }
-    normalized_text = normalized_text.replace('\n', " ").replace('\r', " ");
+    normalized_text = normalized_text.replace(['\n', '\r'], " ");
     while normalized_text.contains("  ") {
         normalized_text = normalized_text.replace("  ", " ");
     }
@@ -753,22 +754,22 @@ pub fn prepare_tts_text(text: &str) -> Result<String> {
         return Ok(normalized_text);
     }
 
-    // Non-CJK (English/Western) logic        
+    // Non-CJK (English/Western) logic
     // Capitalize first letter if it's lowercase alphabetic
-    if let Some(first_char) = normalized_text.chars().next() {
-        if first_char.is_ascii_lowercase() {
-            let mut chars = normalized_text.chars();
-            chars.next(); // consume first char
-            let rest: String = chars.collect();
-            normalized_text = format!("{}{}", first_char.to_ascii_uppercase(), rest);
-        }
+    if let Some(first_char) = normalized_text.chars().next()
+        && first_char.is_ascii_lowercase()
+    {
+        let mut chars = normalized_text.chars();
+        chars.next(); // consume first char
+        let rest: String = chars.collect();
+        normalized_text = format!("{}{}", first_char.to_ascii_uppercase(), rest);
     }
 
     // Add period if ends with alphanumeric
-    if let Some(last_char) = normalized_text.chars().last() {
-        if last_char.is_alphanumeric() {
-            normalized_text.push('.');
-        }
+    if let Some(last_char) = normalized_text.chars().last()
+        && last_char.is_alphanumeric()
+    {
+        normalized_text.push('.');
     }
 
     // Add padding if less than 5 words

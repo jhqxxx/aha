@@ -1,9 +1,16 @@
-use crate::models::{common::sample::simple_sample, gpt2::GPT2Model, moss::config::MossTTSConfig};
+use crate::{
+    models::{
+        common::sample::simple_sample, gpt2::GPT2Model,
+        moss_audio_tokenizer_nano::MossAudioTokenizer, moss_tts_nano::config::MossTTSConfig,
+    },
+    utils::audio_utils::save_wav,
+};
 use anyhow::{Result, anyhow};
 use candle_core::{D, IndexOp, Tensor};
 use candle_nn::{Embedding, Linear, Module, VarBuilder, embedding, linear_no_bias};
+// use candle_transformers::generation::LogitsProcessor;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum MossTTSMode {
     Continuation,
     VoiceClone,
@@ -24,6 +31,7 @@ pub struct MossTTSModel {
     audio_top_k: usize,
     audio_top_p: f32,
     audio_repetition_penalty: f32,
+    // audio_processor: LogitsProcessor,
 }
 
 impl MossTTSModel {
@@ -92,6 +100,7 @@ impl MossTTSModel {
             audio_top_k: 25,
             audio_top_p: 0.95,
             audio_repetition_penalty: 1.2,
+            // audio_processor,
         })
     }
 
@@ -144,15 +153,9 @@ impl MossTTSModel {
             .i(self.audio_end_token_id)?
             .to_dtype(candle_core::DType::F32)?
             .to_scalar::<f32>()?;
-        println!(
-            "slot_token_id: {} logit: {slot_token_id_logit}",
-            self.audio_assistant_slot_token_id
-        );
-        println!(
-            "end_token_id: {} logit: {end_token_id_logit}",
-            self.audio_end_token_id
-        );
-        if slot_token_id_logit > end_token_id_logit {
+        let logits = Tensor::new(&[slot_token_id_logit, end_token_id_logit], logits.device())?;
+        let token = simple_sample(&logits, true, None, None, None, None, 1.0)?;
+        if token == 0 {
             Ok(self.audio_assistant_slot_token_id)
         } else {
             Ok(self.audio_end_token_id)
@@ -169,31 +172,28 @@ impl MossTTSModel {
         Ok(Tensor::cat(&[&slot, &audio_token_ids], D::Minus1)?)
     }
 
-    pub fn generate(&mut self, input_ids: &Tensor, mask: Option<&Tensor>) -> Result<()> {
-        let sample_len = 2;
+    pub fn generate(
+        &mut self,
+        input_ids: &Tensor,
+        audio_tokenizer: &MossAudioTokenizer,
+    ) -> Result<()> {
+        let sample_len = 100;
         let mut seqlen_offset = 0;
         let mut seq_len = input_ids.dim(1)?;
         let mut generated_frames = vec![];
         let mut current_model_input_ids = input_ids.clone();
-        for step_index in 0..sample_len {
-            // println!("current_model_input_ids: {:?}", current_model_input_ids);
+        for _ in 0..sample_len {
             let inputs_embeds = self.build_inputs_embeds(&current_model_input_ids)?;
             let outputs = self.transformer.forward(&inputs_embeds, seqlen_offset)?;
-            // println!("transformer-----------------------");
             let outputs_len = outputs.dim(1)?;
             let global_hidden_state = outputs.narrow(1, outputs_len - 1, 1)?;
-            // println!("global_hidden_state: {}", global_hidden_state);
             let mut local_positions = 0usize;
             let local_outputs = self
                 .local_transformer
                 .forward(&global_hidden_state, local_positions)?;
-            // println!("local_outputs-----------------------");
             let local_len = local_outputs.dim(1)?;
             let local_hidden_states = local_outputs.narrow(1, local_len - 1, 1)?;
-            // println!("local_hidden_states: {}", local_hidden_states);
             let text_logits = self.text_lm_head.forward(&local_hidden_states)?;
-            // println!("text_logits: {}", text_logits.i((0, 0, 0..100))?);
-            println!("step_index: {}", step_index);
             let next_text_token = self.sample_next_assistant_text_token(&text_logits)?;
             if next_text_token == self.audio_end_token_id {
                 self.local_transformer.clear_kv_cache();
@@ -216,14 +216,11 @@ impl MossTTSModel {
                     .forward(&current_local_input, local_positions)?;
                 let local_len = local_outputs.dim(1)?;
                 let local_hidden_states = local_outputs.narrow(1, local_len - 1, 1)?;
-                // println!("local_hidden_states: {local_hidden_states}");
-                let channel_logits = (&self.audio_lm_heads[channel_index])
+                let channel_logits = self.audio_lm_heads[channel_index]
                     .forward(&local_hidden_states)?
                     .squeeze(0)?
                     .squeeze(0)?;
-                // println!("channel_logits: {}", channel_logits.i(0..100)?);
-                let arg_max = channel_logits.argmax(0)?;
-                println!("arg_max: {}", arg_max);
+                // let channel_token = self.audio_processor.sample(&channel_logits)?;
                 let channel_token = simple_sample(
                     &channel_logits,
                     true,
@@ -232,25 +229,48 @@ impl MossTTSModel {
                     Some(self.audio_top_p),
                     Some(&next_frame_tokens),
                     self.audio_repetition_penalty,
-                    None,
                 )?;
-                println!("channel_token: {channel_token}");
                 next_frame_tokens.push(channel_token);
-                current_local_input = (&self.audio_embeddings[channel_index]).forward(
+                current_local_input = self.audio_embeddings[channel_index].forward(
                     &Tensor::from_slice(&[channel_token], (1, 1), input_ids.device())?,
                 )?;
-                // println!("current_local_input: {current_local_input}");
             }
             self.local_transformer.clear_kv_cache();
             let next_frame = Tensor::new(next_frame_tokens, input_ids.device())?;
-            // println!("next_frame: {next_frame}");
             current_model_input_ids = self.build_generation_row(&next_frame)?;
             seqlen_offset += seq_len;
             seq_len = 1;
             generated_frames.push(next_frame);
         }
         let audio_token_ids = Tensor::stack(&generated_frames, 0)?;
-        println!("audio_token_ids: {audio_token_ids}");
+        let waveform = audio_tokenizer
+            .decode_audio_token_ids_to_waveform(&audio_token_ids)?
+            .squeeze(0)?;
+        save_wav(
+            &waveform,
+            "./demo.wav",
+            2,
+            audio_tokenizer.sampling_rate as u32,
+        )?;
+        Ok(())
+    }
+
+    pub fn decode(
+        &self,
+        prompt_audio_code: Option<&Tensor>,
+        audio_tokenizer: &MossAudioTokenizer,
+    ) -> Result<()> {
+        if let Some(audio) = prompt_audio_code {
+            let waveform = audio_tokenizer
+                .decode_audio_token_ids_to_waveform(audio)?
+                .squeeze(0)?;
+            save_wav(
+                &waveform,
+                "./demo.wav",
+                2,
+                audio_tokenizer.sampling_rate as u32,
+            )?;
+        }
         Ok(())
     }
 }

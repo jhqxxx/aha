@@ -1,6 +1,7 @@
 use crate::{
-    models::moss::{
-        audio_tokenizer_nano::MossAudioTokenizer, config::MossTTSConfig, tts_nano::MossTTSMode,
+    models::{
+        moss_audio_tokenizer_nano::MossAudioTokenizer,
+        moss_tts_nano::{config::MossTTSConfig, model::MossTTSMode},
     },
     tokenizer::sentencepiece_encode_vec,
     utils::{audio_utils::load_audio_with_resample, prepare_tts_text},
@@ -70,7 +71,7 @@ impl MossTTSProcessor {
         })
     }
 
-    fn resolved_mode(
+    pub fn resolved_mode(
         &self,
         mode: Option<MossTTSMode>,
         has_prompt_text: bool,
@@ -99,12 +100,11 @@ impl MossTTSProcessor {
         text: &str,
         prompt_audio_path: Option<&str>,
         prompt_text: Option<&str>,
-        mode: Option<MossTTSMode>,
+        mode: MossTTSMode,
         audio_tokenizer: &MossAudioTokenizer,
         text_tokenizer: &SentencePieceProcessor,
         device: &Device,
-    ) -> Result<(Tensor, Tensor)> {
-        let mode = self.resolved_mode(mode, prompt_text.is_some(), prompt_audio_path.is_some())?;
+    ) -> Result<Tensor> {
         let audio_code = if let Some(audio_path) = prompt_audio_path {
             let audio = load_audio_with_resample(
                 audio_path,
@@ -142,7 +142,7 @@ impl MossTTSProcessor {
             suffix_token_ids.extend_from_slice(&self.assistant_ids);
             suffix_token_ids.push(self.audio_start_token_id);
             let audio_prefix_rows = Self::build_audio_prefix_rows(
-                &prompt_audio_codes,
+                prompt_audio_codes,
                 self.audio_user_slot_token_id,
                 device,
             )?;
@@ -155,9 +155,7 @@ impl MossTTSProcessor {
             let input_ids =
                 Tensor::cat(&[&prompt_ids_tensor, &audio_prefix_rows, &suffix_rows], 0)?
                     .unsqueeze(0)?;
-            let (bs, len, _) = input_ids.dims3()?;
-            let mask = Tensor::ones((bs, len), candle_core::DType::U32, device)?;
-            Ok((input_ids, mask))
+            Ok(input_ids)
         } else {
             let text = if let Some(prompt_text) = prompt_text {
                 prompt_text + text
@@ -176,19 +174,16 @@ impl MossTTSProcessor {
                 Self::build_text_raw(&prompt_ids, self.audio_pad_token_id, self.n_vq, device)?;
             if let Some(prompt_audio_codes) = &audio_code {
                 let audio_prefix_rows = Self::build_audio_prefix_rows(
-                    &prompt_audio_codes,
+                    prompt_audio_codes,
                     self.audio_assistant_slot_token_id,
                     device,
                 )?;
                 input_ids = Tensor::cat(&[&input_ids, &audio_prefix_rows], 0)?;
             }
             input_ids = input_ids.unsqueeze(0)?;
-            let (bs, len, _) = input_ids.dims3()?;
-            let mask = Tensor::ones((bs, len), candle_core::DType::U32, device)?;
-            Ok((input_ids, mask))
+            Ok(input_ids)
         }
     }
-
 
     fn build_audio_prefix_rows(
         prompt_audio_codes: &Tensor,
@@ -202,7 +197,7 @@ impl MossTTSProcessor {
     }
 
     fn build_text_raw(
-        token_ids: &Vec<u32>,
+        token_ids: &[u32],
         audio_pad_token_id: u32,
         n_vq: usize,
         device: &Device,

@@ -1,3 +1,4 @@
+pub mod config;
 use anyhow::{Result, anyhow};
 use candle_core::{D, IndexOp, Tensor};
 use candle_nn::{Embedding, LayerNorm, Linear, Module, VarBuilder, embedding, linear_no_bias};
@@ -7,7 +8,7 @@ use crate::{
         common::modules::{
             TwoLinearMLP, WNConv1d, eager_attention_forward, get_layer_norm, l2_normalize,
         },
-        moss::config::{
+        moss_audio_tokenizer_nano::config::{
             MossAudioTokenizerConfig, MossAudioTokenizerModuleConfig,
             MossAudioTokenizerQuantizerKwargs,
         },
@@ -47,7 +48,8 @@ impl MossAudioTokenizerPatchedPretransform {
             .reshape((b, d, self.patch_size, l))?
             .permute((0, 1, 3, 2))?
             .reshape((b, d, l * self.patch_size))?;
-        let out_lengths = (input_lengths * self.patch_size as f64)?;
+        // let out_lengths = (input_lengths * self.patch_size as f64)?;
+        let out_lengths = input_lengths.affine(self.patch_size as f64, 0.0)?;
         Ok((x, out_lengths))
     }
 
@@ -398,12 +400,21 @@ impl MossAudioTokenizerLFQ {
         }
         Ok((z_q, indices))
     }
+
+    pub fn decode_code(&self, codec: &Tensor) -> Result<Tensor> {
+        let mut z_q = self.codebook.forward(codec)?.transpose(1, 2)?;
+        if let Some(out_proj) = &self.out_proj {
+            z_q = out_proj.forward(&z_q)?;
+        }
+        Ok(z_q)
+    }
 }
 
 pub struct MossAudioTokenizerResidualLFQ {
     input_proj: Option<WNConv1d>,
     output_proj: Option<WNConv1d>,
     quantizers: Vec<MossAudioTokenizerLFQ>,
+    rvq_dim: usize,
 }
 
 impl MossAudioTokenizerResidualLFQ {
@@ -454,6 +465,7 @@ impl MossAudioTokenizerResidualLFQ {
             input_proj,
             output_proj,
             quantizers,
+            rvq_dim: config.rvq_dim,
         })
     }
 
@@ -482,6 +494,23 @@ impl MossAudioTokenizerResidualLFQ {
         }
         let all_indices = Tensor::stack(&all_indices, 0)?;
         Ok(all_indices)
+    }
+
+    pub fn decode_codes(&self, codes: &Tensor) -> Result<Tensor> {
+        let (_, bs, t) = codes.dims3()?;
+        let mut emb = Tensor::zeros(
+            (bs, self.rvq_dim, t),
+            candle_core::DType::F32,
+            codes.device(),
+        )?;
+        for (i, quantizer) in self.quantizers.iter().enumerate() {
+            let code_i = quantizer.decode_code(&codes.i(i)?)?;
+            emb = emb.add(&code_i)?;
+        }
+        if let Some(output_proj) = &self.output_proj {
+            emb = output_proj.forward(&emb)?;
+        }
+        Ok(emb)
     }
 }
 
@@ -538,7 +567,7 @@ impl MossAudioTokenizer {
             if cfg.module_type == "PatchedPretransform"
                 && let Some(patch_size) = cfg.patch_size
             {
-                let layer = MossAudioTokenizerPatchedPretransform::new(patch_size, true);
+                let layer = MossAudioTokenizerPatchedPretransform::new(patch_size, false);
                 decoder.push(MossAudioTokenizerModule::PatchedPretransform(layer));
             } else if cfg.module_type == "Transformer" {
                 let context_duration = cfg
@@ -617,7 +646,7 @@ impl MossAudioTokenizer {
     }
 
     pub fn encode_one(&self, wav: &Tensor) -> Result<Tensor> {
-        // (channel, audio_len) -> (bs=1, channel, audio_len)
+        // in: (channel, audio_len)
         let (c, len) = wav.dims2()?;
         if c != self.number_channels {
             return Err(anyhow!(
@@ -632,7 +661,7 @@ impl MossAudioTokenizer {
         Ok(audio_vec[0].clone())
     }
 
-    pub fn encode_list(&self, wavs: &Vec<Tensor>) -> Result<Vec<Tensor>> {
+    pub fn encode_list(&self, wavs: &[Tensor]) -> Result<Vec<Tensor>> {
         if wavs.is_empty() {
             return Err(anyhow!(
                 "MossAudioTokenizer encode_list need wavs len > 0, but the wavs is empty"
@@ -664,6 +693,27 @@ impl MossAudioTokenizer {
         let input_values = Tensor::stack(&input_values, 0)?;
         let length_tensor = Tensor::new(length.clone(), input_values.device())?
             .to_dtype(candle_core::DType::F32)?;
-        Ok(self.batch_encode(&input_values, &length_tensor)?)
+        self.batch_encode(&input_values, &length_tensor)
+    }
+
+    pub fn decode_audio_token_ids_to_waveform(&self, audio_token_ids: &Tensor) -> Result<Tensor> {
+        let decode_codes = audio_token_ids.t()?.unsqueeze(1)?; //(len, nq) -> (nq, len) -> (nq, 1, len)
+        let len = decode_codes.dim(2)?;
+        let mut audio = self.quantizer.decode_codes(&decode_codes)?;
+        let mut audio_length = Tensor::new(&[len as f32], audio.device())?;
+        for decoder_module in self.decoder.iter() {
+            (audio, audio_length) = decoder_module.forward(&audio, &audio_length)?;
+        }
+        if self.number_channels == 1 || !self.enable_channel_interleave {
+            Ok(audio)
+        } else {
+            let bs = audio.dim(0)?;
+            Ok(audio
+                .squeeze(1)?
+                .contiguous()?
+                .reshape((bs, (), self.number_channels))?
+                .transpose(1, 2)?
+                .contiguous()?)
+        }
     }
 }

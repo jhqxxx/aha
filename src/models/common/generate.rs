@@ -1,12 +1,15 @@
 use anyhow::Result;
 use candle_core::{DType, Device, Tensor};
-use candle_transformers::generation::{LogitsProcessor};
+use candle_transformers::generation::LogitsProcessor;
 use rocket::async_stream::stream;
 use rocket::futures::Stream;
 use std::time::Instant;
 
 use crate::{
-    models::common::{InferenceModel, MultiModalData, sample::{use_repeat_penalty, get_logit_processor}},
+    models::common::{
+        InferenceModel, MultiModalData,
+        sample::{get_logit_processor, use_repeat_penalty},
+    },
     params::chat::{ChatCompletionChunkResponse, ChatCompletionResponse},
     tokenizer::TokenizerModel,
     utils::response_utils::{

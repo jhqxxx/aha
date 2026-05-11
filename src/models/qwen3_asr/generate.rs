@@ -4,7 +4,8 @@ use crate::{
     models::common::{
         MultiModalData,
         generate::{GenerationContext, generate_generic_text},
-        modules::{AsrResult, VadFrameResult}, sample::get_logit_processor,
+        modules::{AsrResult, VadFrameResult},
+        sample::get_logit_processor,
     },
     params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
     utils::response_utils::{build_chunk_response_with_usage, build_completion_response_with_time},

@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use candle_core::{IndexOp, Tensor};
 use candle_nn::ops::softmax;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
-use rand::{SeedableRng, distr::Distribution};
+use rand::distr::Distribution;
 
 pub fn get_logit_processor(
     temperature: Option<f32>,
@@ -43,7 +43,7 @@ pub fn use_repeat_penalty(
     logits: &Tensor,
     context: &[u32],
 ) -> Result<Tensor> {
-    if repeat_penalty == 1.0 || repeat_last_n.map_or(false, |n| n == 0) {
+    if repeat_penalty == 1.0 || repeat_last_n == Some(0) {
         Ok(logits.clone())
     } else {
         let start_at = if let Some(last_n) = repeat_last_n {
@@ -52,11 +52,22 @@ pub fn use_repeat_penalty(
             0
         };
         Ok(candle_transformers::utils::apply_repeat_penalty(
-            &logits,
+            logits,
             repeat_penalty,
             &context[start_at..],
         )?)
     }
+}
+
+pub fn sample_weighted(prs: &[f32]) -> Result<u32> {
+    let mut rng = rand::rng();
+    let dist = rand::distr::weighted::WeightedIndex::new(prs).map_err(|e| {
+        anyhow!(format!(
+            "simple_sampel new  rand::distr::weighted::WeightedIndex Failed: {}",
+            e
+        ))
+    })?;
+    Ok(dist.sample(&mut rng) as u32)
 }
 
 /// logits shape: (dim)
@@ -68,7 +79,6 @@ pub fn simple_sample(
     top_p: Option<f32>,
     previous_token_ids: Option<&[u32]>,
     repeat_penalty: f32,
-    seed: Option<u64>,
 ) -> Result<u32> {
     if logits.rank() != 1 {
         return Err(anyhow!("simple_sample logits need rank = 1"));
@@ -90,7 +100,7 @@ pub fn simple_sample(
         }
         if let Some(top_k) = top_k
             && top_k > 0
-            && top_k > logits.dim(0)?
+            && top_k < logits.dim(0)?
         {
             let sorted_indices = logits.arg_sort_last_dim(false)?;
             let top_k_indices = sorted_indices.narrow(0, 0, top_k)?;
@@ -114,7 +124,7 @@ pub fn simple_sample(
                 .broadcast_gt(&Tensor::new(top_p, logits.device())?.to_dtype(logits.dtype())?)?;
             // 保证数据不会被全部置为-inf
             if mask.i(0)?.to_scalar::<u8>()? == 1 {
-                mask = mask.slice_scatter(&Tensor::new(0u32, logits.device())?, 0, 0)?;
+                mask = mask.slice_scatter(&Tensor::new(&[0u8], logits.device())?, 0, 0)?;
             }
             let on_true = Tensor::new(f32::NEG_INFINITY, logits.device())?
                 .to_dtype(logits.dtype())?
@@ -122,19 +132,9 @@ pub fn simple_sample(
             let new_logits = mask.where_cond(&on_true, &sorted_logits)?;
             logits = logits.scatter(&sorted_indices, &new_logits, 0)?;
         }
+        let probs = softmax(&logits, 0)?;
 
-        let probs = softmax(&logits, 0)?
-            .to_dtype(candle_core::DType::F32)?
-            .to_vec1::<f32>()?;
-        let distr = rand::distr::weighted::WeightedIndex::new(probs).map_err(|e| {
-            anyhow!(format!(
-                "simple_sampel new  rand::distr::weighted::WeightedIndex Failed: {}",
-                e
-            ))
-        })?;
-        let seed = seed.unwrap_or(34567);
-        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        let next_token = distr.sample(&mut rng) as u32;
-        Ok(next_token)
+        let probs = probs.to_dtype(candle_core::DType::F32)?.to_vec1::<f32>()?;
+        sample_weighted(&probs)
     }
 }

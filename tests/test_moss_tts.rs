@@ -1,4 +1,4 @@
-use aha::models::moss::generate::MossTTSGenerate;
+use aha::models::moss_tts_nano::generate::MossTTSGenerate;
 use anyhow::Result;
 
 #[test]
@@ -10,11 +10,13 @@ fn moss_tts() -> Result<()> {
     let audio_tokenizer_path = format!("{}/openmoss/MOSS-Audio-Tokenizer-Nano/", save_dir);
     let mut model = MossTTSGenerate::init(&tts_path, &audio_tokenizer_path, None, None)?;
     let _ = model.generate(
-        "您好啊,吃饭了吗,吃的啥啊中午",
-        Some("file://./assets/audio/jiangjiang.wav"),
-        Some("哈喽大家好，我是蒋蒋"),
-        Some(aha::models::moss::tts_nano::MossTTSMode::Continuation),
+        "你在干吗啊",
         // None,
+        Some("file://./assets/audio/jiangjiang.wav"),
+        None,
+        // Some("哈喽大家好，我是蒋蒋"),
+        // Some(aha::models::moss_tts_nano::model::MossTTSMode::Continuation),
+        None,
     )?;
     Ok(())
 }

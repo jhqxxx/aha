@@ -71,7 +71,7 @@ impl GPT2Attention {
             }
         };
         self.kv_cache = Some((key_states.clone(), value_states.clone()));
-        let scale = 1f64 / f64::sqrt(self.head_dim as f64);
+        let scale: f64 = 1f64 / f64::sqrt(self.head_dim as f64);
         let attn_output = eager_attention_forward(
             &query_states,
             &key_states,
@@ -277,7 +277,8 @@ impl GPT2Model {
     pub fn forward(&mut self, inputs_embeds: &Tensor, seqlen_offset: usize) -> Result<Tensor> {
         let (b_size, seq_len, _) = inputs_embeds.dims3()?;
         let (cos, sin) = if let Some(rope) = &self.rope {
-            let (cos, sin) = rope.forward_repeat_interleave(seqlen_offset, seq_len, inputs_embeds.device())?;
+            let (cos, sin) =
+                rope.forward_repeat_interleave(seqlen_offset, seq_len, inputs_embeds.device())?;
             (Some(cos), Some(sin))
         } else {
             (None, None)
