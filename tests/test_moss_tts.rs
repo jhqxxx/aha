@@ -9,7 +9,7 @@ fn moss_tts() -> Result<()> {
     let tts_path = format!("{}/openmoss/MOSS-TTS-Nano/", save_dir);
     let audio_tokenizer_path = format!("{}/openmoss/MOSS-Audio-Tokenizer-Nano/", save_dir);
     let mut model = MossTTSGenerate::init(&tts_path, &audio_tokenizer_path, None, None)?;
-    let _ = model.generate(
+    model.generate(
         "你在干吗啊",
         // None,
         Some("file://./assets/audio/jiangjiang.wav"),
