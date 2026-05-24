@@ -33,12 +33,15 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 | **Vision** | Qwen2.5-VL, Qwen3-VL, Qwen3.5, <br> LFM2.5-VL, LFM2-VL |
 | **OCR** | DeepSeek-OCR, DeepSeek-OCR-2 , PaddleOCR-VL <br> PaddleOCR-VL1.5, Hunyuan-OCR, GLM-OCR |
 | **ASR** | GLM-ASR-Nano, Fun-ASR-Nano, Qwen3-ASR |
-| **TTS** | VoxCPM, VoxCPM1.5, VoxCPM2 |
+| **TTS** | VoxCPM, VoxCPM1.5, VoxCPM2, Moss-TTS-Nano |
 | **Image** | RMBG-2.0 (background removal) |
 | **Embedding** | Qwen3-Embedding, all-MiniLM-L6-v2 |
 | **Reranker** | Qwen3-Reranker |
 
 ## Changelog
+### 2026-05-24
+- update doc
+
 ### 2026-05-11
 - add Moss-TTS-Nano，its performance is worse than the original Python version
 
@@ -215,27 +218,25 @@ pnpm run tauri build
 ```rust
 # VoxCPM example
 use aha::models::voxcpm::generate::VoxCPMGenerate;
-use aha::utils::audio_utils::save_wav;
+use aha::utils::audio_utils::save_wav_mono;
 use anyhow::Result;
 
 fn main() -> Result<()> {
-    let model_path = "xxx/openbmb/VoxCPM-0.5B/";
+    let model_path = "xxx/OpenBMB/VoxCPM2/";
 
     let mut voxcpm_generate = VoxCPMGenerate::init(model_path, None, None)?;
-
-    let generate = voxcpm_generate.generate(
-        "The sun is shining bright, flowers smile at me, birds say early early early".to_string(),
+    let generate = voxcpm_generate.inference(
+        "aha是一个基于Rust和Candle框架的本地AI推理引擎，支持多模态模型（文本、视觉、语音、OCR）。".to_string(),
         None,
         None,
         2,
-        100,
+        1000,
         10,
         2.0,
-        false,
         6.0,
     )?;
 
-    let _ = save_wav(&generate, "voxcpm.wav")?;
+    save_wav_mono(&generate, "voxcpm2.wav", voxcpm_generate.sample_rate() as u32)?;
     Ok(())
 }
 ```

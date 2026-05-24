@@ -196,9 +196,6 @@ impl VoxCPMModelRefact {
             (text_embed, prefix_feat_cond, None)
         };
         let mut pred_feat_seq = Vec::new();
-        // if feat_mask.i((1, t-1))?.to_scalar::<f32>()? == 0.0 {
-        //     // TODO for stream
-        // }
         let mut position_id = 0;
         let mut seq_len = t;
         let enc_outputs = self
