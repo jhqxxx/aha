@@ -41,10 +41,12 @@ async fn download_test() -> Result<()> {
 #[test]
 fn messy_test() -> Result<()> {
     // RUST_BACKTRACE=1 cargo test -F cuda --test messy_test messy_test -r -- --nocapture
-    let device = aha::Device::Cpu;
-    let input = Tensor::new(&[5u32, 4, 3, 6], &device)?;
-    let mask = get_mask_from_lengths(&input)?;
-    println!("{}", mask);
+    // let device = aha::Device::Cpu;
+    let device = aha::Device::new_cuda(0)?;
+    println!("{:?}", device);
+    // let input = Tensor::new(&[5u32, 4, 3, 6], &device)?;
+    // let mask = get_mask_from_lengths(&input)?;
+    // println!("{}", mask);
     // let audio_path = "file:///home/jhq/python_code/FireRedASR2S/assets/hello_zh.wav";
     // let device = aha::Device::Cpu;
     // let wave = load_audio_with_resample(audio_path, &device, Some(16000), true)?;

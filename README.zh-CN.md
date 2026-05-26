@@ -215,7 +215,7 @@ pnpm run tauri build
 > cargo add aha
 
 ```rust
-# VoxCPM示例
+// VoxCPM示例
 use aha::models::voxcpm::generate::VoxCPMGenerate;
 use aha::utils::audio_utils::save_wav_mono;
 use anyhow::Result;
