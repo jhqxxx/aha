@@ -12,6 +12,7 @@ pub mod hunyuan_ocr;
 pub mod lfm2;
 pub mod lfm2vl;
 pub mod minicpm4;
+pub mod minicpm5;
 pub mod paddleocr_vl;
 pub mod qwen2_5vl;
 pub mod qwen3;

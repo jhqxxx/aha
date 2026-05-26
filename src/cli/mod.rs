@@ -244,6 +244,9 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::MiniCPM4_0_5B => {
             minicpm4::MiniCPM4Exec::run(&input, output.as_deref(), &weight_path)?;
         }
+        WhichModel::MiniCPM5_1B => {
+            minicpm5::MiniCPM5Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::LFM2_1_2B | WhichModel::LFM2_5_1_2BInstruct => {
             lfm2::Lfm2Exec::run(&input, output.as_deref(), &weight_path)?;
         }

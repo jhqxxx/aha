@@ -214,7 +214,7 @@ pub struct MiniCPMModel {
 }
 
 impl MiniCPMModel {
-    pub fn new(vb: VarBuilder, cfg: MiniCPM4Config, eos_ids: Vec<u32>) -> Result<Self> {
+    pub fn new(vb: VarBuilder, cfg: MiniCPM4Config) -> Result<Self> {
         let vb = vb.pp("model");
         let embed_tokens = embedding(cfg.vocab_size, cfg.hidden_size, vb.pp("embed_tokens"))?;
         let mut layers = Vec::with_capacity(cfg.num_hidden_layers);
@@ -226,6 +226,7 @@ impl MiniCPMModel {
         let norm = rms_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("norm"))?;
         let rope_emb = MiniCPMLongRoPE::new(&cfg, vb.device())?;
         let lm_head = Linear::new(embed_tokens.embeddings().clone(), None);
+        let stop_token_ids = cfg.eos_token_id.clone();
         Ok(Self {
             cfg,
             embed_tokens,
@@ -233,7 +234,7 @@ impl MiniCPMModel {
             norm,
             rope_emb,
             lm_head,
-            stop_token_ids: eos_ids,
+            stop_token_ids,
         })
     }
 

@@ -5,12 +5,13 @@ use std::time::Instant;
 use anyhow::{Ok, Result};
 
 use crate::exec::ExecModel;
-use crate::models::{GenerateModel, minicpm4::generate::MiniCPM4GenerateModel};
+use crate::models::GenerateModel;
+use crate::models::minicpm5::generate::MiniCPM5GenerateModel;
 use crate::utils::get_file_path;
 
-pub struct MiniCPM4Exec;
+pub struct MiniCPM5Exec;
 
-impl ExecModel for MiniCPM4Exec {
+impl ExecModel for MiniCPM5Exec {
     fn run(input: &[String], output: Option<&str>, weight_path: &str) -> Result<()> {
         let input_text = &input[0];
         let target_text = if input_text.starts_with("file://") {
@@ -22,7 +23,7 @@ impl ExecModel for MiniCPM4Exec {
         };
 
         let i_start = Instant::now();
-        let mut model = MiniCPM4GenerateModel::init(weight_path, None, None)?;
+        let mut model = MiniCPM5GenerateModel::init(weight_path, None, None)?;
         let i_duration = i_start.elapsed();
         println!("Time elapsed in load model is: {:?}", i_duration);
 
@@ -30,7 +31,7 @@ impl ExecModel for MiniCPM4Exec {
             r#"{{
             "temperature": 0.3,
             "top_p": 0.8,
-            "model": "minicpm4",
+            "model": "minicpm5",
             "messages": [
                 {{
                     "role": "user",

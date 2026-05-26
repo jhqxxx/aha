@@ -1,5 +1,6 @@
 use crate::{
-    models::common::modules::NaiveAttnGateUpDownMLPBlock, position_embed::rope::RoPE,
+    models::common::{InferenceModel, modules::NaiveAttnGateUpDownMLPBlock},
+    position_embed::rope::RoPE,
     utils::tensor_utils::prepare_causal_attention_mask,
 };
 use anyhow::Result;
@@ -106,6 +107,7 @@ impl LlamaModel {
 pub struct LlamaForCausalLM {
     pub model: LlamaModel,
     lm_head: Linear,
+    stop_token_ids: Vec<u32>,
 }
 
 impl LlamaForCausalLM {
@@ -128,6 +130,7 @@ impl LlamaForCausalLM {
         input_norm_pp_name: &str,
         post_norm_pp_name: &str,
         rope_theta_base: f32,
+        eos_ids: Vec<u32>,
     ) -> Result<Self> {
         let model = LlamaModel::new(
             vb.pp("model"),
@@ -150,10 +153,18 @@ impl LlamaForCausalLM {
             rope_theta_base,
         )?;
         let lm_head = linear_no_bias(hidden_size, vocab_size, vb.pp("lm_head"))?;
-        Ok(Self { model, lm_head })
+        Ok(Self {
+            model,
+            lm_head,
+            stop_token_ids: eos_ids,
+        })
     }
 
-    pub fn forward(&mut self, inputs_embeds: &Tensor, seqlen_offset: usize) -> Result<Tensor> {
+    pub fn forward_embeds(
+        &mut self,
+        inputs_embeds: &Tensor,
+        seqlen_offset: usize,
+    ) -> Result<Tensor> {
         let outputs = self.model.forward(inputs_embeds, seqlen_offset)?;
         let seq_len = outputs.dim(1)?;
         let hidden_state = outputs.narrow(1, seq_len - 1, 1)?;
@@ -162,5 +173,20 @@ impl LlamaForCausalLM {
     }
     pub fn clear_kv_cache(&mut self) {
         self.model.clear_kv_cache();
+    }
+}
+
+impl InferenceModel for LlamaForCausalLM {
+    fn forward_step(&mut self, input_ids: &Tensor, seqlen_offset: usize) -> Result<Tensor> {
+        let input_embeds = self.model.embed_tokens.forward(input_ids)?;
+        self.forward_embeds(&input_embeds, seqlen_offset)
+    }
+
+    fn clear_cache(&mut self) {
+        self.clear_kv_cache();
+    }
+
+    fn stop_token_ids(&self) -> Vec<u32> {
+        self.stop_token_ids.clone()
     }
 }

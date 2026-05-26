@@ -270,6 +270,7 @@ impl GlmAsrNanoModel {
             "input_layernorm",
             "post_attention_layernorm",
             config.text_config.rope_parameters.rope_theta,
+            eos_ids.clone(),
         )?;
         Ok(Self {
             config,
@@ -317,7 +318,9 @@ impl GlmAsrNanoModel {
             let audio_embeds = self.get_audio_features(input_features, &audio_token_len)?;
             inputs_embeds = masked_scatter_dim0(&inputs_embeds, &audio_embeds, &audio_token_mask)?;
         }
-        let logits = self.language_model.forward(&inputs_embeds, seqlen_offset)?;
+        let logits = self
+            .language_model
+            .forward_embeds(&inputs_embeds, seqlen_offset)?;
         Ok(logits)
     }
     pub fn clear_kv_cache(&mut self) {

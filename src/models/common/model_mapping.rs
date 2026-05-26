@@ -16,6 +16,8 @@ pub enum WhichModel {
     LFM2VL1_6B,
     #[value(name = "OpenBMB/MiniCPM4-0.5B")]
     MiniCPM4_0_5B,
+    #[value(name = "OpenBMB/MiniCPM5-1B")]
+    MiniCPM5_1B,
     #[value(name = "Qwen/Qwen2.5-VL-3B-Instruct")]
     Qwen2_5VL3B,
     #[value(name = "Qwen/Qwen2.5-VL-7B-Instruct")]
@@ -136,6 +138,7 @@ impl WhichModel {
         match self {
             // LLM models
             WhichModel::MiniCPM4_0_5B
+            | WhichModel::MiniCPM5_1B
             | WhichModel::Qwen3_0_6B
             | WhichModel::Qwen3_1_7B
             | WhichModel::Qwen3_4B
