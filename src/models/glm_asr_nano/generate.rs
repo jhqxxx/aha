@@ -26,7 +26,7 @@ pub struct GlmAsrNanoGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     processor: GlmAsrNanoProcessor,
-    glm_asr_nano: GlmAsrNanoModel,
+    model: GlmAsrNanoModel,
     device: Device,
     dtype: DType,
     model_name: String,
@@ -45,7 +45,7 @@ impl<'a> GlmAsrNanoGenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let eos_ids = vec![59246u32, 59253, 59255];
-        let glm_asr_nano = GlmAsrNanoModel::new(vb, cfg, eos_ids)?;
+        let model = GlmAsrNanoModel::new(vb, cfg, eos_ids)?;
         let model_name = std::path::Path::new(path)
             .file_name()
             .and_then(|s| s.to_str())
@@ -55,7 +55,7 @@ impl<'a> GlmAsrNanoGenerateModel<'a> {
             chat_template,
             tokenizer,
             processor,
-            glm_asr_nano,
+            model,
             device,
             dtype,
             model_name,
@@ -88,7 +88,7 @@ impl<'a> GenerateModel for GlmAsrNanoGenerateModel<'a> {
         let data_vec = vec![input_features.into(), audio_token_lengths.into()];
         let data = MultiModalData::new(data_vec);
         generate_generic(
-            &mut self.glm_asr_nano,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -119,7 +119,7 @@ impl<'a> GenerateModel for GlmAsrNanoGenerateModel<'a> {
         let data_vec = vec![input_features.into(), audio_token_lengths.into()];
         let data = MultiModalData::new(data_vec);
         let stream = generate_stream_generic(
-            &mut self.glm_asr_nano,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,

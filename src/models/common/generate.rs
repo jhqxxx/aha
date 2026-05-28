@@ -10,7 +10,7 @@ use crate::{
         InferenceModel, MultiModalData,
         sample::{get_logit_processor, use_repeat_penalty},
     },
-    params::chat::{ChatCompletionChunkResponse, ChatCompletionResponse},
+    params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
     tokenizer::TokenizerModel,
     utils::response_utils::{
         build_chunk_response_with_reasoning, build_chunk_response_with_usage,
@@ -365,4 +365,117 @@ pub fn generate_stream_generic<M: InferenceModel>(
         model.clear_cache();
     };
     Ok(stream)
+}
+
+pub struct PrepareData {
+    pub in_reasoning: bool,
+    pub input_ids: Tensor,
+    pub multi_model_data: MultiModalData,
+}
+
+pub trait GenerationDataProvider {
+    fn get_temperature(&self, req_temp: Option<f32>) -> Option<f32> {
+        req_temp
+    }
+
+    fn get_top_p(&self, req_top_p: Option<f32>) -> Option<f32> {
+        req_top_p
+    }
+
+    fn get_top_k(&self, top_k: Option<usize>) -> Option<usize> {
+        top_k
+    }
+
+    fn is_in_reasoning(&self, text: &str) -> bool {
+        text.ends_with("<think>\n")
+    }
+
+    fn get_multi_model_data(&self) -> MultiModalData {
+        MultiModalData::new(vec![])
+    }
+
+    fn get_data(&self, mes: &ChatCompletionParameters) -> Result<PrepareData>;
+}
+
+#[macro_export]
+macro_rules! impl_generate_model {
+    ($struct_name: ty) => {
+        impl<'a> $crate::models::GenerateModel for $struct_name {
+            fn generate(
+                &mut self,
+                mes: $crate::params::chat::ChatCompletionParameters,
+            ) -> anyhow::Result<$crate::params::chat::ChatCompletionResponse> {
+                let seed = mes.seed.unwrap_or(299792458) as u64;
+                let sample_len = mes.max_tokens.unwrap_or(1024);
+                let temperature = self.get_temperature(mes.temperature);
+                let top_p = self.get_top_p(mes.top_p);
+                let top_k = self.get_top_k(mes.top_k);
+                let prepare_data = self.get_data(&mes)?;
+                let input_ids = prepare_data.input_ids;
+                let data = prepare_data.multi_model_data;
+                let mut ctx = $crate::models::common::generate::GenerationContext::new(
+                    temperature,
+                    top_p,
+                    top_k,
+                    mes.repeat_penalty,
+                    mes.repeat_last_n,
+                    seed,
+                    input_ids.dim(1)?,
+                    sample_len,
+                    self.device.clone(),
+                );
+
+                $crate::models::common::generate::generate_generic(
+                    &mut self.model,
+                    &self.tokenizer,
+                    input_ids,
+                    data,
+                    &mut ctx,
+                    &self.model_name,
+                )
+            }
+
+            fn generate_stream(
+                &mut self,
+                mes: $crate::params::chat::ChatCompletionParameters,
+            ) -> anyhow::Result<
+                Box<
+                    dyn rocket::futures::Stream<
+                            Item = anyhow::Result<
+                                $crate::params::chat::ChatCompletionChunkResponse,
+                            >,
+                        > + Send
+                        + Unpin
+                        + '_,
+                >,
+            > {
+                let seed = mes.seed.unwrap_or(299792458) as u64;
+                let prepare_data = self.get_data(&mes)?;
+                let input_ids = prepare_data.input_ids;
+                let data = prepare_data.multi_model_data;
+                let in_reasoning = prepare_data.in_reasoning;
+                let sample_len = mes.max_tokens.unwrap_or(1024);
+                let temperature = self.get_temperature(mes.temperature);
+                let top_p = self.get_top_p(mes.top_p);
+                let top_k = self.get_top_k(mes.top_k);
+                let stream = $crate::models::common::generate::generate_stream_generic(
+                    &mut self.model,
+                    &self.tokenizer,
+                    input_ids,
+                    data,
+                    temperature,
+                    top_p,
+                    top_k,
+                    mes.repeat_penalty,
+                    mes.repeat_last_n,
+                    seed,
+                    sample_len,
+                    in_reasoning,
+                    &self.device,
+                    &self.model_name,
+                )?;
+                Ok(Box::new(Box::pin(stream)))
+            }
+        }
+    };
 }

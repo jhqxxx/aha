@@ -30,7 +30,7 @@ pub struct Qwen2_5VLGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     pre_processor: Qwen2_5VLProcessor,
-    qwen2_5_vl: Qwen2_5VLModel,
+    model: Qwen2_5VLModel,
     device: Device,
     endoftext_id: u32,
     im_end_id: u32,
@@ -52,7 +52,7 @@ impl<'a> Qwen2_5VLGenerateModel<'a> {
         // let model_list = find_safetensors_files(&path)?;
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, device)? };
-        let qwen2_5_vl = Qwen2_5VLModel::new(cfg, vb)?;
+        let model = Qwen2_5VLModel::new(cfg, vb)?;
         let model_name = std::path::Path::new(path)
             .file_name()
             .and_then(|s| s.to_str())
@@ -62,7 +62,7 @@ impl<'a> Qwen2_5VLGenerateModel<'a> {
             chat_template,
             tokenizer,
             pre_processor,
-            qwen2_5_vl,
+            model,
             device: device.clone(),
             endoftext_id,
             im_end_id,
@@ -102,7 +102,7 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
         let mut completion_secs = 0.0f64;
         for _ in 0..sample_len {
             let i_start = Instant::now();
-            let logits = self.qwen2_5_vl.forward(
+            let logits = self.model.forward(
                 &input_ids,
                 pixel_values,
                 image_grid_thw,
@@ -136,7 +136,7 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
         }
         let num_token = generate.len() as u32;
         let res = self.tokenizer.token_decode(generate)?;
-        self.qwen2_5_vl.clear_kv_cache();
+        self.model.clear_kv_cache();
         let response = build_completion_response_with_time(
             res,
             &self.model_name,
@@ -190,7 +190,7 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
             let mut tool_call_content = String::new();
             for _ in 0..sample_len {
                 let i_start = Instant::now();
-                let logits = self.qwen2_5_vl.forward(
+                let logits = self.model.forward(
                     &input_ids,
                     pixel_values,
                     image_grid_thw,
@@ -293,7 +293,7 @@ impl<'a> GenerateModel for Qwen2_5VLGenerateModel<'a> {
                 pixel_values = None;
                 pixel_values_video = None;
             }
-            self.qwen2_5_vl.clear_kv_cache();
+            self.model.clear_kv_cache();
         };
         Ok(Box::new(Box::pin(stream)))
     }

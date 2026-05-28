@@ -25,7 +25,7 @@ pub struct Qwen3VLGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     pre_processor: Qwen3VLProcessor,
-    qwen3_vl: Qwen3VLModel,
+    model: Qwen3VLModel,
     device: Device,
     generation_config: Qwen3GenerationConfig,
     model_name: String,
@@ -46,7 +46,7 @@ impl<'a> Qwen3VLGenerateModel<'a> {
         let generation_config_path = path.to_string() + "/generation_config.json";
         let generation_config: Qwen3GenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
-        let qwen3_vl = Qwen3VLModel::new(cfg, vb, generation_config.eos_token_id.clone())?;
+        let model = Qwen3VLModel::new(cfg, vb, generation_config.eos_token_id.clone())?;
 
         let model_name = std::path::Path::new(path)
             .file_name()
@@ -57,7 +57,7 @@ impl<'a> Qwen3VLGenerateModel<'a> {
             chat_template,
             tokenizer,
             pre_processor,
-            qwen3_vl,
+            model,
             device,
             generation_config,
             model_name,
@@ -101,7 +101,7 @@ impl<'a> GenerateModel for Qwen3VLGenerateModel<'a> {
         ];
         let data = MultiModalData::new(data_vec);
         generate_generic(
-            &mut self.qwen3_vl,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -145,7 +145,7 @@ impl<'a> GenerateModel for Qwen3VLGenerateModel<'a> {
         let data = MultiModalData::new(data_vec);
         let seed = mes.seed.unwrap_or(34562) as u64;
         let stream = generate_stream_generic(
-            &mut self.qwen3_vl,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,

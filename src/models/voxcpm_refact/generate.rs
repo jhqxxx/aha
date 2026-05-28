@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub struct VoxCPMGenerateRefact {
-    voxcpm: VoxCPMModelRefact,
+    model: VoxCPMModelRefact,
     tokenizer: SingleChineseTokenizer,
     audio_vae: AudioVAE,
     processor: VoxCPMProcessor,
@@ -113,13 +113,13 @@ impl VoxCPMGenerateRefact {
             VarBuilder::from_tensors(dict_to_hashmap, m_dtype, device)
         };
         let tokenizer = SingleChineseTokenizer::new(path)?;
-        let voxcpm =
+        let model =
             VoxCPMModelRefact::new(vb_voxcpm, config, audio_vae.latent_dim, decode_chunk_size)?;
         let out_sample_rate = audio_config
             .out_sample_rate
             .unwrap_or(audio_config.sample_rate);
         Ok(Self {
-            voxcpm,
+            model,
             tokenizer,
             audio_vae,
             processor,
@@ -162,7 +162,7 @@ impl VoxCPMGenerateRefact {
         } else {
             max_len
         };
-        let audio = self.voxcpm.inference(
+        let audio = self.model.inference(
             &text_token,
             audio_feat.as_ref(),
             audio_mask.as_ref(),
@@ -172,7 +172,7 @@ impl VoxCPMGenerateRefact {
             cfg_value,
             &self.audio_vae,
         )?;
-        self.voxcpm.clear_kv_cache();
+        self.model.clear_kv_cache();
         Ok(audio)
     }
 
@@ -240,7 +240,7 @@ impl VoxCPMGenerateRefact {
                 } else {
                     max_len
                 };
-                self.voxcpm.inference(
+                self.model.inference(
                     &text_token,
                     audio_feat.as_ref(),
                     audio_mask.as_ref(),
@@ -255,7 +255,7 @@ impl VoxCPMGenerateRefact {
                 return Err(anyhow!("need prompt_cache"));
             }
         };
-        self.voxcpm.clear_kv_cache();
+        self.model.clear_kv_cache();
         Ok(audio)
     }
 
@@ -284,7 +284,7 @@ impl VoxCPMGenerateRefact {
                 } else {
                     max_len
                 };
-                self.voxcpm.inference_stream(
+                self.model.inference_stream(
                     text_token,
                     audio_feat,
                     audio_mask,
@@ -344,13 +344,13 @@ impl GenerateModel for VoxCPMGenerateRefact {
                 retry_badcase_ratio_threshold,
             )
             .inspect_err(|_| {
-                self.voxcpm.clear_kv_cache();
+                self.model.clear_kv_cache();
             })?;
         let wav_u8 = get_audio_wav_u8(&audio, self.out_sample_rate as u32)?;
         // let wave_u8_str = String::from_utf8(wav_u8)?;
         let base64_audio = BASE64_STANDARD.encode(wav_u8);
         let response = build_audio_completion_response(&base64_audio, &self.model_name);
-        self.voxcpm.clear_kv_cache();
+        self.model.clear_kv_cache();
         Ok(response)
     }
     #[allow(unused_variables)]

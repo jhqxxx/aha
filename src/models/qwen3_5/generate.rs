@@ -29,7 +29,7 @@ pub struct Qwen3_5GenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     pre_processor: Option<Qwen3VLProcessor>,
-    qwen3_5: Qwen3_5Model,
+    model: Qwen3_5Model,
     device: Device,
     model_name: String,
     repeat_penalty: f32,
@@ -53,13 +53,13 @@ impl<'a> Qwen3_5GenerateModel<'a> {
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let eos_ids = vec![cfg.text_config.eos_token_id];
-        let qwen3_5 = Qwen3_5Model::new_from_vb(vb, cfg, eos_ids)?;
+        let model = Qwen3_5Model::new_from_vb(vb, cfg, eos_ids)?;
 
         Ok(Self {
             chat_template,
             tokenizer,
             pre_processor: Some(pre_processor),
-            qwen3_5,
+            model,
             device,
             model_name: model_name.to_string(),
             repeat_penalty: 1.0,
@@ -89,13 +89,13 @@ impl<'a> Qwen3_5GenerateModel<'a> {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
         let eos_ids = vec![cfg.text_config.eos_token_id];
         // let qwen3_5 = Qwen3_5Model::new_from_vb(vb, cfg, eos_ids)?;
-        let qwen3_5 = Qwen3_5Model::new_from_vb_without_visual(vb, cfg, eos_ids)?;
+        let model = Qwen3_5Model::new_from_vb_without_visual(vb, cfg, eos_ids)?;
 
         Ok(Self {
             chat_template,
             tokenizer,
             pre_processor,
-            qwen3_5,
+            model,
             device,
             model_name: model_name.to_string(),
             repeat_penalty: 1.0,
@@ -142,7 +142,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             .get_matedata("tokenizer.ggml.eos_token_id")?
             .to_u32()?;
         let eos_ids = vec![eos_token_id];
-        let qwen3_5 =
+        let model =
             Qwen3_5Model::new_from_gguf(&mut model_gguf, mmproj_gguf.as_mut(), &device, eos_ids)?;
         let stem = std::path::Path::new(model_file)
             .file_stem() // 获取文件名主干（不含扩展名）
@@ -152,7 +152,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
             chat_template,
             tokenizer,
             pre_processor,
-            qwen3_5,
+            model,
             device,
             model_name: stem.to_string(),
             repeat_penalty: 1.2,
@@ -199,13 +199,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
         ];
         let data = MultiModalData::new(data_vec);
 
-        generate_generic_text(
-            &mut self.qwen3_5,
-            &self.tokenizer,
-            input_ids,
-            data,
-            &mut ctx,
-        )
+        generate_generic_text(&mut self.model, &self.tokenizer, input_ids, data, &mut ctx)
     }
 
     pub fn generate_stream_text(
@@ -237,7 +231,7 @@ impl<'a> Qwen3_5GenerateModel<'a> {
         let data = MultiModalData::new(data_vec);
         let seed = mes.seed.unwrap_or(34562) as u64;
         generate_stream_generic_text(
-            &mut self.qwen3_5,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -293,7 +287,7 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
         ];
         let data = MultiModalData::new(data_vec);
         generate_generic(
-            &mut self.qwen3_5,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -339,7 +333,7 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
         let data = MultiModalData::new(data_vec);
         let seed = mes.seed.unwrap_or(34562) as u64;
         let stream = generate_stream_generic(
-            &mut self.qwen3_5,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,

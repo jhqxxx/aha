@@ -28,7 +28,7 @@ pub struct HunyuanOCRGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     pre_processor: HunyuanVLProcessor,
-    hunyuan_vl: HunyuanVLModel,
+    model: HunyuanVLModel,
     device: Device,
     generation_config: HunyuanOCRGenerationConfig,
     model_name: String,
@@ -49,8 +49,7 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
         let generation_config_path = path.to_string() + "/generation_config.json";
         let generation_config: HunyuanOCRGenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
-        let hunyuan_vl =
-            HunyuanVLModel::new(vb, cfg.clone(), generation_config.eos_token_id.clone())?;
+        let model = HunyuanVLModel::new(vb, cfg.clone(), generation_config.eos_token_id.clone())?;
 
         let model_name = std::path::Path::new(path)
             .file_name()
@@ -61,7 +60,7 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
             chat_template,
             tokenizer,
             pre_processor,
-            hunyuan_vl,
+            model,
             device,
             generation_config,
             model_name,
@@ -103,7 +102,7 @@ impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
         ];
         let data = MultiModalData::new(data_vec);
         generate_generic(
-            &mut self.hunyuan_vl,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -144,7 +143,7 @@ impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
         ];
         let data = MultiModalData::new(data_vec);
         let stream = generate_stream_generic(
-            &mut self.hunyuan_vl,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,

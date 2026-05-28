@@ -21,7 +21,7 @@ pub struct PaddleOCRVLGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     pre_processor: PaddleOCRVLProcessor,
-    paddleocr_vl: PaddleOCRVLModel,
+    model: PaddleOCRVLModel,
     cfg: PaddleOCRVLConfig,
     device: Device,
     model_name: String,
@@ -42,7 +42,7 @@ impl<'a> PaddleOCRVLGenerateModel<'a> {
         let pre_processor = PaddleOCRVLProcessor::new(processor_cfg, device, dtype)?;
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, device)? };
-        let paddleocr_vl = PaddleOCRVLModel::new(cfg.clone(), vb, vec![2])?;
+        let model = PaddleOCRVLModel::new(cfg.clone(), vb, vec![2])?;
         let model_name = std::path::Path::new(path)
             .file_name()
             .and_then(|s| s.to_str())
@@ -52,7 +52,7 @@ impl<'a> PaddleOCRVLGenerateModel<'a> {
             chat_template,
             tokenizer,
             pre_processor,
-            paddleocr_vl,
+            model,
             cfg,
             device: device.clone(),
             model_name,
@@ -94,7 +94,7 @@ impl<'a> GenerateModel for PaddleOCRVLGenerateModel<'a> {
         ];
         let data = MultiModalData::new(data_vec);
         generate_generic(
-            &mut self.paddleocr_vl,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -136,7 +136,7 @@ impl<'a> GenerateModel for PaddleOCRVLGenerateModel<'a> {
         let data = MultiModalData::new(data_vec);
         let seed = mes.seed.unwrap_or(34562) as u64;
         let stream = generate_stream_generic(
-            &mut self.paddleocr_vl,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,

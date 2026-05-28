@@ -1,24 +1,18 @@
-use crate::models::common::MultiModalData;
-use crate::models::common::generate::{
-    GenerationContext, generate_generic, generate_stream_generic,
-};
-use crate::params::chat::{
-    ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse,
-};
+use crate::models::common::generate::{GenerationDataProvider, PrepareData};
+
 use anyhow::Result;
 use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
-use rocket::futures::Stream;
 
 use crate::models::qwen3::config::{Qwen3Config, Qwen3GenerationConfig};
 use crate::models::qwen3::model::Qwen3Model;
 use crate::utils::{find_type_files, get_device, get_dtype};
-use crate::{chat_template::ChatTemplate, models::GenerateModel, tokenizer::TokenizerModel};
+use crate::{chat_template::ChatTemplate, tokenizer::TokenizerModel};
 
 pub struct Qwen3GenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
-    qwen3: Qwen3Model,
+    model: Qwen3Model,
     device: Device,
     generation_config: Qwen3GenerationConfig,
     model_name: String,
@@ -38,7 +32,7 @@ impl<'a> Qwen3GenerateModel<'a> {
         let generation_config_path = path.to_string() + "/generation_config.json";
         let generation_config: Qwen3GenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
-        let qwen3 = Qwen3Model::new(&cfg, vb, generation_config.eos_token_id.clone())?;
+        let model = Qwen3Model::new(&cfg, vb, generation_config.eos_token_id.clone())?;
 
         let model_name = std::path::Path::new(path)
             .file_name()
@@ -48,7 +42,7 @@ impl<'a> Qwen3GenerateModel<'a> {
         Ok(Qwen3GenerateModel {
             chat_template,
             tokenizer,
-            qwen3,
+            model,
             device: device.clone(),
             generation_config,
             model_name,
@@ -56,77 +50,30 @@ impl<'a> Qwen3GenerateModel<'a> {
     }
 }
 
-impl<'a> GenerateModel for Qwen3GenerateModel<'a> {
-    fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let temperature = mes
-            .temperature
-            .unwrap_or(self.generation_config.temperature);
-        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
-        let top_k = self.generation_config.top_k;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        let input_ids = self.tokenizer.text_encode(mes_render, &self.device)?;
-        let sample_len = mes.max_tokens.unwrap_or(2048);
-        let mut ctx = GenerationContext::new(
-            temperature.into(),
-            top_p.into(),
-            top_k.into(),
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            input_ids.dim(1)?,
-            sample_len,
-            self.device.clone(),
-        );
-
-        let data = MultiModalData::new(vec![]);
-        generate_generic(
-            &mut self.qwen3,
-            &self.tokenizer,
-            input_ids,
-            data,
-            &mut ctx,
-            &self.model_name,
-        )
+impl<'a> GenerationDataProvider for Qwen3GenerateModel<'a> {
+    fn get_temperature(&self, req_temp: Option<f32>) -> Option<f32> {
+        Some(req_temp.unwrap_or(self.generation_config.temperature))
     }
-    fn generate_stream(
-        &mut self,
-        mes: ChatCompletionParameters,
-    ) -> Result<
-        Box<
-            dyn Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>
-                + Send
-                + Unpin
-                + '_,
-        >,
-    > {
-        let temperature = mes
-            .temperature
-            .unwrap_or(self.generation_config.temperature);
-        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
-        let top_k = self.generation_config.top_k;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        let in_reasoning = mes_render.ends_with("<think>\n");
+
+    fn get_top_p(&self, req_top_p: Option<f32>) -> Option<f32> {
+        Some(req_top_p.unwrap_or(self.generation_config.top_p))
+    }
+
+    fn get_top_k(&self, top_k: Option<usize>) -> Option<usize> {
+        Some(top_k.unwrap_or(self.generation_config.top_k))
+    }
+
+    fn get_data(&self, mes: &crate::params::chat::ChatCompletionParameters) -> Result<PrepareData> {
+        let mes_render = self.chat_template.apply_chat_template(mes)?;
+        let in_reasoning = self.is_in_reasoning(&mes_render);
         let input_ids = self.tokenizer.text_encode(mes_render, &self.device)?;
-        let data = MultiModalData::new(vec![]);
-        let sample_len = mes.max_tokens.unwrap_or(512);
-        let stream = generate_stream_generic(
-            &mut self.qwen3,
-            &self.tokenizer,
-            input_ids,
-            data,
-            temperature.into(),
-            top_p.into(),
-            top_k.into(),
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            sample_len,
+        let multi_model_data = self.get_multi_model_data();
+        Ok(PrepareData {
             in_reasoning,
-            &self.device,
-            &self.model_name,
-        )?;
-        Ok(Box::new(Box::pin(stream)))
+            input_ids,
+            multi_model_data,
+        })
     }
 }
+
+crate::impl_generate_model!(Qwen3GenerateModel<'a>);

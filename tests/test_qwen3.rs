@@ -42,7 +42,7 @@ fn qwen3_0_6b_generate() -> Result<()> {
 
 #[tokio::test]
 async fn qwen3_0_6b_stream() -> Result<()> {
-    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda qwen3_0_6b_stream -r -- --nocapture
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda --test test_qwen3 qwen3_0_6b_stream -r -- --nocapture
 
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;

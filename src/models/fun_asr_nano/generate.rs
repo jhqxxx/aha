@@ -27,7 +27,7 @@ use crate::{
 pub struct FunAsrNanoGenerateModel {
     tokenizer: TokenizerModel,
     processor: FunAsrNanoProcessor,
-    fun_asr_nano: FunAsrNanoModel,
+    model: FunAsrNanoModel,
     device: Device,
     dtype: DType,
     generation_config: Qwen3GenerationConfig,
@@ -75,7 +75,7 @@ impl FunAsrNanoGenerateModel {
             }
         }
         let vb = VarBuilder::from_tensors(dict_to_hashmap, dtype, &device);
-        let fun_asr_nano =
+        let model =
             FunAsrNanoModel::new(vb, &cfg, &llm_cfg, generation_config.eos_token_id.clone())?;
         let model_name = std::path::Path::new(path)
             .file_name()
@@ -85,7 +85,7 @@ impl FunAsrNanoGenerateModel {
         Ok(Self {
             tokenizer,
             processor,
-            fun_asr_nano,
+            model,
             device,
             dtype,
             generation_config,
@@ -120,7 +120,7 @@ impl GenerateModel for FunAsrNanoGenerateModel {
         let data_vec = vec![speech.into(), fbank_mask.into()];
         let data = MultiModalData::new(data_vec);
         generate_generic(
-            &mut self.fun_asr_nano,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
@@ -152,7 +152,7 @@ impl GenerateModel for FunAsrNanoGenerateModel {
         let data_vec = vec![speech.into(), fbank_mask.into()];
         let data = MultiModalData::new(data_vec);
         let stream = generate_stream_generic(
-            &mut self.fun_asr_nano,
+            &mut self.model,
             &self.tokenizer,
             input_ids,
             data,
