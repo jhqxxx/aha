@@ -39,6 +39,9 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 | **Reranker** | Qwen3-Reranker |
 
 ## Changelog
+### 2026-05-29
+- generate code refactored
+
 ### 2026-05-28
 - generate code refactoring progress 1/3
 
@@ -53,10 +56,6 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 
 ### 2026-05-09
 - merge pr/eastgold15/46, add aha-ui
-
-### 2026-04-25
-- VoxCPM update stream
-
 
 **[View full changelog](docs/changelog.md)** →
 

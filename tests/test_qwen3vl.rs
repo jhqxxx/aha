@@ -104,7 +104,7 @@ fn qwen3vl_generate() -> Result<()> {
 
 #[tokio::test]
 async fn qwen3vl_stream() -> Result<()> {
-    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda,ffmpeg qwen3vl_stream -r -- --nocapture
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda --test test_qwen3vl qwen3vl_stream -r -- --nocapture
 
     let save_dir =
         aha::utils::get_default_save_dir().ok_or(anyhow::anyhow!("Failed to get save dir"))?;
@@ -118,15 +118,15 @@ async fn qwen3vl_stream() -> Result<()> {
                 "role": "user",
                 "content": [
                     {
-                        "type": "video",
-                        "video_url": 
+                        "type": "image",
+                        "image_url": 
                         {
-                            "url": "./assets/video/video_test.mp4"
+                            "url": "file://./assets/img/ocr_test1.png"
                         }
-                    },              
+                    },             
                     {
                         "type": "text", 
-                        "text": "视频中发生了什么？"
+                        "text": "OCR"
                     }
                 ]
             }

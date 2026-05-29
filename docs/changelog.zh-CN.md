@@ -5,6 +5,9 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+### 2026-05-29
+- generate代码重构完成
+
 ### 2026-05-28
 - generate代码重构进度 1/3
 

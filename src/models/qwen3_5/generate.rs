@@ -2,11 +2,11 @@ use crate::{
     models::common::{
         MultiModalData,
         generate::{
-            GenerationContext, generate_generic, generate_generic_text, generate_stream_generic,
+            GenerationContext, GenerationDataProvider, PrepareData, generate_generic_text,
             generate_stream_generic_text,
         },
     },
-    params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::{Result, anyhow};
 use candle_core::{DType, Device, quantized::gguf_file};
@@ -16,7 +16,6 @@ use rocket::futures::Stream;
 use crate::{
     chat_template::ChatTemplate,
     models::{
-        GenerateModel,
         common::gguf::Gguf,
         qwen3_5::{config::Qwen3_5Config, model::Qwen3_5Model},
         qwen3vl::processor::Qwen3VLProcessor,
@@ -247,71 +246,25 @@ impl<'a> Qwen3_5GenerateModel<'a> {
     }
 }
 
-impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
-    fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let seed = mes.seed.unwrap_or(32768) as u64;
-        let temperature = mes.temperature.unwrap_or(0.4);
-        let top_p = mes.top_p.unwrap_or(0.95);
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        let (mes_text, pixel_values, image_grid_thw, pixel_values_video, video_grid_thw) =
-            if let Some(processor) = &self.pre_processor {
-                let input = processor.process_info(&mes, &mes_render)?;
-                (
-                    input.replace_text,
-                    input.pixel_values,
-                    input.image_grid_thw,
-                    input.pixel_values_video,
-                    input.video_grid_thw,
-                )
-            } else {
-                (mes_render, None, None, None, None)
-            };
-        let input_ids = self.tokenizer.text_encode(mes_text, &self.device)?;
-        let sample_len = mes.max_tokens.unwrap_or(1024);
-        let mut ctx = GenerationContext::new(
-            temperature.into(),
-            top_p.into(),
-            Some(20),
-            self.repeat_penalty.into(),
-            self.repeat_last_n.into(),
-            seed,
-            input_ids.dim(1)?,
-            sample_len,
-            self.device.clone(),
-        );
-        let data_vec = vec![
-            pixel_values,
-            image_grid_thw,
-            pixel_values_video,
-            video_grid_thw,
-        ];
-        let data = MultiModalData::new(data_vec);
-        generate_generic(
-            &mut self.model,
-            &self.tokenizer,
-            input_ids,
-            data,
-            &mut ctx,
-            &self.model_name,
-        )
+impl<'a> GenerationDataProvider for Qwen3_5GenerateModel<'a> {
+    fn get_temperature(&self, req_temp: Option<f32>) -> Option<f32> {
+        Some(req_temp.unwrap_or(0.4))
     }
 
-    fn generate_stream(
-        &mut self,
-        mes: ChatCompletionParameters,
-    ) -> Result<
-        Box<
-            dyn Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>
-                + Send
-                + Unpin
-                + '_,
-        >,
-    > {
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        let in_reasoning = mes_render.ends_with("<think>\n");
+    fn get_top_p(&self, req_top_p: Option<f32>) -> Option<f32> {
+        Some(req_top_p.unwrap_or(0.95))
+    }
+
+    fn get_top_k(&self, top_k: Option<usize>) -> Option<usize> {
+        Some(top_k.unwrap_or(40))
+    }
+
+    fn get_data(&self, mes: &ChatCompletionParameters) -> Result<PrepareData> {
+        let mes_render = self.chat_template.apply_chat_template(mes)?;
+        let in_reasoning = self.is_in_reasoning(&mes_render);
         let (mes_text, pixel_values, image_grid_thw, pixel_values_video, video_grid_thw) =
             if let Some(processor) = &self.pre_processor {
-                let input = processor.process_info(&mes, &mes_render)?;
+                let input = processor.process_info(mes, &mes_render)?;
                 (
                     input.replace_text,
                     input.pixel_values,
@@ -323,31 +276,19 @@ impl<'a> GenerateModel for Qwen3_5GenerateModel<'a> {
                 (mes_render, None, None, None, None)
             };
         let input_ids = self.tokenizer.text_encode(mes_text, &self.device)?;
-        let sample_len = mes.max_tokens.unwrap_or(1024);
         let data_vec = vec![
             pixel_values,
             image_grid_thw,
             pixel_values_video,
             video_grid_thw,
         ];
-        let data = MultiModalData::new(data_vec);
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let stream = generate_stream_generic(
-            &mut self.model,
-            &self.tokenizer,
-            input_ids,
-            data,
-            mes.temperature,
-            mes.top_p,
-            None,
-            self.repeat_penalty.into(),
-            self.repeat_last_n.into(),
-            seed,
-            sample_len,
+        let multi_model_data = MultiModalData::new(data_vec);
+        Ok(PrepareData {
             in_reasoning,
-            &self.device,
-            &self.model_name,
-        )?;
-        Ok(Box::new(Box::pin(stream)))
+            input_ids,
+            multi_model_data,
+        })
     }
 }
+
+crate::impl_generate_model!(Qwen3_5GenerateModel<'a>);
