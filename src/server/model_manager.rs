@@ -5,7 +5,6 @@ use tokio::sync::RwLock;
 use candle_core::{DType, Device};
 use tokenizers::Tokenizer;
 
-// 在 bin crate 中，需要通过 aha crate 访问 models
 use crate::models::{ModelInstance, common::model_mapping::WhichModel};
 
 /// 共享资源配置 - 所有模型共用

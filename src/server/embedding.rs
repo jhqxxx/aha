@@ -28,6 +28,15 @@ fn parse_embedding_input(input: &Value) -> anyhow::Result<Vec<String>> {
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/embeddings",
+    request_body = EmbeddingRequest,
+    responses(
+        (status = 200, description = "Embedding vectors for the input", body = EmbeddingResponse, content_type = "application/json"),
+    ),
+    tag = "embeddings",
+)]
 #[post("/embeddings", data = "<req>")]
 pub(crate) async fn embeddings(req: Json<EmbeddingRequest>) -> (Status, Json<Value>) {
     let texts = match parse_embedding_input(&req.input) {

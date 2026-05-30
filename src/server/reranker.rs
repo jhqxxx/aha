@@ -21,6 +21,15 @@ fn validate_rerank_input(query: &str, documents: &[String]) -> anyhow::Result<()
     Ok(())
 }
 
+#[utoipa::path(
+    post,
+    path = "/rerank",
+    request_body = RerankRequest,
+    responses(
+        (status = 200, description = "Reranked documents with relevance scores", body = RerankResponse, content_type = "application/json"),
+    ),
+    tag = "rerank",
+)]
 #[post("/rerank", data = "<req>")]
 pub(crate) async fn rerank(req: Json<RerankRequest>) -> (Status, Json<Value>) {
     let req = req.into_inner();

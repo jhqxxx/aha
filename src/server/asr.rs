@@ -29,6 +29,15 @@ use crate::server::api::MODEL;
 ///
 /// # Returns
 /// JSON response with format: `{"text": "transcribed text"}`
+#[utoipa::path(
+    post,
+    path = "/audio/transcriptions",
+    request_body(content = String, description = "Audio file to transcribe (multipart/form-data with file field)", content_type = "multipart/form-data"),
+    responses(
+        (status = 200, description = "Transcription result", body = TranscriptionResponse, content_type = "application/json"),
+    ),
+    tag = "audio",
+)]
 #[post("/transcriptions", data = "<req>")]
 pub(crate) async fn transcriptions(
     req: Form<TranscriptionRequest<'_>>,

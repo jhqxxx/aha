@@ -1,4 +1,5 @@
 use crate::server::api::set_server_port;
+use crate::server::openapi::ApiDoc;
 use crate::server::process::{cleanup_pid_file, create_pid_file};
 use rocket::data::{ByteUnit, Limits};
 use rocket::{Config, routes};
@@ -6,12 +7,15 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 // ASR (Automatic Speech Recognition) API module
 pub(crate) mod asr;
 pub(crate) mod embedding;
 pub mod api;
 pub mod model_manager;
+pub mod openapi;
 pub mod process;
 pub(crate) mod reranker;
 
@@ -80,6 +84,13 @@ pub async fn start_http_server(
     // Shutdown endpoint
     builder = builder.manage(shutdown_flag);
     builder = builder.mount("/", routes![api::shutdown]);
+
+    // Swagger UI / OpenAPI
+    builder = builder.mount(
+        "/",
+        SwaggerUi::new("/swagger-ui/{_:.*}")
+            .url("/api-docs/openapi.json", ApiDoc::openapi()),
+    );
 
     let _rocket = builder.launch().await?;
 

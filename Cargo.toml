@@ -46,6 +46,8 @@ ahash = "0.8.12"
 derive_builder = "0.20.2"
 kaldi-native-fbank = "0.1.0"
 esaxx-rs = "0.1.10"
+utoipa = { version = "5", features = ["rocket_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["rocket"] }
 
 
 [features]

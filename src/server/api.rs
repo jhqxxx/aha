@@ -1,10 +1,11 @@
 use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
+use utoipa::ToSchema;
 
 use crate::models::load_gguf_model;
 use crate::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
-use crate::params::chat::ChatCompletionParameters;
+use crate::params::chat::{ChatCompletionParameters, ChatCompletionResponse};
 use crate::utils::string_to_static_str;
 use anyhow::anyhow;
 use rocket::futures::StreamExt;
@@ -213,6 +214,15 @@ async fn get_model_by_name(model_name: &str) -> anyhow::Result<Arc<crate::server
     ))
 }
 
+#[utoipa::path(
+    post,
+    path = "/chat/completions",
+    request_body = ChatCompletionParameters,
+    responses(
+        (status = 200, description = "Chat completion response. When stream=true, returns SSE event stream with ChatCompletionChunkResponse chunks.", body = ChatCompletionResponse, content_type = "application/json"),
+    ),
+    tag = "chat",
+)]
 #[post("/completions", data = "<req>")]
 pub(crate) async fn chat(
     req: Json<ChatCompletionParameters>,
@@ -277,6 +287,12 @@ pub(crate) async fn chat(
 }
 
 /// 列出所有已加载的模型
+#[utoipa::path(
+    get,
+    path = "/admin/models/list",
+    responses((status = 200, description = "List of loaded models")),
+    tag = "admin",
+)]
 #[get("/models/list")]
 pub(crate) async fn list_loaded_models() -> (ContentType, String) {
     let manager = match MULTI_MODEL_MANAGER.get() {
@@ -295,6 +311,13 @@ pub(crate) async fn list_loaded_models() -> (ContentType, String) {
     (ContentType::JSON, response.to_string())
 }
 
+#[utoipa::path(
+    post,
+    path = "/images/remove_background",
+    request_body = ChatCompletionParameters,
+    responses((status = 200, description = "Background removal result")),
+    tag = "images",
+)]
 #[post("/remove_background", data = "<req>")]
 pub(crate) async fn remove_background(req: Json<ChatCompletionParameters>) -> (Status, String) {
     let response = {
@@ -315,6 +338,13 @@ pub(crate) async fn remove_background(req: Json<ChatCompletionParameters>) -> (S
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/audio/speech",
+    request_body = ChatCompletionParameters,
+    responses((status = 200, description = "Audio speech generated successfully")),
+    tag = "audio",
+)]
 #[post("/speech", data = "<req>")]
 pub(crate) async fn speech(req: Json<ChatCompletionParameters>) -> (Status, String) {
     let response = {
@@ -337,13 +367,22 @@ pub(crate) async fn speech(req: Json<ChatCompletionParameters>) -> (Status, Stri
 
 // Health check endpoint
 
-#[derive(Serialize)]
-pub(crate) struct HealthResponse {
-    status: String,
+#[derive(Serialize, ToSchema)]
+pub struct HealthResponse {
+    pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub error: Option<String>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Service is healthy", body = HealthResponse),
+        (status = 503, description = "Service is unhealthy"),
+    ),
+    tag = "models",
+)]
 #[get("/health")]
 pub(crate) async fn health() -> (Status, (ContentType, Json<HealthResponse>)) {
     if MODEL.get().is_some() {
@@ -387,6 +426,12 @@ struct ErrorResponse {
     error: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/models",
+    responses((status = 200, description = "List of available models")),
+    tag = "models",
+)]
 #[get("/models")]
 pub(crate) async fn models() -> (Status, (ContentType, Json<serde_json::Value>)) {
     if let Some(model_ref) = MODEL.get() {
@@ -506,6 +551,12 @@ struct ShutdownResponse {
     message: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/shutdown",
+    responses((status = 200, description = "Server is shutting down")),
+    tag = "admin",
+)]
 #[post("/shutdown")]
 pub(crate) async fn shutdown(
     shutdown_flag: &State<Arc<AtomicBool>>,
