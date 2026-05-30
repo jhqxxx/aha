@@ -356,8 +356,7 @@ curl http://127.0.0.1:10100/audio/speech \
       {
         "role": "user",
         "content": [
-          {"type": "text", "text": "Hello, this is AHA speaking."},
-          {"type": "audio", "audio_url": {"url": "https://package-release.coderbox.cn/aiway/test/other/%E5%93%AA%E5%90%92.wav"}}
+          {"type": "text", "text": "Hello, this is AHA speaking."}
         ]
       }
     ]
