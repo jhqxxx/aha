@@ -8,14 +8,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 // ASR (Automatic Speech Recognition) API module
-pub(crate) mod api;
 pub(crate) mod asr;
 pub(crate) mod embedding;
-pub(crate) mod model_manager;
-pub(crate) mod process;
+pub mod api;
+pub mod model_manager;
+pub mod process;
 pub(crate) mod reranker;
 
-pub(crate) async fn start_http_server(
+pub async fn start_http_server(
     address: String,
     port: u16,
     allow_remote_shutdown: bool,

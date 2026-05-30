@@ -2,10 +2,10 @@ use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use aha::models::load_gguf_model;
-use aha::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
-use aha::params::chat::ChatCompletionParameters;
-use aha::utils::string_to_static_str;
+use crate::models::load_gguf_model;
+use crate::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
+use crate::params::chat::ChatCompletionParameters;
+use crate::utils::string_to_static_str;
 use anyhow::anyhow;
 use rocket::futures::StreamExt;
 use rocket::serde::{Serialize, json::Json};
@@ -111,7 +111,7 @@ pub fn load_and_register_model(
     };
     
     tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(manager.register_model(model_id, entry))
+        tokio::runtime::Handle::current().block_on(manager.register_model(model_id.clone(), entry))
     });
     
     println!("Model {} registered successfully", model_id);
@@ -224,13 +224,8 @@ pub(crate) async fn chat(
         Some(false) => {
             let response = async {
                 let entry = get_model_by_name(&model_name).await?;
-                let mut guard = tokio::sync::RwLockWriteGuard::map(
-                    tokio::sync::RwLock::new(()).write().await,
-                    |_| &mut unsafe { std::ptr::read(&entry.instance as *const _) as &mut _ }
-                );
-                // 注意：这里需要改进，因为我们需要可变引用
-                // 暂时使用旧的单模型方式作为 fallback
-                drop(guard);
+                // TODO: use entry.instance directly once multi-model chat is fully implemented
+                drop(entry);
                 
                 let model_ref = MODEL
                     .get()

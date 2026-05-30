@@ -3,6 +3,7 @@ pub mod exec;
 pub mod models;
 pub mod params;
 pub mod position_embed;
+pub mod server;
 pub mod tokenizer;
 pub mod utils;
 

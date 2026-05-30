@@ -1,10 +1,7 @@
-use crate::{
-    cli::args::{CliArgs, DeleteArgs, DownloadArgs, ListArgs, RunArgs, ServArgs, ServListArgs},
-    server::{
-        api::init,
-        process::{ServiceStatus, find_aha_services},
-        start_http_server,
-    },
+use crate::cli::args::{CliArgs, DeleteArgs, DownloadArgs, ListArgs, RunArgs, ServArgs, ServListArgs};
+use aha::server::{
+    process::{ServiceStatus, find_aha_services},
+    start_http_server,
 };
 use aha::exec::*;
 use aha::{
@@ -84,19 +81,19 @@ pub(crate) async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
     } = args;
     
     // 初始化共享资源（只执行一次）
-    crate::server::api::init_shared_resources();
-    
+    aha::server::api::init_shared_resources();
+
     // 支持多模型加载
     if model.is_empty() {
         return Err(anyhow!("At least one model must be specified"));
     }
-    
+
     println!("Preparing {} model(s)...", model.len());
-    
+
     for (idx, model_type) in model.iter().enumerate() {
         let model_id = model_type.as_string();
         println!("[{}/{}] Preparing model: {}", idx + 1, model.len(), model_id);
-        
+
         let (model_path, gguf, mmproj) = if model_type.is_gguf() {
             if path_common.gguf_path.is_none() {
                 return Err(anyhow!("gguf model path is required"));
@@ -125,7 +122,7 @@ pub(crate) async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         };
 
         // 加载并注册模型
-        crate::server::api::load_and_register_model(
+        aha::server::api::load_and_register_model(
             *model_type,
             model_path,
             gguf,
@@ -155,19 +152,19 @@ pub(crate) async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
     } = args;
     
     // 初始化共享资源（只执行一次）
-    crate::server::api::init_shared_resources();
-    
+    aha::server::api::init_shared_resources();
+
     // 支持多模型加载
     if model.is_empty() {
         return Err(anyhow!("At least one model must be specified"));
     }
-    
+
     println!("Loading {} model(s)...", model.len());
-    
+
     for (idx, model_type) in model.iter().enumerate() {
         let model_id = model_type.as_string();
         println!("[{}/{}] Loading model: {}", idx + 1, model.len(), model_id);
-        
+
         let (model_path, gguf, mmproj) = if model_type.is_gguf() {
             if path_common.gguf_path.is_none() {
                 return Err(anyhow!("gguf model path is required"));
@@ -194,7 +191,7 @@ pub(crate) async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
         };
 
         // 加载并注册模型
-        crate::server::api::load_and_register_model(
+        aha::server::api::load_and_register_model(
             *model_type,
             model_path,
             gguf,
