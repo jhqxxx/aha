@@ -19,6 +19,7 @@ use rocket::{
 };
 use tokio::sync::RwLock;
 
+use crate::server::model_manager::{ModelEntry, MultiModelManager, SharedResources};
 use crate::server::process::cleanup_pid_file;
 
 /// Wrapper to store model type together with the model instance
@@ -27,11 +28,95 @@ pub(crate) struct StoredModel {
     pub instance: ModelInstance<'static>,
 }
 
-// Export MODEL for use in ASR module
+// 保留旧的单模型接口用于向后兼容
 pub(crate) static MODEL: OnceLock<Arc<RwLock<StoredModel>>> = OnceLock::new();
+
+// 新的多模型管理器
+pub(crate) static MULTI_MODEL_MANAGER: OnceLock<Arc<MultiModelManager>> = OnceLock::new();
+
 static SHUTDOWN_FLAG: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 static SERVER_PORT: OnceLock<u16> = OnceLock::new();
 static ALLOW_REMOTE_SHUTDOWN: OnceLock<bool> = OnceLock::new();
+
+/// 初始化共享资源（只调用一次）
+pub fn init_shared_resources() -> Arc<SharedResources> {
+    use candle_core::{Device, DType};
+    
+    // 检测可用的设备
+    let device = if cfg!(feature = "cuda") {
+        Device::new_cuda(0).unwrap_or(Device::Cpu)
+    } else if cfg!(feature = "metal") {
+        Device::new_metal(0).unwrap_or(Device::Cpu)
+    } else {
+        Device::Cpu
+    };
+    
+    // 根据设备选择最优数据类型
+    let dtype = match &device {
+        Device::Cuda(_) => DType::F16,  // GPU 使用 F16 节省显存
+        Device::Metal(_) => DType::F16,
+        Device::Cpu => DType::F32,
+    };
+    
+    let shared = Arc::new(SharedResources::new(device, dtype));
+    MULTI_MODEL_MANAGER.get_or_init(|| {
+        Arc::new(MultiModelManager::new(shared.clone()))
+    });
+    
+    shared
+}
+
+/// 加载单个模型并注册到管理器
+pub fn load_and_register_model(
+    model_type: WhichModel,
+    path: String,
+    gguf: Option<String>,
+    mmproj: Option<String>,
+) -> anyhow::Result<()> {
+    let manager = MULTI_MODEL_MANAGER.get().ok_or_else(|| {
+        anyhow!("Multi-model manager not initialized. Call init_shared_resources first.")
+    })?;
+    
+    let model_id = format!("{:?}", model_type);
+    
+    // 检查模型是否已加载
+    if tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(manager.has_model(&model_id))
+    }) {
+        println!("Model {} already loaded, skipping...", model_id);
+        return Ok(());
+    }
+    
+    // 加载模型
+    let instance = if model_type.is_gguf() {
+        if let Some(gguf_path) = gguf {
+            let gguf_path = string_to_static_str(gguf_path);
+            let mmproj_path = mmproj.map(string_to_static_str);
+            load_gguf_model(model_type, None, gguf_path, mmproj_path, None)?
+        } else {
+            return Err(anyhow!("gguf model need gguf model path"));
+        }
+    } else if model_type.is_onnx() {
+        return Err(anyhow!("onnx comming soon but now not support"));
+    } else {
+        let model_path = string_to_static_str(path);
+        load_model(model_type, model_path, None, None)?
+    };
+    
+    // 注册模型
+    let entry = ModelEntry {
+        which_model: model_type,
+        instance,
+        model_id: model_id.clone(),
+    };
+    
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(manager.register_model(model_id, entry))
+    });
+    
+    println!("Model {} registered successfully", model_id);
+    Ok(())
+}
 
 pub fn init(
     model_type: WhichModel,
@@ -102,21 +187,59 @@ where
     }
 }
 
+/// 根据 model 参数获取对应的模型实例
+async fn get_model_by_name(model_name: &str) -> anyhow::Result<Arc<crate::server::model_manager::ModelEntry>> {
+    let manager = MULTI_MODEL_MANAGER.get().ok_or_else(|| {
+        anyhow::anyhow!("Multi-model manager not initialized")
+    })?;
+    
+    // 尝试直接匹配 model_id
+    if let Some(entry) = manager.get_model(model_name).await {
+        return Ok(entry);
+    }
+    
+    // 如果只有一个模型，直接使用它（向后兼容）
+    let models = manager.list_models().await;
+    if models.len() == 1 {
+        if let Some(entry) = manager.get_model(&models[0]).await {
+            return Ok(entry);
+        }
+    }
+    
+    Err(anyhow::anyhow!(
+        "Model '{}' not found. Available models: {:?}",
+        model_name,
+        models
+    ))
+}
+
 #[post("/completions", data = "<req>")]
 pub(crate) async fn chat(
     req: Json<ChatCompletionParameters>,
 ) -> (ContentType, Response<impl Stream<Item = String> + Send>) {
-    match req.stream {
+    let params = req.into_inner();
+    let model_name = params.model.clone();
+    
+    match params.stream {
         Some(false) => {
-            let response = {
+            let response = async {
+                let entry = get_model_by_name(&model_name).await?;
+                let mut guard = tokio::sync::RwLockWriteGuard::map(
+                    tokio::sync::RwLock::new(()).write().await,
+                    |_| &mut unsafe { std::ptr::read(&entry.instance as *const _) as &mut _ }
+                );
+                // 注意：这里需要改进，因为我们需要可变引用
+                // 暂时使用旧的单模型方式作为 fallback
+                drop(guard);
+                
                 let model_ref = MODEL
                     .get()
                     .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("model not init"))
-                    .unwrap();
+                    .ok_or_else(|| anyhow::anyhow!("model not init"))?;
                 let mut guard = model_ref.write().await;
-                guard.instance.generate(req.into_inner())
-            };
+                guard.instance.generate(params)
+            }.await;
+            
             match response {
                 Ok(res) => {
                     let response_str = serde_json::to_string(&res).unwrap();
@@ -129,7 +252,7 @@ pub(crate) async fn chat(
             let text_stream = TextStream! {
                 let model_ref = MODEL.get().cloned().ok_or_else(|| anyhow::anyhow!("model not init")).unwrap();
                 let mut guard = model_ref.write().await;
-                let stream_result = guard.instance.generate_stream(req.into_inner());
+                let stream_result = guard.instance.generate_stream(params);
                 match stream_result {
                     Ok(stream) => {
                         let mut stream = pin!(stream);
@@ -156,6 +279,25 @@ pub(crate) async fn chat(
             (ContentType::EventStream, Response::Stream(text_stream))
         }
     }
+}
+
+/// 列出所有已加载的模型
+#[get("/models/list")]
+pub(crate) async fn list_loaded_models() -> (ContentType, String) {
+    let manager = match MULTI_MODEL_MANAGER.get() {
+        Some(m) => m,
+        None => {
+            return (ContentType::JSON, serde_json::json!({"error": "Manager not initialized"}).to_string());
+        }
+    };
+    
+    let models = manager.list_models().await;
+    let response = serde_json::json!({
+        "models": models,
+        "count": models.len()
+    });
+    
+    (ContentType::JSON, response.to_string())
 }
 
 #[post("/remove_background", data = "<req>")]

@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub(crate) mod api;
 pub(crate) mod asr;
 pub(crate) mod embedding;
+pub(crate) mod model_manager;
 pub(crate) mod process;
 pub(crate) mod reranker;
 
@@ -74,6 +75,8 @@ pub(crate) async fn start_http_server(
     builder = builder.mount("/", routes![api::health, api::models]);
     // OpenAI-compatible model listing endpoint: /v1/models
     builder = builder.mount("/v1", routes![api::models]);
+    // 多模型管理端点
+    builder = builder.mount("/admin", routes![api::list_loaded_models]);
     // Shutdown endpoint
     builder = builder.manage(shutdown_flag);
     builder = builder.mount("/", routes![api::shutdown]);

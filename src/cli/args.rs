@@ -68,9 +68,9 @@ pub(crate) struct PathCommonArgs {
 /// Arguments for the 'cli' subcommand (download + serve)
 #[derive(Args, Debug)]
 pub(crate) struct CliArgs {
-    /// Model type (required)
+    /// Model type (required) - can specify multiple times for multi-model mode
     #[arg(short, long)]
-    pub model: WhichModel,
+    pub model: Vec<WhichModel>,
 
     #[command(flatten)]
     pub server_common: ServerCommonArgs,
@@ -90,9 +90,9 @@ pub(crate) struct CliArgs {
 /// Arguments for the 'serv start' subcommand
 #[derive(Args, Debug)]
 pub(crate) struct ServArgs {
-    /// Model type (required)
+    /// Model type (required) - can specify multiple times for multi-model mode
     #[arg(short, long)]
-    pub model: WhichModel,
+    pub model: Vec<WhichModel>,
 
     #[command(flatten)]
     pub server_common: ServerCommonArgs,
