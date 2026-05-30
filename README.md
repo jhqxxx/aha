@@ -12,6 +12,9 @@
   <a href="https://github.com/jhqxxx/aha/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/jhqxxx/aha" alt="GitHub License">
   </a>
+  <a href="https://github.com/jhqxxx/aha/actions">
+    <img src="https://img.shields.io/badge/OpenAPI-Swagger%20UI-brightgreen" alt="OpenAPI">
+  </a>
 </p>
 
 <p align="center">
@@ -23,6 +26,8 @@
 **Lightweight AI Inference Engine — All-in-one Solution for Text, Vision, Speech, and OCR**
 
 aha is a high-performance, cross-platform AI inference engine built with Rust and the Candle framework. It brings state-of-the-art AI models to your local machine—no API keys, no cloud dependencies, just pure, fast AI running directly on your hardware.
+
+> **✨ New: Multi-Model Parallel & OpenAPI Documentation** — Run multiple models simultaneously and explore the API via built-in Swagger UI!
 
 
 ### Supported Models
@@ -40,15 +45,22 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 
 
 ## Why aha?
-- **🚀 High-Performance Inference** - Powered by Candle framework for efficient tensor computation and model inference
+- **🚀 High-Performance Inference** — Powered by Candle framework for efficient tensor computation and model inference
 - **🔧 Unified Interface** — One tool for text, vision, speech, and OCR
 - **📦 Local-First** — All processing runs locally, no data leaves your machine
 - **🎯 Cross-Platform** — Works on Linux, macOS, and Windows
-- **⚡ GPU Accelerated** — Optional CUDA support for faster inference
+- **⚡ GPU Accelerated** — Optional CUDA/Metal support for faster inference
 - **🛡️ Memory Safe** — Built with Rust for reliability
-- **🧠 Attention Optimization** - Optional Flash Attention support for optimized long sequence processing
+- **✨ Multi-Model Parallel** — Load and run multiple models simultaneously with shared resources
+- **📖 OpenAPI & Swagger UI** — Auto-generated API docs, explore and test endpoints interactively
+- **🧠 Attention Optimization** — Optional Flash Attention support for optimized long sequence processing
 
 ## Changelog
+### 2026-05-31
+- OpenAPI 文档集成: 基于 utoipa + Swagger UI 自动生成 API 文档
+- Multi-model parallel: 支持同时加载和运行多个模型，共享 Device、Tokenizer 缓存
+- aha-ui 更新: 支持多模型选择启动、显示 OpenAPI URL 和已加载模型列表
+
 ### 2026-05-09
 - merge pr/eastgold15/46, add aha-ui
 
@@ -124,7 +136,38 @@ aha run -m all-minilm-l6-v2 -i "Rust embedding test" --weight-path D:\model_down
 
 # Start service only (model already downloaded)
 aha serv -m Qwen/Qwen3-ASR-0.6B -p 10100
+
+# ✨ Start multi-model service (load two models at once)
+aha serv -m PaddleOCR-VL1.5 -m Qwen3-0.6B -p 10100
 ```
+
+### ✨ Multi-Model Parallel
+
+aha supports loading and running **multiple models simultaneously** — share the same GPU device and tokenizer cache across all models.
+
+```bash
+# Start ASR + OCR + LLM at the same time
+aha serv -m GLM-ASR-Nano -m PaddleOCR-VL1.5 -m Qwen3-0.6B -p 10100
+```
+
+Each model is available via the same API endpoint, specify by the `model` field:
+
+```bash
+# Use different models with the same API
+curl http://localhost:10100/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "GLMASRNano2512",
+  "messages": [{"role": "user", "content": "Transcribe this audio"}]
+}'
+```
+
+### 📖 OpenAPI Documentation (Swagger UI)
+
+When aha server is running, explore and test all API endpoints interactively:
+
+- **Swagger UI**: [http://localhost:10100/swagger-ui/](http://localhost:10100/swagger-ui/)
+- **OpenAPI JSON**: [http://localhost:10100/api-docs/openapi.json](http://localhost:10100/api-docs/openapi.json)
+
+Swagger UI provides a complete interactive API explorer with request/response schemas, making integration effortless.
 
 ### Chat
 
@@ -145,65 +188,43 @@ curl http://localhost:10100/v1/chat/completions \
 '
 ```
 
-### aha-ui
+### 🖥️ aha-ui (Tauri Desktop App)
+
+aha ships with a modern Tauri desktop UI for visual model management:
+
 ```bash
 cd aha-ui
-``` 
-
-#### use npm
-##### install npm
-refer to https://nodejs.org/en/download
-```bash
-# Download and install nvm:
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-# in lieu of restarting the shell
-\. "$HOME/.nvm/nvm.sh"
-# Download and install Node.js:
-nvm install 24
-# Verify the Node.js version:
-node -v # Should print "v24.15.0".
-# Verify npm version:
-npm -v # Should print "11.12.1".
 ```
 
-##### npm run aha-ui
+**Using npm:**
 ```bash
-# Make sure in the aha-ui directory
-# and make sure that aha has been compiled
+# Install Node.js via nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+\. "$HOME/.nvm/nvm.sh"
+nvm install 24
+
+# Run in dev mode
 npm install
 npm run tauri dev
 ```
 
-##### npm build & install & run
+**Using pnpm (recommended):**
 ```bash
-npm run tauri build
-# target in
-# -- aha-ui/src-tauri/target/release/bundle/deb/aha-ui_0.1.0_amd64.deb
-# -- aha-ui/src-tauri/target/release/bundle/rpm/aha-ui-0.1.0-1.x86_64.rpm
-# -- aha-ui/src-tauri/target/release/bundle/appimage/aha-ui_0.1.0_amd64.AppImage
-```
-
-#### use pnpm
-##### install pnpm
-```bash
+# Install pnpm
 curl -fsSL https://get.pnpm.io/install.sh | sh -
-```
 
-##### pnpm run aha-ui
-```bash
-# Make sure in the aha-ui directory
-# and make sure that aha has been compiled
+# Run in dev mode
 pnpm run tauri dev
+
+# Build for production
+pnpm run tauri build
+# Targets in:
+# aha-ui/src-tauri/target/release/bundle/deb/aha-ui_0.1.0_amd64.deb
+# aha-ui/src-tauri/target/release/bundle/rpm/aha-ui-0.1.0-1.x86_64.rpm
+# aha-ui/src-tauri/target/release/bundle/appimage/aha-ui_0.1.0_amd64.AppImage
 ```
 
-##### pnpm build & install & run
-```bash
-pnpm run tauri build
-# target in
-# -- aha-ui/src-tauri/target/release/bundle/deb/aha-ui_0.1.0_amd64.deb
-# -- aha-ui/src-tauri/target/release/bundle/rpm/aha-ui-0.1.0-1.x86_64.rpm
-# -- aha-ui/src-tauri/target/release/bundle/appimage/aha-ui_0.1.0_amd64.AppImage
-```
+> **Note:** Make sure `aha` is compiled first, then run `aha-ui` from the `aha-ui` directory.
 
 ## Documentation
 
@@ -213,10 +234,29 @@ pnpm run tauri build
 | [Installation](docs/installation.md) | Detailed installation guide |
 | [CLI Reference](docs/cli.md) | Command-line interface |
 | [API Documentation](docs/api.md) | Library & REST API |
+| [Multi-Model Guide](docs/multi-model-guide.md) | Multi-model parallel setup |
 | [Supported Models](docs/supported-models.md) | Available AI models |
 | [Concepts](docs/concepts.md) | Architecture & design |
 | [Development](docs/development.md) | Contributing guide |
 | [Changelog](docs/changelog.md) | Version history |
+
+## API Endpoints
+
+When the server is running, the following endpoints are available (all OpenAI-compatible where applicable):
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | Chat completion (streaming supported) |
+| `/v1/audio/transcriptions` | POST | ASR / Speech-to-Text |
+| `/v1/embeddings` | POST | Text embeddings |
+| `/v1/rerank` | POST | Document reranking |
+| `/v1/models` | GET | List available models |
+| `/audio/speech` | POST | TTS / Text-to-Speech |
+| `/images/remove_background` | POST | Image background removal |
+| `/admin/models/list` | GET | List loaded models (multi-model) |
+| `/health` | GET | Health check |
+| `/swagger-ui/` | GET | Interactive API documentation (Swagger UI) |
+| `/api-docs/openapi.json` | GET | OpenAPI specification (JSON) |
 
 
 ## Development
@@ -262,11 +302,14 @@ fn main() -> Result<()> {
 ## Features
 
 - High-performance inference via Candle framework
-- Multi-modal model support (vision, language, speech)
-- Clean, easy-to-use API design
-- Minimal dependencies, compact binaries
+- Multi-modal model support (vision, language, speech, OCR, ASR, TTS, embedding, reranking)
+- **Multi-model parallel**: Load and run multiple models simultaneously with shared resources
+- **Auto-generated OpenAPI docs**: Interactive Swagger UI for all endpoints
+- Clean, easy-to-use API design (OpenAI-compatible)
+- Minimal dependencies, compact binaries (~50MB)
 - Flash Attention support for long sequences
 - FFmpeg support for multimedia processing
+- Tauri desktop UI for visual model management
 
 ## License
 
@@ -274,7 +317,8 @@ Apache-2.0 &mdash; See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- [Candle](https://github.com/huggingface/candle) - Excellent Rust ML framework
+- [Candle](https://github.com/huggingface/candle) — Excellent Rust ML framework
+- [utoipa](https://github.com/juhaku/utoipa) — Auto-generated OpenAPI documentation
 - All model authors and contributors
 
 ## Wechat & Donate
