@@ -18,6 +18,10 @@
   <a href="README.zh-CN.md">简体中文</a> | <strong>English</strong>
 </p>
 
+<p align="center">
+  <strong>Official Website:</strong> <a href="https://s5dgj23f.pub.makeit.coderbox.cn/">https://s5dgj23f.pub.makeit.coderbox.cn/</a>
+</p>
+
 # aha
 
 **Lightweight AI Inference Engine — All-in-one Solution for Text, Vision, Speech, and OCR**

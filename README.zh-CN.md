@@ -18,6 +18,10 @@
   <a href="README.md">English</a> | <strong>简体中文</strong>
 </p>
 
+<p align="center">
+  <strong>官方网站：</strong> <a href="https://s5dgj23f.pub.makeit.coderbox.cn/">https://s5dgj23f.pub.makeit.coderbox.cn/</a>
+</p>
+
 # aha
 
 **轻量 AI 推理引擎 —— 文本、视觉、语音与 OCR 一站式解决方案**

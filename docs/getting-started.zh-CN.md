@@ -180,8 +180,7 @@ curl http://127.0.0.1:10100/audio/speech \
       {
         "role": "user",
         "content": [
-          {"type": "text", "text": "你好，这是 AHA 在说话。"},
-          {"type": "audio", "audio_url": {"url": "https://package-release.coderbox.cn/aiway/test/other/%E5%93%AA%E5%90%92.wav"}}
+          {"type": "text", "text": "你好，这是 AHA 在说话。"}
         ]
       }
     ]
