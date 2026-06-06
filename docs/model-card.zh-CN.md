@@ -3,7 +3,7 @@
 #### 可选提示词: 
 "OCR:" | "Table Recognition:" | "Formula Recognition:" | "Chart Recognition:"
 
-## PaddleOCR-VL1.5
+## PaddleOCR-VL1.5/1.6
 #### 可选提示词: 
 "OCR:" | "Table Recognition:" | "Formula Recognition:" | "Chart Recognition:" | "Spotting:" | "Seal Recognition:"
 

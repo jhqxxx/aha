@@ -72,6 +72,8 @@ pub enum WhichModel {
     PaddleOCRVL,
     #[value(name = "PaddlePaddle/PaddleOCR-VL-1.5")]
     PaddleOCRVL1_5,
+    #[value(name = "PaddlePaddle/PaddleOCR-VL-1.6")]
+    PaddleOCRVL1_6,
     #[value(name = "AI-ModelScope/RMBG-2.0")]
     RMBG2_0,
     #[value(name = "OpenBMB/VoxCPM-0.5B")]
@@ -165,7 +167,8 @@ impl WhichModel {
             | WhichModel::HunyuanOCR
             | WhichModel::GlmOCR
             | WhichModel::PaddleOCRVL
-            | WhichModel::PaddleOCRVL1_5 => "ocr",
+            | WhichModel::PaddleOCRVL1_5
+            | WhichModel::PaddleOCRVL1_6 => "ocr",
             // ASR models
             WhichModel::Qwen3ASR0_6B
             | WhichModel::Qwen3ASR1_7B
