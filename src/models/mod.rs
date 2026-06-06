@@ -284,9 +284,7 @@ pub fn load_model<'a>(
             let model = HunyuanOCRGenerateModel::init(path, device, dtype)?;
             ModelInstance::HunyuanOCR(model)
         }
-        WhichModel::PaddleOCRVL 
-        | WhichModel::PaddleOCRVL1_5
-        | WhichModel::PaddleOCRVL1_6 => {
+        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 | WhichModel::PaddleOCRVL1_6 => {
             let model = PaddleOCRVLGenerateModel::init(path, device, dtype)?;
             ModelInstance::PaddleOCRVL(Box::new(model))
         }

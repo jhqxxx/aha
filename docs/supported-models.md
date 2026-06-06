@@ -40,7 +40,8 @@ deepseek-ai/DeepSeek-OCR                 deepseek-ai          ocr          ✔
 deepseek-ai/DeepSeek-OCR-2               deepseek-ai          ocr                  
 Tencent-Hunyuan/HunyuanOCR               Tencent-Hunyuan      ocr          ✔       
 PaddlePaddle/PaddleOCR-VL                PaddlePaddle         ocr          ✔       
-PaddlePaddle/PaddleOCR-VL-1.5            PaddlePaddle         ocr                  
+PaddlePaddle/PaddleOCR-VL-1.5            PaddlePaddle         ocr
+PaddlePaddle/PaddleOCR-VL-1.6            PaddlePaddle         ocr          ✔                  
 AI-ModelScope/RMBG-2.0                   AI-ModelScope        image        ✔       
 OpenBMB/VoxCPM-0.5B                      OpenBMB              tts          ✔       
 OpenBMB/VoxCPM1.5                        OpenBMB              tts          ✔       
@@ -88,7 +89,7 @@ ZhipuAI/GLM-OCR                          ZhipuAI              ocr          ✔
 
 | Model | Languages | Model Id | License |
 |-------|-----------|--------|---------|
-| **PaddleOCR-VL** | Multi | PaddlePaddle/PaddleOCR-VL <br> PaddlePaddle/PaddleOCR-VL-1.5 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **PaddleOCR-VL** | Multi | PaddlePaddle/PaddleOCR-VL <br> PaddlePaddle/PaddleOCR-VL-1.5 <br> PaddlePaddle/PaddleOCR-VL-1.6 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Hunyuan-OCR** | Chinese | Tencent-Hunyuan/HunyuanOCR | [Tencent Hunyuan Community License](https://huggingface.co/tencent/HunyuanOCR/blob/main/LICENSE) |
 | **DeepSeek-OCR** | Multi | deepseek-ai/DeepSeek-OCR <br> deepseek-ai/DeepSeek-OCR-2 | [MIT](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/mit.md) |
 | **GLM-OCR** | 8 | ZhipuAI/GLM-OCR | [MIT](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/mit.md) |

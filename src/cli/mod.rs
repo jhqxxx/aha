@@ -298,9 +298,7 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::HunyuanOCR => {
             hunyuan_ocr::HunyuanORExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::PaddleOCRVL 
-        | WhichModel::PaddleOCRVL1_5
-        | WhichModel::PaddleOCRVL1_6 => {
+        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 | WhichModel::PaddleOCRVL1_6 => {
             paddleocr_vl::PaddleOVLExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::RMBG2_0 => {
