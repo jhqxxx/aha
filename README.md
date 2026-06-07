@@ -35,7 +35,7 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 |----------|--------|
 | **Text** | Qwen3, MiniCPM4, MiniCPM5, LFM2, LFM2.5 |
 | **Vision** | Qwen2.5-VL, Qwen3-VL, Qwen3.5, <br> LFM2.5-VL, LFM2-VL |
-| **OCR** | DeepSeek-OCR, DeepSeek-OCR-2 , PaddleOCR-VL <br> PaddleOCR-VL1.5, PaddleOCR-VL1.5, Hunyuan-OCR <br> GLM-OCR |
+| **OCR** | DeepSeek-OCR, DeepSeek-OCR-2 , PaddleOCR-VL <br> PaddleOCR-VL1.5, PaddleOCR-VL1.6, Hunyuan-OCR <br> GLM-OCR |
 | **ASR** | GLM-ASR-Nano, Fun-ASR-Nano, Qwen3-ASR |
 | **TTS** | VoxCPM, VoxCPM1.5, VoxCPM2, Moss-TTS-Nano |
 | **Image** | RMBG-2.0 (background removal) |
