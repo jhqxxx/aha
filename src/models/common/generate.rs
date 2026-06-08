@@ -1,51 +1,22 @@
 use anyhow::Result;
 use candle_core::{DType, Device, Tensor};
-use candle_transformers::generation::{LogitsProcessor, Sampling};
+use candle_transformers::generation::LogitsProcessor;
 use rocket::async_stream::stream;
 use rocket::futures::Stream;
 use std::time::Instant;
 
 use crate::{
-    models::common::{InferenceModel, MultiModalData},
-    params::chat::{ChatCompletionChunkResponse, ChatCompletionResponse},
+    models::common::{
+        InferenceModel, MultiModalData,
+        sample::{get_logit_processor, use_repeat_penalty},
+    },
+    params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
     tokenizer::TokenizerModel,
     utils::response_utils::{
         build_chunk_response_with_reasoning, build_chunk_response_with_usage,
         build_completion_chunk_response, build_completion_response_with_time,
     },
 };
-pub fn get_logit_processor(
-    temperature: Option<f32>,
-    top_p: Option<f32>,
-    top_k: Option<usize>,
-    seed: u64,
-) -> LogitsProcessor {
-    let temperature = temperature.and_then(|v| if v < 1e-7 { None } else { Some(v) });
-    match top_k {
-        None => LogitsProcessor::new(
-            seed,
-            temperature.map(|temp| temp as f64),
-            top_p.map(|tp| tp as f64),
-        ),
-        Some(k) => {
-            let sampling = match temperature {
-                None => Sampling::ArgMax,
-                Some(temperature) => match top_p {
-                    None => Sampling::TopK {
-                        k,
-                        temperature: temperature as f64,
-                    },
-                    Some(p) => Sampling::TopKThenTopP {
-                        k,
-                        p: p as f64,
-                        temperature: temperature as f64,
-                    },
-                },
-            };
-            LogitsProcessor::from_sampling(seed, sampling)
-        }
-    }
-}
 
 pub struct GenerationContext {
     pub logit_processor: LogitsProcessor,
@@ -103,16 +74,12 @@ fn sample_and_push(
 ) -> Result<u32> {
     let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
     // 重复惩罚
-    let logits = if ctx.repeat_penalty == 1. || ctx.repeat_last_n == 0 {
-        logits
-    } else {
-        let start_at = generated.len().saturating_sub(ctx.repeat_last_n);
-        candle_transformers::utils::apply_repeat_penalty(
-            &logits,
-            ctx.repeat_penalty,
-            &generated[start_at..],
-        )?
-    };
+    let logits = use_repeat_penalty(
+        ctx.repeat_penalty,
+        Some(ctx.repeat_last_n),
+        &logits,
+        generated,
+    )?;
     let token = ctx.logit_processor.sample(&logits)?;
     generated.push(token);
     Ok(token)
@@ -398,4 +365,117 @@ pub fn generate_stream_generic<M: InferenceModel>(
         model.clear_cache();
     };
     Ok(stream)
+}
+
+pub struct PrepareData {
+    pub in_reasoning: bool,
+    pub input_ids: Tensor,
+    pub multi_model_data: MultiModalData,
+}
+
+pub trait GenerationDataProvider {
+    fn get_temperature(&self, req_temp: Option<f32>) -> Option<f32> {
+        req_temp
+    }
+
+    fn get_top_p(&self, req_top_p: Option<f32>) -> Option<f32> {
+        req_top_p
+    }
+
+    fn get_top_k(&self, top_k: Option<usize>) -> Option<usize> {
+        top_k
+    }
+
+    fn is_in_reasoning(&self, text: &str) -> bool {
+        text.ends_with("<think>\n")
+    }
+
+    fn get_multi_model_data(&self) -> MultiModalData {
+        MultiModalData::new(vec![])
+    }
+
+    fn get_data(&self, mes: &ChatCompletionParameters) -> Result<PrepareData>;
+}
+
+#[macro_export]
+macro_rules! impl_generate_model {
+    ($struct_name: ty) => {
+        impl<'a> $crate::models::GenerateModel for $struct_name {
+            fn generate(
+                &mut self,
+                mes: $crate::params::chat::ChatCompletionParameters,
+            ) -> anyhow::Result<$crate::params::chat::ChatCompletionResponse> {
+                let seed = mes.seed.unwrap_or(299792458) as u64;
+                let sample_len = mes.max_tokens.unwrap_or(1024);
+                let temperature = self.get_temperature(mes.temperature);
+                let top_p = self.get_top_p(mes.top_p);
+                let top_k = self.get_top_k(mes.top_k);
+                let prepare_data = self.get_data(&mes)?;
+                let input_ids = prepare_data.input_ids;
+                let data = prepare_data.multi_model_data;
+                let mut ctx = $crate::models::common::generate::GenerationContext::new(
+                    temperature,
+                    top_p,
+                    top_k,
+                    mes.repeat_penalty,
+                    mes.repeat_last_n,
+                    seed,
+                    input_ids.dim(1)?,
+                    sample_len,
+                    self.device.clone(),
+                );
+
+                $crate::models::common::generate::generate_generic(
+                    &mut self.model,
+                    &self.tokenizer,
+                    input_ids,
+                    data,
+                    &mut ctx,
+                    &self.model_name,
+                )
+            }
+
+            fn generate_stream(
+                &mut self,
+                mes: $crate::params::chat::ChatCompletionParameters,
+            ) -> anyhow::Result<
+                Box<
+                    dyn rocket::futures::Stream<
+                            Item = anyhow::Result<
+                                $crate::params::chat::ChatCompletionChunkResponse,
+                            >,
+                        > + Send
+                        + Unpin
+                        + '_,
+                >,
+            > {
+                let seed = mes.seed.unwrap_or(299792458) as u64;
+                let prepare_data = self.get_data(&mes)?;
+                let input_ids = prepare_data.input_ids;
+                let data = prepare_data.multi_model_data;
+                let in_reasoning = prepare_data.in_reasoning;
+                let sample_len = mes.max_tokens.unwrap_or(1024);
+                let temperature = self.get_temperature(mes.temperature);
+                let top_p = self.get_top_p(mes.top_p);
+                let top_k = self.get_top_k(mes.top_k);
+                let stream = $crate::models::common::generate::generate_stream_generic(
+                    &mut self.model,
+                    &self.tokenizer,
+                    input_ids,
+                    data,
+                    temperature,
+                    top_p,
+                    top_k,
+                    mes.repeat_penalty,
+                    mes.repeat_last_n,
+                    seed,
+                    sample_len,
+                    in_reasoning,
+                    &self.device,
+                    &self.model_name,
+                )?;
+                Ok(Box::new(Box::pin(stream)))
+            }
+        }
+    };
 }

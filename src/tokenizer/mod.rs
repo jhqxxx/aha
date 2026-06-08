@@ -120,15 +120,22 @@ impl TokenizerModel {
     }
 }
 
+pub fn sentencepiece_encode_vec(
+    text: &str,
+    tokenizer: &SentencePieceProcessor,
+) -> Result<Vec<u32>> {
+    let tokens = tokenizer
+        .encode(text)
+        .map_err(|e| anyhow!(format!("tokenizer encode error:{}", e)))?;
+    Ok(tokens.iter().map(|p| p.id).collect::<Vec<u32>>())
+}
+
 pub fn sentencepiece_encode(
     text: &str,
     tokenizer: &SentencePieceProcessor,
     device: &Device,
 ) -> Result<Tensor> {
-    let tokens = tokenizer
-        .encode(text)
-        .map_err(|e| anyhow!(format!("tokenizer encode error:{}", e)))?;
-    let token_ids = tokens.iter().map(|p| p.id).collect::<Vec<u32>>();
+    let token_ids = sentencepiece_encode_vec(text, tokenizer)?;
     let tokens_t = Tensor::new(token_ids, device)?.unsqueeze(0)?;
     Ok(tokens_t)
 }

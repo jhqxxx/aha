@@ -51,7 +51,7 @@ impl ExecModel for VoxCPMExec {
         };
 
         let sample_rate = voxcpm_generate.sample_rate();
-        crate::utils::audio_utils::save_wav(&audio, &output_path, sample_rate as u32)?;
+        crate::utils::audio_utils::save_wav_mono(&audio, &output_path, sample_rate as u32)?;
 
         println!("Output saved to: {}", output_path);
 

@@ -191,7 +191,7 @@ impl FireRedVad {
             return Err(anyhow!("only stream model support detect_frame"));
         }
         let audio_frame =
-            resample_audio_from_bytes(audio_bytes, &self.device, Some(16000))?.squeeze(0)?;
+            resample_audio_from_bytes(audio_bytes, &self.device, Some(16000), 1)?.squeeze(0)?;
         self.detect_frame(&audio_frame)
     }
 

@@ -721,6 +721,67 @@ pub fn bucketize(input: usize, boundaries: &[usize]) -> Result<usize> {
     // Ok(index)
 }
 
+pub fn contains_cjk(text: &str) -> bool {
+    for ch in text.chars() {
+        let c = ch as u32;
+        if (0x4e00..=0x9fff).contains(&c) // CJK Unified Ideographs
+            || (0x3400..=0x4dbf).contains(&c) // CJK Unified Ideographs Extension A
+            || (0x3040..=0x30ff).contains(&c) // Hiragana and Katakana
+            || (0xac00..=0xd7af).contains(&c)
+        // Hangul Syllables
+        {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn prepare_tts_text(text: &str) -> Result<String> {
+    let mut normalized_text = text.trim().to_string();
+    if normalized_text.is_empty() {
+        return Err(anyhow!("Text cannot be empty."));
+    }
+    normalized_text = normalized_text.replace(['\n', '\r'], " ");
+    while normalized_text.contains("  ") {
+        normalized_text = normalized_text.replace("  ", " ");
+    }
+
+    if contains_cjk(&normalized_text) {
+        let cjk_end_punctuations = ['。', '！', '？', '…', '.', '!', '?'];
+        if !normalized_text.ends_with(|c: char| cjk_end_punctuations.contains(&c)) {
+            normalized_text.push('。');
+        }
+        return Ok(normalized_text);
+    }
+
+    // Non-CJK (English/Western) logic
+    // Capitalize first letter if it's lowercase alphabetic
+    if let Some(first_char) = normalized_text.chars().next()
+        && first_char.is_ascii_lowercase()
+    {
+        let mut chars = normalized_text.chars();
+        chars.next(); // consume first char
+        let rest: String = chars.collect();
+        normalized_text = format!("{}{}", first_char.to_ascii_uppercase(), rest);
+    }
+
+    // Add period if ends with alphanumeric
+    if let Some(last_char) = normalized_text.chars().last()
+        && last_char.is_alphanumeric()
+    {
+        normalized_text.push('.');
+    }
+
+    // Add padding if less than 5 words
+    // Split by whitespace to count words
+    let word_count = normalized_text.split_whitespace().count();
+    if word_count < 5 {
+        normalized_text = format!("        {}", normalized_text); // 8 spaces
+    }
+
+    Ok(normalized_text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

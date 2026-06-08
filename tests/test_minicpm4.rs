@@ -1,6 +1,6 @@
 use std::{pin::pin, time::Instant};
 
-use aha::models::{GenerateModel, minicpm4::generate::MiniCPMGenerateModel};
+use aha::models::{GenerateModel, minicpm4::generate::MiniCPM4GenerateModel};
 use aha::params::chat::ChatCompletionParameters;
 use anyhow::Result;
 use rocket::futures::StreamExt;
@@ -29,7 +29,7 @@ fn minicpm_generate() -> Result<()> {
     "#;
     let mes: ChatCompletionParameters = serde_json::from_str(message)?;
     let i_start = Instant::now();
-    let mut model = MiniCPMGenerateModel::init(&model_path, None, None)?;
+    let mut model = MiniCPM4GenerateModel::init(&model_path, None, None)?;
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
 
@@ -62,7 +62,7 @@ async fn minicpm_stream() -> Result<()> {
     "#;
     let mes: ChatCompletionParameters = serde_json::from_str(message)?;
     let i_start = Instant::now();
-    let mut model = MiniCPMGenerateModel::init(&model_path, None, None)?;
+    let mut model = MiniCPM4GenerateModel::init(&model_path, None, None)?;
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
 

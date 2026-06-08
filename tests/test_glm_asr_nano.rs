@@ -22,7 +22,7 @@ fn glm_asr_nano_generate() -> Result<()> {
                         "type": "audio",
                         "audio_url": 
                         {
-                            "url": "file://./assets/audio/voice_01.wav"
+                            "url": "https://package-release.coderbox.cn/aiway/test/other/%E5%93%AA%E5%90%92.wav"
                         }
                     },           
                     {

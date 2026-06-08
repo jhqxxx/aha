@@ -3,18 +3,16 @@ use std::collections::HashMap;
 use crate::{
     models::common::{
         MultiModalData,
-        generate::{GenerationContext, generate_generic, generate_stream_generic},
+        generate::{GenerationDataProvider, PrepareData},
     },
-    params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::{Result, anyhow};
 use candle_core::{DType, Device, pickle::read_all_with_key};
 use candle_nn::VarBuilder;
-use rocket::futures::Stream;
 
 use crate::{
     models::{
-        GenerateModel,
         fun_asr_nano::{
             config::FunASRNanoConfig, model::FunAsrNanoModel, processor::FunAsrNanoProcessor,
         },
@@ -27,7 +25,7 @@ use crate::{
 pub struct FunAsrNanoGenerateModel {
     tokenizer: TokenizerModel,
     processor: FunAsrNanoProcessor,
-    fun_asr_nano: FunAsrNanoModel,
+    model: FunAsrNanoModel,
     device: Device,
     dtype: DType,
     generation_config: Qwen3GenerationConfig,
@@ -75,7 +73,7 @@ impl FunAsrNanoGenerateModel {
             }
         }
         let vb = VarBuilder::from_tensors(dict_to_hashmap, dtype, &device);
-        let fun_asr_nano =
+        let model =
             FunAsrNanoModel::new(vb, &cfg, &llm_cfg, generation_config.eos_token_id.clone())?;
         let model_name = std::path::Path::new(path)
             .file_name()
@@ -85,7 +83,7 @@ impl FunAsrNanoGenerateModel {
         Ok(Self {
             tokenizer,
             processor,
-            fun_asr_nano,
+            model,
             device,
             dtype,
             generation_config,
@@ -94,79 +92,30 @@ impl FunAsrNanoGenerateModel {
     }
 }
 
-impl GenerateModel for FunAsrNanoGenerateModel {
-    fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let temperature = mes
-            .temperature
-            .unwrap_or(self.generation_config.temperature);
-        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
-        let top_k = self.generation_config.top_k;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let max_tokens = mes.max_tokens.unwrap_or(1024);
-        let (speech, fbank_mask, input_ids) = self.processor.process_info(&mes, &self.tokenizer)?;
-        let speech = speech.to_dtype(self.dtype)?;
-        let mut ctx = GenerationContext::new(
-            temperature.into(),
-            top_p.into(),
-            top_k.into(),
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            input_ids.dim(1)?,
-            max_tokens,
-            self.device.clone(),
-        );
-
-        let data_vec = vec![speech.into(), fbank_mask.into()];
-        let data = MultiModalData::new(data_vec);
-        generate_generic(
-            &mut self.fun_asr_nano,
-            &self.tokenizer,
-            input_ids,
-            data,
-            &mut ctx,
-            &self.model_name,
-        )
+impl GenerationDataProvider for FunAsrNanoGenerateModel {
+    fn get_temperature(&self, req_temp: Option<f32>) -> Option<f32> {
+        Some(req_temp.unwrap_or(self.generation_config.temperature))
     }
 
-    fn generate_stream(
-        &mut self,
-        mes: ChatCompletionParameters,
-    ) -> Result<
-        Box<
-            dyn Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>
-                + Send
-                + Unpin
-                + '_,
-        >,
-    > {
-        let temperature = mes
-            .temperature
-            .unwrap_or(self.generation_config.temperature);
-        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
-        let top_k = self.generation_config.top_k;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let max_tokens = mes.max_tokens.unwrap_or(1024);
-        let (speech, fbank_mask, input_ids) = self.processor.process_info(&mes, &self.tokenizer)?;
+    fn get_top_p(&self, req_top_p: Option<f32>) -> Option<f32> {
+        Some(req_top_p.unwrap_or(self.generation_config.top_p))
+    }
+
+    fn get_top_k(&self, top_k: Option<usize>) -> Option<usize> {
+        Some(top_k.unwrap_or(self.generation_config.top_k))
+    }
+    fn get_data(&self, mes: &ChatCompletionParameters) -> Result<PrepareData> {
+        let (speech, fbank_mask, input_ids) = self.processor.process_info(mes, &self.tokenizer)?;
         let speech = speech.to_dtype(self.dtype)?;
         let data_vec = vec![speech.into(), fbank_mask.into()];
-        let data = MultiModalData::new(data_vec);
-        let stream = generate_stream_generic(
-            &mut self.fun_asr_nano,
-            &self.tokenizer,
+        let multi_model_data = MultiModalData::new(data_vec);
+
+        Ok(PrepareData {
+            in_reasoning: false,
             input_ids,
-            data,
-            temperature.into(),
-            top_p.into(),
-            top_k.into(),
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            max_tokens,
-            false,
-            &self.device,
-            &self.model_name,
-        )?;
-        Ok(Box::new(Box::pin(stream)))
+            multi_model_data,
+        })
     }
 }
+
+crate::impl_generate_model!(FunAsrNanoGenerateModel);

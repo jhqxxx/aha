@@ -49,7 +49,7 @@ fn hunyuan_ocr_generate() -> Result<()> {
 
 #[tokio::test]
 async fn hunyuan_ocr_stream() -> Result<()> {
-    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda hunyuan_ocr_stream -r -- --nocapture
+    // test with cuda: RUST_BACKTRACE=1 cargo test -F cuda --test test_hunyuan_ocr hunyuan_ocr_stream -r -- --nocapture
 
     let message = r#"
     {

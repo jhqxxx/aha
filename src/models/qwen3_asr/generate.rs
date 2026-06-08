@@ -3,8 +3,9 @@ use std::time::Instant;
 use crate::{
     models::common::{
         MultiModalData,
-        generate::{GenerationContext, generate_generic_text, get_logit_processor},
+        generate::{GenerationContext, generate_generic_text},
         modules::{AsrResult, VadFrameResult},
+        sample::get_logit_processor,
     },
     params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
     utils::response_utils::{build_chunk_response_with_usage, build_completion_response_with_time},
@@ -36,7 +37,7 @@ pub struct Qwen3AsrGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     processor: Qwen3AsrProcessor,
-    qwen3_asr: Qwen3ASRModel,
+    model: Qwen3ASRModel,
     device: Device,
     dtype: DType,
     eos_token_id1: u32,
@@ -64,7 +65,7 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
         let dtype = get_dtype(dtype, cfg_dtype);
         let model_list = find_type_files(path, "safetensors")?;
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&model_list, dtype, &device)? };
-        let qwen3_asr = Qwen3ASRModel::new(vb, &cfg, generation_config.eos_token_id.clone())?;
+        let model = Qwen3ASRModel::new(vb, &cfg, generation_config.eos_token_id.clone())?;
         let model_name = std::path::Path::new(path)
             .file_name()
             .and_then(|s| s.to_str())
@@ -74,7 +75,7 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
             chat_template,
             tokenizer,
             processor,
-            qwen3_asr,
+            model,
             device,
             dtype,
             eos_token_id1: generation_config.eos_token_id[0] as u32,
@@ -115,13 +116,8 @@ impl<'a> Qwen3AsrGenerateModel<'a> {
         );
         let data_vec = vec![input_features];
         let data = MultiModalData::new(data_vec);
-        let mut text = generate_generic_text(
-            &mut self.qwen3_asr,
-            &self.tokenizer,
-            input_ids,
-            data,
-            &mut ctx,
-        )?;
+        let mut text =
+            generate_generic_text(&mut self.model, &self.tokenizer, input_ids, data, &mut ctx)?;
         if text.contains("<asr_text>") {
             let mut split: Vec<&str> = text.split("<asr_text>").collect();
             text = split.pop().unwrap_or(&text).to_string();
@@ -155,7 +151,7 @@ impl<'a> GenerateModel for Qwen3AsrGenerateModel<'a> {
             for _ in 0..sample_len {
                 let i_start = Instant::now();
                 let logits =
-                    self.qwen3_asr
+                    self.model
                         .forward(&input_ids, seqlen_offset, input_features.as_ref())?;
                 let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
                 let next_token = logit_processor.sample(&logits)?;
@@ -174,7 +170,7 @@ impl<'a> GenerateModel for Qwen3AsrGenerateModel<'a> {
                 input_ids = Tensor::from_vec(vec![next_token], (1, 1), &self.device)?;
                 input_features = None;
             }
-            self.qwen3_asr.clear_kv_cache();
+            self.model.clear_kv_cache();
         }
         let num_token = generate.len() as u32;
         let res = self.tokenizer.token_decode(generate)?;
@@ -225,7 +221,7 @@ impl<'a> GenerateModel for Qwen3AsrGenerateModel<'a> {
                 for _ in 0..sample_len {
                     let i_start = Instant::now();
                     let logits =
-                        self.qwen3_asr
+                        self.model
                             .forward(&input_ids, seqlen_offset, input_features.as_ref())?;
                     let logits = logits.squeeze(0)?.squeeze(0)?.to_dtype(DType::F32)?;
                     let next_token = logit_processor.sample(&logits)?;
@@ -265,7 +261,7 @@ impl<'a> GenerateModel for Qwen3AsrGenerateModel<'a> {
                     input_ids = Tensor::from_vec(vec![next_token], (1, 1), &self.device)?;
                     input_features = None;
                 }
-                self.qwen3_asr.clear_kv_cache();
+                self.model.clear_kv_cache();
             }
         };
         Ok(Box::new(Box::pin(stream)))

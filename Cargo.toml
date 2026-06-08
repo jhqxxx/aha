@@ -1,10 +1,10 @@
 [package]
 name = "aha"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 repository = "https://github.com/jhqxxx/aha"
 license = "Apache-2.0"
-description = "aha model inference library, now supports Qwen(2.5VL/3/3VL/3.5/ASR/3Embedding/3Reranker), MiniCPM4, VoxCPM(0.5B/1.5/2), DeepSeek-OCR/2, Hunyuan-OCR, PaddleOCR-VL/1.5, RMBG2.0, GLM(ASR-Nano-2512/OCR), Fun-ASR-Nano-2512, LFM(2/2.5/2VL/2.5VL)"
+description = "aha model inference library, now supports Qwen(2.5VL/3/3VL/3.5/ASR/3Embedding/3Reranker), MiniCPM(4/5), VoxCPM(0.5B/1.5/2), DeepSeek-OCR/2, Hunyuan-OCR, PaddleOCR-VL/1.5, RMBG2.0, GLM(ASR-Nano-2512/OCR), Fun-ASR-Nano-2512, LFM(2/2.5/2VL/2.5VL)"
 
 [dependencies]
 candle-core = { version = "0.9.2" }
@@ -21,9 +21,7 @@ base64 = "0.22.1"
 num = "0.4.3"
 minijinja = "2.12.0"
 tokenizers = "0.22.1"
-# aha_openai_dive = { version = "1.4", features = ["stream"] }
 uuid = { version = "1.18.1", features = ["v4"] }
-# chrono = "0.4"
 rocket = { version = "0.5.1", features = ["serde_json", "json"] }
 tokio = "1.47.1"
 hound = "3.5.1"
@@ -45,6 +43,7 @@ sentencepiece = "0.13.1"
 ahash = "0.8.12"
 derive_builder = "0.20.2"
 kaldi-native-fbank = "0.1.0"
+rand = "0.10.1"
 esaxx-rs = "0.1.10"
 utoipa = { version = "5", features = ["rocket_extras"] }
 utoipa-swagger-ui = { version = "9", features = ["rocket"] }

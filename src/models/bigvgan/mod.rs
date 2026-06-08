@@ -186,6 +186,8 @@ impl AMPBlock1 {
                 1,
                 1,
                 true,
+                None,
+                None,
             )?;
             convs1.push(layer);
         }
@@ -203,6 +205,8 @@ impl AMPBlock1 {
                 1,
                 1,
                 true,
+                None,
+                None,
             )?;
             convs2.push(layer);
         }
@@ -261,6 +265,8 @@ impl BigVGAN {
             1,
             1,
             true,
+            None,
+            None,
         )?;
 
         let vb_ups = vb.pp("ups");
@@ -296,7 +302,7 @@ impl BigVGAN {
             }
         }
         let activation_post = TorchActivation1d::new(vb.pp("activation_post"), 2, 2, 12, 12, ch)?;
-        let conv_post = WNConv1d::new(vb.pp("conv_post"), ch, 1, 7, 1, 3, 1, 1, false)?;
+        let conv_post = WNConv1d::new(vb.pp("conv_post"), ch, 1, 7, 1, 3, 1, 1, false, None, None)?;
 
         Ok(Self {
             num_kernels,

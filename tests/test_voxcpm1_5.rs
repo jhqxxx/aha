@@ -3,11 +3,8 @@ use std::time::Instant;
 use aha::models::voxcpm_refact::generate::VoxCPMGenerateRefact;
 use aha::params::chat::ChatCompletionParameters;
 use aha::{
-    models::{
-        GenerateModel,
-        voxcpm::{generate::VoxCPMGenerate, tokenizer::SingleChineseTokenizer},
-    },
-    utils::audio_utils::{extract_and_save_audio_from_response, save_wav},
+    models::{GenerateModel, voxcpm::tokenizer::SingleChineseTokenizer},
+    utils::audio_utils::{extract_and_save_audio_from_response, save_wav_mono},
 };
 use anyhow::{Ok, Result};
 
@@ -43,7 +40,7 @@ fn voxcpm1_5_use_message_generate() -> Result<()> {
     "#;
     let mes: ChatCompletionParameters = serde_json::from_str(message)?;
     let i_start = Instant::now();
-    let mut voxcpm_generate = VoxCPMGenerate::init(&model_path, None, None)?;
+    let mut voxcpm_generate = VoxCPMGenerateRefact::init(&model_path, None, None)?;
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
 
@@ -66,47 +63,43 @@ fn voxcpm1_5_generate() -> Result<()> {
     let model_path = format!("{}/OpenBMB/VoxCPM1.5/", save_dir);
 
     let i_start = Instant::now();
-    let mut voxcpm_generate = VoxCPMGenerate::init(&model_path, None, None)?;
+    let mut voxcpm_generate = VoxCPMGenerateRefact::init(&model_path, None, None)?;
     let i_duration = i_start.elapsed();
     println!("Time elapsed in load model is: {:?}", i_duration);
 
     let i_start = Instant::now();
     // let generate = voxcpm_generate.generate_simple("太阳当空照，花儿对我笑，小鸟说早早早".to_string())?;
-    // let generate = voxcpm_generate.inference(
-    //     "老大爷我来啦，红红火火恍恍惚惚".to_string(),
-    //     Some("啥子小师叔，打狗还要看主人，你再要继续，我就是你的对手".to_string()),
-    //     Some("file://./assets/audio/voice_01.wav".to_string()),
-    //     // Some("一定被灰太狼给吃了，我已经为他准备好了花圈了".to_string()),
-    //     // Some("file://./assets/audio/voice_05.wav".to_string()),
-    //     2,
-    //     4096,
-    //     10,
-    //     2.0,
-    //     // false,
-    //     6.0,
-    // )?;
-
-    // 创建prompt_cache
-    voxcpm_generate.build_prompt_cache(
-        "啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string(),
-        "file://./assets/audio/voice_01.wav".to_string(),
-    )?;
-    // 使用prompt_cache生成语音
-    let generate = voxcpm_generate.generate_use_prompt_cache(
-        "太阳当空照，花儿对我笑，小鸟说早早早".to_string(),
+    let generate = voxcpm_generate.inference(
+        "老大爷我来啦，红红火火恍恍惚惚".to_string(),
+        Some("天雷滚滚我好怕怕，劈得我浑身掉渣渣。突破天劫我笑哈哈，逆天改命我吹喇叭，滴答滴答滴滴答".to_string()),
+        Some("https://package-release.coderbox.cn/aiway/test/other/%E5%93%AA%E5%90%92.wav".to_string()),
         2,
-        100,
+        4096,
         10,
         2.0,
         false,
         6.0,
     )?;
 
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    // 创建prompt_cache
+    // voxcpm_generate.build_prompt_cache(
+    //     "啥子小师叔，打狗还要看主人，你再要继续，我，就是你的对手".to_string(),
+    //     "file://./assets/audio/voice_01.wav".to_string(),
+    // )?;
+    // // 使用prompt_cache生成语音
+    // let generate = voxcpm_generate.generate_use_prompt_cache(
+    //     "太阳当空照，花儿对我笑，小鸟说早早早".to_string(),
+    //     2,
+    //     100,
+    //     10,
+    //     2.0,
+    //     false,
+    //     6.0,
+    // )?;
 
     let i_duration = i_start.elapsed();
     println!("Time elapsed in generate is: {:?}", i_duration);
-    save_wav(&generate, "voxcpm1_5.wav", 44100)?;
+    save_wav_mono(&generate, "voxcpm1_5.wav", 44100)?;
     Ok(())
 }
 
@@ -169,7 +162,7 @@ fn voxcpm_refact_generate() -> Result<()> {
     std::thread::sleep(std::time::Duration::from_secs(2));
     let i_duration = i_start.elapsed();
     println!("Time elapsed in generate is: {:?}", i_duration);
-    save_wav(
+    save_wav_mono(
         &generate,
         "voxcpm.wav",
         voxcpm_generate.sample_rate() as u32,

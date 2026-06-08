@@ -16,6 +16,8 @@ pub enum WhichModel {
     LFM2VL1_6B,
     #[value(name = "OpenBMB/MiniCPM4-0.5B")]
     MiniCPM4_0_5B,
+    #[value(name = "OpenBMB/MiniCPM5-1B")]
+    MiniCPM5_1B,
     #[value(name = "Qwen/Qwen2.5-VL-3B-Instruct")]
     Qwen2_5VL3B,
     #[value(name = "Qwen/Qwen2.5-VL-7B-Instruct")]
@@ -70,6 +72,8 @@ pub enum WhichModel {
     PaddleOCRVL,
     #[value(name = "PaddlePaddle/PaddleOCR-VL-1.5")]
     PaddleOCRVL1_5,
+    #[value(name = "PaddlePaddle/PaddleOCR-VL-1.6")]
+    PaddleOCRVL1_6,
     #[value(name = "AI-ModelScope/RMBG-2.0")]
     RMBG2_0,
     #[value(name = "OpenBMB/VoxCPM-0.5B")]
@@ -136,6 +140,7 @@ impl WhichModel {
         match self {
             // LLM models
             WhichModel::MiniCPM4_0_5B
+            | WhichModel::MiniCPM5_1B
             | WhichModel::Qwen3_0_6B
             | WhichModel::Qwen3_1_7B
             | WhichModel::Qwen3_4B
@@ -162,7 +167,8 @@ impl WhichModel {
             | WhichModel::HunyuanOCR
             | WhichModel::GlmOCR
             | WhichModel::PaddleOCRVL
-            | WhichModel::PaddleOCRVL1_5 => "ocr",
+            | WhichModel::PaddleOCRVL1_5
+            | WhichModel::PaddleOCRVL1_6 => "ocr",
             // ASR models
             WhichModel::Qwen3ASR0_6B
             | WhichModel::Qwen3ASR1_7B

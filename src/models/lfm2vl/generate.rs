@@ -1,9 +1,9 @@
 use crate::{
     models::common::{
         MultiModalData,
-        generate::{GenerationContext, generate_generic, generate_stream_generic},
+        generate::{GenerationDataProvider, PrepareData},
     },
-    params::chat::{ChatCompletionParameters, ChatCompletionResponse},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::Result;
 use candle_core::{DType, Device};
@@ -12,7 +12,6 @@ use candle_nn::VarBuilder;
 use crate::{
     chat_template::ChatTemplate,
     models::{
-        GenerateModel,
         lfm2::config::Lfm2GenerateConfig,
         lfm2vl::{config::Lfm2VLConfig, model::Lfm2VLModel, processor::Lfm2VLProcessor},
     },
@@ -60,82 +59,24 @@ impl<'a> Lfm2VLGenerateModel<'a> {
     }
 }
 
-impl<'a> GenerateModel for Lfm2VLGenerateModel<'a> {
-    fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
+impl<'a> GenerationDataProvider for Lfm2VLGenerateModel<'a> {
+    fn get_data(&self, mes: &ChatCompletionParameters) -> Result<PrepareData> {
+        let mes_render = self.chat_template.apply_chat_template(mes)?;
         let (pixel_values, pixel_attention_mask, spatial_shapes, text) =
-            self.processor.process_info(&mes, &mes_render)?;
+            self.processor.process_info(mes, &mes_render)?;
         let input_ids = self.tokenizer.text_encode(text, &self.device)?;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let sample_len = mes.max_tokens.unwrap_or(1024);
-        let mut ctx = GenerationContext::new(
-            mes.temperature,
-            mes.top_p,
-            None,
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            input_ids.dim(1)?,
-            sample_len,
-            self.device.clone(),
-        );
-
         let data_vec = vec![
             pixel_values.into(),
             pixel_attention_mask.into(),
             spatial_shapes.into(),
         ];
-        let data = MultiModalData::new(data_vec);
-        generate_generic(
-            &mut self.model,
-            &self.tokenizer,
+        let multi_model_data = MultiModalData::new(data_vec);
+        Ok(PrepareData {
+            in_reasoning: false,
             input_ids,
-            data,
-            &mut ctx,
-            &self.model_name,
-        )
-    }
-
-    fn generate_stream(
-        &mut self,
-        mes: ChatCompletionParameters,
-    ) -> Result<
-        Box<
-            dyn rocket::futures::Stream<
-                    Item = Result<crate::params::chat::ChatCompletionChunkResponse, anyhow::Error>,
-                > + Send
-                + Unpin
-                + '_,
-        >,
-    > {
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        let (pixel_values, pixel_attention_mask, spatial_shapes, text) =
-            self.processor.process_info(&mes, &mes_render)?;
-        let input_ids = self.tokenizer.text_encode(text, &self.device)?;
-        let sample_len = mes.max_tokens.unwrap_or(1024);
-        let data_vec = vec![
-            pixel_values.into(),
-            pixel_attention_mask.into(),
-            spatial_shapes.into(),
-        ];
-        let data = MultiModalData::new(data_vec);
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let stream = generate_stream_generic(
-            &mut self.model,
-            &self.tokenizer,
-            input_ids,
-            data,
-            mes.temperature,
-            mes.top_p,
-            None,
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            sample_len,
-            false,
-            &self.device,
-            &self.model_name,
-        )?;
-        Ok(Box::new(Box::pin(stream)))
+            multi_model_data,
+        })
     }
 }
+
+crate::impl_generate_model!(Lfm2VLGenerateModel<'a>);

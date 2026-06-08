@@ -82,7 +82,7 @@ impl Qwen3AsrProcessor {
     }
 
     pub fn extract_audio_vec(&self, mes: &ChatCompletionParameters) -> Result<Vec<Tensor>> {
-        let audio_tensors = extract_audios(mes, &self.device, Some(self.sample_rate))?;
+        let audio_tensors = extract_audios(mes, &self.device, Some(self.sample_rate), Some(1))?;
         audio_tensors.iter().map(float_range_normalize).collect()
     }
 

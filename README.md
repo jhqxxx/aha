@@ -21,6 +21,10 @@
   <a href="README.zh-CN.md">简体中文</a> | <strong>English</strong>
 </p>
 
+<p align="center">
+  <strong>Official Website:</strong> <a href="https://s5dgj23f.pub.makeit.coderbox.cn/">https://s5dgj23f.pub.makeit.coderbox.cn/</a>
+</p>
+
 # aha
 
 **Lightweight AI Inference Engine — All-in-one Solution for Text, Vision, Speech, and OCR**
@@ -34,15 +38,36 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 
 | Category | Models |
 |----------|--------|
-| **Text** | Qwen3, MiniCPM4, LFM2, LFM2.5 |
+| **Text** | Qwen3, MiniCPM4, MiniCPM5, LFM2, LFM2.5 |
 | **Vision** | Qwen2.5-VL, Qwen3-VL, Qwen3.5, <br> LFM2.5-VL, LFM2-VL |
-| **OCR** | DeepSeek-OCR, DeepSeek-OCR-2 , PaddleOCR-VL <br> PaddleOCR-VL1.5, Hunyuan-OCR, GLM-OCR |
+| **OCR** | DeepSeek-OCR, DeepSeek-OCR-2 , PaddleOCR-VL <br> PaddleOCR-VL1.5, PaddleOCR-VL1.6, Hunyuan-OCR <br> GLM-OCR |
 | **ASR** | GLM-ASR-Nano, Fun-ASR-Nano, Qwen3-ASR |
-| **TTS** | VoxCPM, VoxCPM1.5, VoxCPM2 |
+| **TTS** | VoxCPM, VoxCPM1.5, VoxCPM2, Moss-TTS-Nano |
 | **Image** | RMBG-2.0 (background removal) |
 | **Embedding** | Qwen3-Embedding, all-MiniLM-L6-v2 |
 | **Reranker** | Qwen3-Reranker |
 
+## Changelog
+### 2026-06-06
+- add PaddleOCR-VL-1.6
+
+### 2026-05-29
+- generate code refactored
+
+### 2026-05-28
+- generate code refactoring progress 1/3
+
+### 2026-05-27
+- add MiniCPM5
+
+### 2026-05-24
+- update doc
+
+### 2026-05-11
+- add Moss-TTS-Nano，its performance is worse than the original Python version
+
+
+**[View full changelog](docs/changelog.md)** →
 
 ## Why aha?
 - **🚀 High-Performance Inference** — Powered by Candle framework for efficient tensor computation and model inference
@@ -85,10 +110,7 @@ aha is a high-performance, cross-platform AI inference engine built with Rust an
 ### 0.2.5 (2026-04-06)
 - add qwen3-embedding/qwen3-reranker/all-minilm-l6-v2
 
-
 **[View full changelog](docs/changelog.md)** →
-
-
 ## Quick Start
 
 ### Installation
@@ -265,29 +287,27 @@ When the server is running, the following endpoints are available (all OpenAI-co
 > cargo add aha
 
 ```rust
-# VoxCPM example
+// VoxCPM example
 use aha::models::voxcpm::generate::VoxCPMGenerate;
-use aha::utils::audio_utils::save_wav;
+use aha::utils::audio_utils::save_wav_mono;
 use anyhow::Result;
 
 fn main() -> Result<()> {
-    let model_path = "xxx/openbmb/VoxCPM-0.5B/";
+    let model_path = "xxx/OpenBMB/VoxCPM2/";
 
     let mut voxcpm_generate = VoxCPMGenerate::init(model_path, None, None)?;
-
-    let generate = voxcpm_generate.generate(
-        "The sun is shining bright, flowers smile at me, birds say early early early".to_string(),
+    let generate = voxcpm_generate.inference(
+        "aha是一个基于Rust和Candle框架的本地AI推理引擎，支持多模态模型（文本、视觉、语音、OCR）。".to_string(),
         None,
         None,
         2,
-        100,
+        1000,
         10,
         2.0,
-        false,
         6.0,
     )?;
 
-    let _ = save_wav(&generate, "voxcpm.wav")?;
+    save_wav_mono(&generate, "voxcpm2.wav", voxcpm_generate.sample_rate() as u32)?;
     Ok(())
 }
 ```
@@ -326,7 +346,7 @@ Apache-2.0 &mdash; See [LICENSE](LICENSE) for details.
 
 | Wechat Group | Donate |
 |--------------|--------|
-| ![Wechat Group-expired 260502](./assets/img/aha_weixinqun.png) | ![Donate](./assets/img/donate.png) |
+| ![Wechat Group](./assets/img/aha_weixinqun.png) | ![Donate](./assets/img/donate.png) |
 
 </div>
 

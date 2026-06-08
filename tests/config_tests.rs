@@ -4,6 +4,9 @@ use aha::models::{
     lfm2::config::Lfm2Config,
     lfm2vl::config::{Lfm2ProcessorConfig, Lfm2VLConfig},
     minicpm4::config::MiniCPM4Config,
+    minicpm5::config::MiniCPM5Config,
+    moss_audio_tokenizer_nano::config::MossAudioTokenizerConfig,
+    moss_tts_nano::config::MossTTSConfig,
     paddleocr_vl::config::PaddleOCRVLConfig,
     qwen2_5vl::config::Qwen2_5VLConfig,
     qwen3vl::config::Qwen3VLConfig,
@@ -115,5 +118,35 @@ fn lfm2vl_config() -> Result<()> {
     let processor_config: Lfm2ProcessorConfig =
         serde_json::from_slice(&std::fs::read(processor_config_path)?)?;
     println!("{:?}", processor_config);
+    Ok(())
+}
+
+#[test]
+fn moss_audio_tokenizer_config() -> Result<()> {
+    // cargo test -F cuda --test config_tests moss_audio_tokenizer_config -r -- --nocapture
+    let model_path = "/home/jhq/.aha/openmoss/MOSS-Audio-Tokenizer-Nano/";
+    let config_path = model_path.to_string() + "/config.json";
+    let config: MossAudioTokenizerConfig = serde_json::from_slice(&std::fs::read(config_path)?)?;
+    println!("{:?}", config);
+    Ok(())
+}
+
+#[test]
+fn moss_tts_config() -> Result<()> {
+    // cargo test -F cuda --test config_tests moss_tts_config -r -- --nocapture
+    let model_path = "/home/jhq/.aha/openmoss/MOSS-TTS-Nano/";
+    let config_path = model_path.to_string() + "/config.json";
+    let config: MossTTSConfig = serde_json::from_slice(&std::fs::read(config_path)?)?;
+    println!("{:?}", config);
+    Ok(())
+}
+
+#[test]
+fn minicpm5_config() -> Result<()> {
+    // cargo test -F cuda --test config_tests minicpm5_config -r -- --nocapture
+    let model_path = "/home/jhq/.aha/OpenBMB/MiniCPM5-1B/";
+    let config_path = model_path.to_string() + "/config.json";
+    let config: MiniCPM5Config = serde_json::from_slice(&std::fs::read(config_path)?)?;
+    println!("{:?}", config);
     Ok(())
 }

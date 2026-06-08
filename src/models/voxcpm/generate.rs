@@ -27,7 +27,7 @@ use crate::{
 };
 
 pub struct VoxCPMGenerate {
-    voxcpm: VoxCPMModel,
+    model: VoxCPMModel,
     prompt_cache: Option<HashMap<String, Tensor>>,
     out_sample_rate: usize,
     model_name: String,
@@ -106,12 +106,12 @@ impl VoxCPMGenerate {
             VarBuilder::from_tensors(dict_to_hashmap, m_dtype, device)
         };
         let tokenizer = SingleChineseTokenizer::new(path)?;
-        let voxcpm = VoxCPMModel::new(vb_voxcpm, config, tokenizer, audio_vae)?;
+        let model = VoxCPMModel::new(vb_voxcpm, config, tokenizer, audio_vae)?;
         let out_sample_rate = audio_config
             .out_sample_rate
             .unwrap_or(audio_config.sample_rate);
         Ok(Self {
-            voxcpm,
+            model,
             prompt_cache: None,
             out_sample_rate,
             model_name,
@@ -124,7 +124,7 @@ impl VoxCPMGenerate {
         prompt_wav_path: String,
     ) -> Result<()> {
         let cache = self
-            .voxcpm
+            .model
             .build_prompt_cache(prompt_text, prompt_wav_path)?;
         self.prompt_cache = Some(cache);
         Ok(())
@@ -143,7 +143,7 @@ impl VoxCPMGenerate {
         let audio = match &self.prompt_cache {
             Some(cache) => {
                 let prompt_cache = cache.clone();
-                self.voxcpm.generate_with_prompt_cache(
+                self.model.generate_with_prompt_cache(
                     target_text,
                     prompt_cache,
                     min_len,
@@ -156,7 +156,7 @@ impl VoxCPMGenerate {
             }
             None => self.generate_simple(target_text)?,
         };
-        self.voxcpm.clear_kv_cache();
+        self.model.clear_kv_cache();
         Ok(audio)
     }
 
@@ -196,7 +196,7 @@ impl VoxCPMGenerate {
         // retry_badcase: bool,
         retry_badcase_ratio_threshold: f64,
     ) -> Result<Tensor> {
-        let audio = self.voxcpm.generate(
+        let audio = self.model.generate(
             target_text,
             prompt_text,
             prompt_wav_path,
@@ -207,7 +207,7 @@ impl VoxCPMGenerate {
             // retry_badcase,
             retry_badcase_ratio_threshold,
         )?;
-        self.voxcpm.clear_kv_cache();
+        self.model.clear_kv_cache();
         Ok(audio)
     }
 
@@ -250,7 +250,7 @@ impl GenerateModel for VoxCPMGenerate {
             target_text = format!("({instruction}){target_text}");
         }
         let audio = self
-            .voxcpm
+            .model
             .generate(
                 target_text,
                 prompt_text,
@@ -262,13 +262,13 @@ impl GenerateModel for VoxCPMGenerate {
                 retry_badcase_ratio_threshold,
             )
             .inspect_err(|_| {
-                self.voxcpm.clear_kv_cache();
+                self.model.clear_kv_cache();
             })?;
         let wav_u8 = get_audio_wav_u8(&audio, self.out_sample_rate as u32)?;
         // let wave_u8_str = String::from_utf8(wav_u8)?;
         let base64_audio = BASE64_STANDARD.encode(wav_u8);
         let response = build_audio_completion_response(&base64_audio, &self.model_name);
-        self.voxcpm.clear_kv_cache();
+        self.model.clear_kv_cache();
         Ok(response)
     }
     #[allow(unused_variables)]

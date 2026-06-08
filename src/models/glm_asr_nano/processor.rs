@@ -205,7 +205,7 @@ impl GlmAsrNanoProcessor {
         mes: &ChatCompletionParameters,
         render_text: &str,
     ) -> Result<(Tensor, Vec<u32>, String)> {
-        let audio_tensors = extract_audios(mes, &self.device, Some(self.sampling_rate))?;
+        let audio_tensors = extract_audios(mes, &self.device, Some(self.sampling_rate), Some(1))?;
         if audio_tensors.is_empty() {
             return Err(anyhow::anyhow!("GlmASRNano need audio input"));
         }

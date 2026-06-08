@@ -293,6 +293,9 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::MiniCPM4_0_5B => {
             minicpm4::MiniCPM4Exec::run(&input, output.as_deref(), &weight_path)?;
         }
+        WhichModel::MiniCPM5_1B => {
+            minicpm5::MiniCPM5Exec::run(&input, output.as_deref(), &weight_path)?;
+        }
         WhichModel::LFM2_1_2B | WhichModel::LFM2_5_1_2BInstruct => {
             lfm2::Lfm2Exec::run(&input, output.as_deref(), &weight_path)?;
         }
@@ -344,7 +347,7 @@ pub(crate) fn run_run(args: RunArgs) -> anyhow::Result<()> {
         WhichModel::HunyuanOCR => {
             hunyuan_ocr::HunyuanORExec::run(&input, output.as_deref(), &weight_path)?;
         }
-        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 => {
+        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 | WhichModel::PaddleOCRVL1_6 => {
             paddleocr_vl::PaddleOVLExec::run(&input, output.as_deref(), &weight_path)?;
         }
         WhichModel::RMBG2_0 => {

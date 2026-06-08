@@ -12,6 +12,9 @@ pub mod lfm2;
 pub mod lfm2vl;
 pub mod mask_gct;
 pub mod minicpm4;
+pub mod minicpm5;
+pub mod moss_audio_tokenizer_nano;
+pub mod moss_tts_nano;
 pub mod paddleocr_vl;
 pub mod qwen2;
 pub mod qwen2_5vl;
@@ -27,11 +30,14 @@ pub mod voxcpm_refact;
 pub mod w2v_bert_2_0;
 // pub mod sam3;
 pub mod fire_red_vad;
+pub mod gpt2;
+pub mod llama;
 
 use crate::{
     models::{
         all_minilm_l6_v2::AllMiniLML6V2Embedding,
         common::{embedding::TextEmbedding, model_mapping::WhichModel, reranker::TextRerank},
+        minicpm5::generate::MiniCPM5GenerateModel,
         qwen3_embedding::Qwen3Embedding,
         qwen3_reranker::Qwen3Reranker,
     },
@@ -46,7 +52,7 @@ use crate::models::{
     fun_asr_nano::generate::FunAsrNanoGenerateModel,
     glm_asr_nano::generate::GlmAsrNanoGenerateModel, glm_ocr::generate::GlmOcrGenerateModel,
     hunyuan_ocr::generate::HunyuanOCRGenerateModel, lfm2::generate::Lfm2GenerateModel,
-    lfm2vl::generate::Lfm2VLGenerateModel, minicpm4::generate::MiniCPMGenerateModel,
+    lfm2vl::generate::Lfm2VLGenerateModel, minicpm4::generate::MiniCPM4GenerateModel,
     paddleocr_vl::generate::PaddleOCRVLGenerateModel, qwen2_5vl::generate::Qwen2_5VLGenerateModel,
     qwen3::generate::Qwen3GenerateModel, qwen3_5::generate::Qwen3_5GenerateModel,
     qwen3_asr::generate::Qwen3AsrGenerateModel, qwen3vl::generate::Qwen3VLGenerateModel,
@@ -70,7 +76,8 @@ pub trait GenerateModel {
 
 pub enum ModelInstance<'a> {
     AllMiniLML6V2(AllMiniLML6V2Embedding),
-    MiniCPM4(MiniCPMGenerateModel<'a>),
+    MiniCPM4(MiniCPM4GenerateModel<'a>),
+    MiniCPM5(MiniCPM5GenerateModel<'a>),
     Lfm2(Lfm2GenerateModel<'a>),
     Lfm2VL(Lfm2VLGenerateModel<'a>),
     Qwen2_5VL(Qwen2_5VLGenerateModel<'a>),
@@ -97,6 +104,7 @@ impl<'a> GenerateModel for ModelInstance<'a> {
                 Err(anyhow!("embedding model does not support chat completions"))
             }
             ModelInstance::MiniCPM4(model) => model.generate(mes),
+            ModelInstance::MiniCPM5(model) => model.generate(mes),
             ModelInstance::Lfm2(model) => model.generate(mes),
             ModelInstance::Lfm2VL(model) => model.generate(mes),
             ModelInstance::Qwen2_5VL(model) => model.generate(mes),
@@ -139,6 +147,7 @@ impl<'a> GenerateModel for ModelInstance<'a> {
                 Err(anyhow!("embedding model does not support chat completions"))
             }
             ModelInstance::MiniCPM4(model) => model.generate_stream(mes),
+            ModelInstance::MiniCPM5(model) => model.generate_stream(mes),
             ModelInstance::Lfm2(model) => model.generate_stream(mes),
             ModelInstance::Lfm2VL(model) => model.generate_stream(mes),
             ModelInstance::Qwen2_5VL(model) => model.generate_stream(mes),
@@ -214,8 +223,12 @@ pub fn load_model<'a>(
             ModelInstance::AllMiniLML6V2(model)
         }
         WhichModel::MiniCPM4_0_5B => {
-            let model = MiniCPMGenerateModel::init(path, device, dtype)?;
+            let model = MiniCPM4GenerateModel::init(path, device, dtype)?;
             ModelInstance::MiniCPM4(model)
+        }
+        WhichModel::MiniCPM5_1B => {
+            let model = MiniCPM5GenerateModel::init(path, device, dtype)?;
+            ModelInstance::MiniCPM5(model)
         }
         WhichModel::LFM2_1_2B | WhichModel::LFM2_5_1_2BInstruct => {
             let model = Lfm2GenerateModel::init(path, device, dtype)?;
@@ -271,7 +284,7 @@ pub fn load_model<'a>(
             let model = HunyuanOCRGenerateModel::init(path, device, dtype)?;
             ModelInstance::HunyuanOCR(model)
         }
-        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 => {
+        WhichModel::PaddleOCRVL | WhichModel::PaddleOCRVL1_5 | WhichModel::PaddleOCRVL1_6 => {
             let model = PaddleOCRVLGenerateModel::init(path, device, dtype)?;
             ModelInstance::PaddleOCRVL(Box::new(model))
         }

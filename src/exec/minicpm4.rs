@@ -5,7 +5,7 @@ use std::time::Instant;
 use anyhow::{Ok, Result};
 
 use crate::exec::ExecModel;
-use crate::models::{GenerateModel, minicpm4::generate::MiniCPMGenerateModel};
+use crate::models::{GenerateModel, minicpm4::generate::MiniCPM4GenerateModel};
 use crate::utils::get_file_path;
 
 pub struct MiniCPM4Exec;
@@ -22,7 +22,7 @@ impl ExecModel for MiniCPM4Exec {
         };
 
         let i_start = Instant::now();
-        let mut model = MiniCPMGenerateModel::init(weight_path, None, None)?;
+        let mut model = MiniCPM4GenerateModel::init(weight_path, None, None)?;
         let i_duration = i_start.elapsed();
         println!("Time elapsed in load model is: {:?}", i_duration);
 

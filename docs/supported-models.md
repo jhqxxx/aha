@@ -12,7 +12,8 @@ LiquidAI/LFM2-1.2B                       LiquidAI             llm          ✔
 LiquidAI/LFM2.5-1.2B-Instruct            LiquidAI             llm          ✔       
 LiquidAI/LFM2.5-VL-1.6B                  LiquidAI             vlm          ✔       
 LiquidAI/LFM2-VL-1.6B                    LiquidAI             vlm          ✔       
-OpenBMB/MiniCPM4-0.5B                    OpenBMB              llm          ✔       
+OpenBMB/MiniCPM4-0.5B                    OpenBMB              llm          ✔   
+OpenBMB/MiniCPM5-1B                      OpenBMB              llm          ✔    
 Qwen/Qwen2.5-VL-3B-Instruct              Qwen                 vlm          ✔       
 Qwen/Qwen2.5-VL-7B-Instruct              Qwen                 vlm                  
 Qwen/Qwen3-0.6B                          Qwen                 llm          ✔       
@@ -39,7 +40,8 @@ deepseek-ai/DeepSeek-OCR                 deepseek-ai          ocr          ✔
 deepseek-ai/DeepSeek-OCR-2               deepseek-ai          ocr                  
 Tencent-Hunyuan/HunyuanOCR               Tencent-Hunyuan      ocr          ✔       
 PaddlePaddle/PaddleOCR-VL                PaddlePaddle         ocr          ✔       
-PaddlePaddle/PaddleOCR-VL-1.5            PaddlePaddle         ocr                  
+PaddlePaddle/PaddleOCR-VL-1.5            PaddlePaddle         ocr
+PaddlePaddle/PaddleOCR-VL-1.6            PaddlePaddle         ocr          ✔                  
 AI-ModelScope/RMBG-2.0                   AI-ModelScope        image        ✔       
 OpenBMB/VoxCPM-0.5B                      OpenBMB              tts          ✔       
 OpenBMB/VoxCPM1.5                        OpenBMB              tts          ✔       
@@ -54,6 +56,7 @@ ZhipuAI/GLM-OCR                          ZhipuAI              ocr          ✔
 |-------|-----------|--------|---------|
 | **Qwen3-0.6B** | 0.6B | Qwen/Qwen3-0.6B <br> Qwen/Qwen3-1.7B <br> Qwen/Qwen3-4B | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **MiniCPM4-0.5B** | 0.5B | OpenBMB/MiniCPM4-0.5B | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **MiniCPM5-1B** | 1B | OpenBMB/MiniCPM5-1B | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **LFM2-1.2B** | 1.2B | LiquidAI/LFM2-1.2B | [lfm1.0](https://huggingface.co/LiquidAI/LFM2-1.2B/blob/main/LICENSE) |
 | **LFM2.5-1.2B-Instruct** | 1.2B | LiquidAI/LFM2.5-1.2B-Instruct | [lfm1.0](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/blob/main/LICENSE) |
 
@@ -86,7 +89,7 @@ ZhipuAI/GLM-OCR                          ZhipuAI              ocr          ✔
 
 | Model | Languages | Model Id | License |
 |-------|-----------|--------|---------|
-| **PaddleOCR-VL** | Multi | PaddlePaddle/PaddleOCR-VL <br> PaddlePaddle/PaddleOCR-VL-1.5 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
+| **PaddleOCR-VL** | Multi | PaddlePaddle/PaddleOCR-VL <br> PaddlePaddle/PaddleOCR-VL-1.5 <br> PaddlePaddle/PaddleOCR-VL-1.6 | [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md) |
 | **Hunyuan-OCR** | Chinese | Tencent-Hunyuan/HunyuanOCR | [Tencent Hunyuan Community License](https://huggingface.co/tencent/HunyuanOCR/blob/main/LICENSE) |
 | **DeepSeek-OCR** | Multi | deepseek-ai/DeepSeek-OCR <br> deepseek-ai/DeepSeek-OCR-2 | [MIT](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/mit.md) |
 | **GLM-OCR** | 8 | ZhipuAI/GLM-OCR | [MIT](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/mit.md) |

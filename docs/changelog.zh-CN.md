@@ -5,6 +5,24 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+### 2026-06-06
+- 新增 PaddleOCR-VL-1.6
+
+### 2026-05-29
+- generate代码重构完成
+
+### 2026-05-28
+- generate代码重构进度 1/3
+
+### 2026-05-27
+- 新增 MiniCPM5
+
+### 2026-05-24
+- 更新文档
+
+### 2026-05-11
+- 添加Moss-TTS-Nano，该模型比较小，计算误差影响较大，效果比python原版差
+
 ### 2026-05-09
 - 合并 pr/eastgold15/46, 添加 aha-ui
 

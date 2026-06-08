@@ -128,6 +128,8 @@ impl FactorizedVectorQuantize {
                 1,
                 1,
                 true,
+                None,
+                None,
             )?;
             let out_project = WNConv1d::new(
                 vb.pp("out_project"),
@@ -139,6 +141,8 @@ impl FactorizedVectorQuantize {
                 1,
                 1,
                 true,
+                None,
+                None,
             )?;
             (Some(in_project), Some(out_project))
         } else {

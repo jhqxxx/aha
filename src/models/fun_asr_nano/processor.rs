@@ -91,7 +91,7 @@ impl FunAsrNanoProcessor {
         let sub_token = tokenizer.text_encode_vec(sub_prompt, true)?;
         source_ids.extend_from_slice(&sub_token);
         fbank_mask.extend_from_slice(&vec![0u32; sub_token.len()]);
-        let audio_tensors = extract_audios(mes, &self.device, Some(self.fronted_conf.fs))?;
+        let audio_tensors = extract_audios(mes, &self.device, Some(self.fronted_conf.fs), Some(1))?;
         if audio_tensors.is_empty() {
             return Err(anyhow!("FunASRNano need audio input"));
         }

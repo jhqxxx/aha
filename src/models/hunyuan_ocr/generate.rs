@@ -1,24 +1,20 @@
 use crate::{
     models::common::{
         MultiModalData,
-        generate::{GenerationContext, generate_generic, generate_stream_generic},
+        generate::{GenerationDataProvider, PrepareData},
     },
-    params::chat::{ChatCompletionChunkResponse, ChatCompletionParameters, ChatCompletionResponse},
+    params::chat::ChatCompletionParameters,
 };
 use anyhow::Result;
 use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
-use rocket::futures::Stream;
 
 use crate::{
     chat_template::ChatTemplate,
-    models::{
-        GenerateModel,
-        hunyuan_ocr::{
-            config::{HunYuanVLConfig, HunyuanOCRGenerationConfig},
-            model::HunyuanVLModel,
-            processor::HunyuanVLProcessor,
-        },
+    models::hunyuan_ocr::{
+        config::{HunYuanVLConfig, HunyuanOCRGenerationConfig},
+        model::HunyuanVLModel,
+        processor::HunyuanVLProcessor,
     },
     tokenizer::TokenizerModel,
     utils::{find_type_files, get_device, get_dtype},
@@ -28,7 +24,7 @@ pub struct HunyuanOCRGenerateModel<'a> {
     chat_template: ChatTemplate<'a>,
     tokenizer: TokenizerModel,
     pre_processor: HunyuanVLProcessor,
-    hunyuan_vl: HunyuanVLModel,
+    model: HunyuanVLModel,
     device: Device,
     generation_config: HunyuanOCRGenerationConfig,
     model_name: String,
@@ -49,8 +45,7 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
         let generation_config_path = path.to_string() + "/generation_config.json";
         let generation_config: HunyuanOCRGenerationConfig =
             serde_json::from_slice(&std::fs::read(generation_config_path)?)?;
-        let hunyuan_vl =
-            HunyuanVLModel::new(vb, cfg.clone(), generation_config.eos_token_id.clone())?;
+        let model = HunyuanVLModel::new(vb, cfg.clone(), generation_config.eos_token_id.clone())?;
 
         let model_name = std::path::Path::new(path)
             .file_name()
@@ -61,7 +56,7 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
             chat_template,
             tokenizer,
             pre_processor,
-            hunyuan_vl,
+            model,
             device,
             generation_config,
             model_name,
@@ -69,72 +64,24 @@ impl<'a> HunyuanOCRGenerateModel<'a> {
     }
 }
 
-impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
-    fn generate(&mut self, mes: ChatCompletionParameters) -> Result<ChatCompletionResponse> {
-        let temperature = mes
-            .temperature
-            .unwrap_or(self.generation_config.temperature);
-        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
-        let top_k = self.generation_config.top_k;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
-        let data = self
-            .pre_processor
-            .process_info(&mes, &self.tokenizer, &mes_render)?;
-        let sample_len = mes.max_tokens.unwrap_or(1024);
-        let input_ids = data.input_ids;
-        let mut ctx = GenerationContext::new(
-            temperature.into(),
-            top_p.into(),
-            top_k.into(),
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            input_ids.dim(1)?,
-            sample_len,
-            self.device.clone(),
-        );
-
-        let data_vec = vec![
-            data.pixel_values,
-            data.image_grid_thw,
-            data.image_mask.into(),
-            data.position_ids.into(),
-        ];
-        let data = MultiModalData::new(data_vec);
-        generate_generic(
-            &mut self.hunyuan_vl,
-            &self.tokenizer,
-            input_ids,
-            data,
-            &mut ctx,
-            &self.model_name,
-        )
+impl<'a> GenerationDataProvider for HunyuanOCRGenerateModel<'a> {
+    fn get_temperature(&self, req_temp: Option<f32>) -> Option<f32> {
+        Some(req_temp.unwrap_or(self.generation_config.temperature))
     }
 
-    fn generate_stream(
-        &mut self,
-        mes: ChatCompletionParameters,
-    ) -> Result<
-        Box<
-            dyn Stream<Item = Result<ChatCompletionChunkResponse, anyhow::Error>>
-                + Send
-                + Unpin
-                + '_,
-        >,
-    > {
-        let temperature = mes
-            .temperature
-            .unwrap_or(self.generation_config.temperature);
-        let top_p = mes.top_p.unwrap_or(self.generation_config.top_p);
-        let top_k = self.generation_config.top_k;
-        let seed = mes.seed.unwrap_or(34562) as u64;
-        let mes_render = self.chat_template.apply_chat_template(&mes)?;
+    fn get_top_p(&self, req_top_p: Option<f32>) -> Option<f32> {
+        Some(req_top_p.unwrap_or(self.generation_config.top_p))
+    }
+
+    fn get_top_k(&self, top_k: Option<usize>) -> Option<usize> {
+        Some(top_k.unwrap_or(self.generation_config.top_k))
+    }
+
+    fn get_data(&self, mes: &ChatCompletionParameters) -> Result<PrepareData> {
+        let mes_render = self.chat_template.apply_chat_template(mes)?;
         let data = self
             .pre_processor
-            .process_info(&mes, &self.tokenizer, &mes_render)?;
-
-        let sample_len = mes.max_tokens.unwrap_or(1024);
+            .process_info(mes, &self.tokenizer, &mes_render)?;
         let input_ids = data.input_ids;
         let data_vec = vec![
             data.pixel_values,
@@ -142,23 +89,13 @@ impl<'a> GenerateModel for HunyuanOCRGenerateModel<'a> {
             data.image_mask.into(),
             data.position_ids.into(),
         ];
-        let data = MultiModalData::new(data_vec);
-        let stream = generate_stream_generic(
-            &mut self.hunyuan_vl,
-            &self.tokenizer,
+        let multi_model_data = MultiModalData::new(data_vec);
+        Ok(PrepareData {
+            in_reasoning: false,
             input_ids,
-            data,
-            temperature.into(),
-            top_p.into(),
-            top_k.into(),
-            mes.repeat_penalty,
-            mes.repeat_last_n,
-            seed,
-            sample_len,
-            false,
-            &self.device,
-            &self.model_name,
-        )?;
-        Ok(Box::new(Box::pin(stream)))
+            multi_model_data,
+        })
     }
 }
+
+crate::impl_generate_model!(HunyuanOCRGenerateModel<'a>);

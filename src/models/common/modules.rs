@@ -2,14 +2,14 @@ use anyhow::{Result, anyhow};
 use candle_core::{D, DType, IndexOp, Tensor};
 use candle_nn::{
     Activation, BatchNorm, BatchNormConfig, Conv1d, Conv1dConfig, Conv2d, Conv2dConfig,
-    ConvTranspose1d, ConvTranspose1dConfig, Embedding, LayerNorm, LayerNormConfig, Linear, Module,
-    ModuleT, RmsNorm, VarBuilder, batch_norm, conv1d, conv1d_no_bias, conv2d, conv2d_no_bias,
-    embedding, layer_norm, linear_b, linear_no_bias, ops::sigmoid, rms_norm,
+    ConvTranspose1d, ConvTranspose1dConfig, LayerNorm, LayerNormConfig, Linear, Module, ModuleT,
+    RmsNorm, VarBuilder, batch_norm, conv1d, conv1d_no_bias, conv2d, conv2d_no_bias, layer_norm,
+    linear_b, ops::sigmoid, rms_norm,
 };
 
 use crate::{
-    position_embed::rope::{RoPE, apply_rotary_pos_emb, apply_rotary_pos_emb_roformer},
-    utils::tensor_utils::{pad_replicate_last_dim, prepare_causal_attention_mask, repeat_kv},
+    position_embed::rope::{apply_rotary_pos_emb, apply_rotary_pos_emb_roformer},
+    utils::tensor_utils::{pad_replicate_last_dim, repeat_kv},
 };
 
 #[derive(Debug)]
@@ -371,7 +371,7 @@ impl QKVCatAttention {
             && let Some(sin) = sin
         {
             if use_roformer {
-                apply_rotary_pos_emb_roformer(&query_states, &key_states, cos, sin, tof32)?
+                apply_rotary_pos_emb_roformer(&query_states, &key_states, cos, sin)?
             } else {
                 apply_rotary_pos_emb(&query_states, &key_states, cos, sin, tof32)?
             }
@@ -412,7 +412,7 @@ impl QKVCatAttention {
         let key_states = qkv.i(1)?.contiguous()?;
         let value_states = qkv.i(2)?.contiguous()?;
         let (query_states, key_states) = if use_roformer {
-            apply_rotary_pos_emb_roformer(&query_states, &key_states, cos, sin, tof32)?
+            apply_rotary_pos_emb_roformer(&query_states, &key_states, cos, sin)?
         } else {
             apply_rotary_pos_emb(&query_states, &key_states, cos, sin, tof32)?
         };
@@ -765,11 +765,11 @@ pub fn eager_attention_forward(
     // input q shape:(b, num_head, seq_len, dim)
     // input k/v shape:(b, num_kv_head, seq_len, dim)
     let key_states = match num_key_value_groups {
-        Some(g) => repeat_kv(key_states.clone(), g)?.contiguous()?,
+        Some(g) => repeat_kv(key_states.clone(), g)?,
         None => key_states.clone(),
     };
     let value_states = match num_key_value_groups {
-        Some(g) => repeat_kv(value_states.clone(), g)?.contiguous()?,
+        Some(g) => repeat_kv(value_states.clone(), g)?,
         None => value_states.clone(),
     };
     let query_states = query_states.contiguous()?;
@@ -778,13 +778,14 @@ pub fn eager_attention_forward(
     let attn_output = {
         #[cfg(not(feature = "flash-attn"))]
         {
-            let attn_weights = query_states.matmul(&key_states.transpose(D::Minus2, D::Minus1)?)?;
+            let attn_weights =
+                query_states.matmul(&key_states.transpose(D::Minus2, D::Minus1)?.contiguous()?)?;
             let attn_weights = (attn_weights * scaling)?;
             let attn_weights = match attention_mask {
                 None => attn_weights,
                 Some(mask) => attn_weights.broadcast_add(&mask.to_dtype(attn_weights.dtype())?)?,
             };
-            let attn_weights = candle_nn::ops::softmax_last_dim(&attn_weights)?;
+            let attn_weights = candle_nn::ops::softmax_last_dim(&attn_weights)?.contiguous()?;
             attn_weights.matmul(&value_states)?
         }
         #[cfg(feature = "flash-attn")]
@@ -987,163 +988,6 @@ pub fn deform_conv2d_kernel(
     Ok(out)
 }
 
-pub struct LlamaModel {
-    pub embed_tokens: Embedding,
-    layers: Vec<NaiveAttnGateUpDownMLPBlock>,
-    norm: RmsNorm,
-    rotary_emb: RoPE,
-}
-
-impl LlamaModel {
-    pub fn new(
-        vb: VarBuilder,
-        vocab_size: usize,
-        hidden_size: usize,
-        num_hidden_layers: usize,
-        num_attention_heads: usize,
-        num_key_value_heads: Option<usize>,
-        head_dim: Option<usize>,
-        attn_bias: bool,
-        attn_pp_name: &str,
-        o_proj_pp_name: Option<&str>,
-        intermediate_size: usize,
-        hidden_act: Activation,
-        mlp_bias: bool,
-        mlp_pp_name: &str,
-        norm_eps: f64,
-        input_norm_pp_name: &str,
-        post_norm_pp_name: &str,
-        rope_theta_base: f32,
-    ) -> Result<Self> {
-        let embed_tokens = embedding(vocab_size, hidden_size, vb.pp("embed_tokens"))?;
-        let mut layers = vec![];
-        let vb_layers = vb.pp("layers");
-        for i in 0..num_hidden_layers {
-            let layers_i = NaiveAttnGateUpDownMLPBlock::new(
-                vb_layers.pp(i),
-                hidden_size,
-                num_attention_heads,
-                num_key_value_heads,
-                head_dim,
-                attn_bias,
-                attn_pp_name,
-                o_proj_pp_name,
-                intermediate_size,
-                hidden_act,
-                mlp_bias,
-                mlp_pp_name,
-                norm_eps,
-                input_norm_pp_name,
-                post_norm_pp_name,
-            )?;
-            layers.push(layers_i);
-        }
-        let norm = rms_norm(hidden_size, norm_eps, vb.pp("norm"))?;
-        let head_dim = head_dim.unwrap_or(hidden_size / num_attention_heads);
-        let rotary_emb = RoPE::new(head_dim, rope_theta_base, vb.device())?;
-        Ok(Self {
-            embed_tokens,
-            layers,
-            norm,
-            rotary_emb,
-        })
-    }
-
-    pub fn forward(&mut self, inputs_embeds: &Tensor, seqlen_offset: usize) -> Result<Tensor> {
-        let (b_size, seq_len, _) = inputs_embeds.dims3()?;
-
-        let (cos, sin) = self
-            .rotary_emb
-            .forward(seqlen_offset, seq_len, inputs_embeds.device())?;
-        let mut xs = inputs_embeds.clone();
-        let attention_mask: Option<Tensor> = {
-            if seq_len <= 1 {
-                None
-            } else {
-                Some(prepare_causal_attention_mask(
-                    b_size,
-                    seq_len,
-                    0,
-                    xs.device(),
-                )?)
-            }
-        };
-        for layer in self.layers.iter_mut() {
-            xs = layer.forward(&xs, &cos, &sin, attention_mask.as_ref())?;
-        }
-        let xs = xs.apply(&self.norm)?;
-        Ok(xs)
-    }
-
-    pub fn clear_kv_cache(&mut self) {
-        for layer in self.layers.iter_mut() {
-            layer.clear_kv_cache()
-        }
-    }
-}
-
-pub struct LlamaForCausalLM {
-    pub model: LlamaModel,
-    lm_head: Linear,
-}
-
-impl LlamaForCausalLM {
-    pub fn new(
-        vb: VarBuilder,
-        vocab_size: usize,
-        hidden_size: usize,
-        num_hidden_layers: usize,
-        num_attention_heads: usize,
-        num_key_value_heads: Option<usize>,
-        head_dim: Option<usize>,
-        attn_bias: bool,
-        attn_pp_name: &str,
-        o_proj_pp_name: Option<&str>,
-        intermediate_size: usize,
-        hidden_act: Activation,
-        mlp_bias: bool,
-        mlp_pp_name: &str,
-        norm_eps: f64,
-        input_norm_pp_name: &str,
-        post_norm_pp_name: &str,
-        rope_theta_base: f32,
-    ) -> Result<Self> {
-        let model = LlamaModel::new(
-            vb.pp("model"),
-            vocab_size,
-            hidden_size,
-            num_hidden_layers,
-            num_attention_heads,
-            num_key_value_heads,
-            head_dim,
-            attn_bias,
-            attn_pp_name,
-            o_proj_pp_name,
-            intermediate_size,
-            hidden_act,
-            mlp_bias,
-            mlp_pp_name,
-            norm_eps,
-            input_norm_pp_name,
-            post_norm_pp_name,
-            rope_theta_base,
-        )?;
-        let lm_head = linear_no_bias(hidden_size, vocab_size, vb.pp("lm_head"))?;
-        Ok(Self { model, lm_head })
-    }
-
-    pub fn forward(&mut self, inputs_embeds: &Tensor, seqlen_offset: usize) -> Result<Tensor> {
-        let outputs = self.model.forward(inputs_embeds, seqlen_offset)?;
-        let seq_len = outputs.dim(1)?;
-        let hidden_state = outputs.narrow(1, seq_len - 1, 1)?;
-        let logits = self.lm_head.forward(&hidden_state)?;
-        Ok(logits)
-    }
-    pub fn clear_kv_cache(&mut self) {
-        self.model.clear_kv_cache();
-    }
-}
-
 pub struct GLU {
     dim: usize,
 }
@@ -1190,10 +1034,14 @@ impl WNConv1d {
         groups: usize,
         stride: usize,
         bias: bool,
+        weight_g_pp_name: Option<&str>,
+        weight_v_pp_name: Option<&str>,
     ) -> Result<Self> {
         let in_c = in_c / groups;
-        let weight_g = vb.get((out_c, 1, 1), "weight_g")?;
-        let weight_v = vb.get((out_c, in_c, kernel_size), "weight_v")?;
+        let weight_g_pp_name = weight_g_pp_name.unwrap_or("weight_g");
+        let weight_v_pp_name = weight_v_pp_name.unwrap_or("weight_v");
+        let weight_g = vb.get((out_c, 1, 1), weight_g_pp_name)?;
+        let weight_v = vb.get((out_c, in_c, kernel_size), weight_v_pp_name)?;
         // let bias = vb.get(out_c, "bias").ok();
         let bias = if bias {
             vb.get(out_c, "bias").ok()
@@ -1544,4 +1392,17 @@ pub fn quick_gelu(xs: &Tensor) -> Result<Tensor> {
     let x = xs.affine(1.702, 0.0)?;
     let x = sigmoid(&x)?;
     Ok(xs.mul(&x)?)
+}
+
+pub fn new_gelu(xs: &Tensor) -> Result<Tensor> {
+    let sqrt_two_over_pi = (2.0f64 / std::f64::consts::PI).sqrt();
+    Ok(xs
+        .powf(3.0)?
+        .affine(0.044715, 0.0)?
+        .add(xs)?
+        .affine(sqrt_two_over_pi, 0.0)?
+        .tanh()?
+        .affine(1.0, 1.0)?
+        .mul(xs)?
+        .affine(0.5, 0.0)?)
 }
