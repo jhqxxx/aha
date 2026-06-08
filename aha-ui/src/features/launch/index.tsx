@@ -119,14 +119,6 @@ export function LaunchPage() {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [status.logs])
 
-  const toggleModel = (modelId: string) => {
-    setSelectedModels((prev) =>
-      prev.includes(modelId)
-        ? prev.filter((id) => id !== modelId)
-        : [...prev, modelId],
-    )
-  }
-
   const handleStart = async () => {
     if (selectedModels.length === 0) return
     try {
@@ -232,6 +224,13 @@ export function LaunchPage() {
                         return (
                           <label
                             key={m.model_id}
+                            onClick={() =>
+                              setSelectedModels((prev) =>
+                                prev.includes(m.model_id)
+                                  ? prev.filter((id) => id !== m.model_id)
+                                  : [...prev, m.model_id],
+                              )
+                            }
                             className={`flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer transition-colors ${
                               checked
                                 ? "bg-primary/10 text-primary"

@@ -56,8 +56,12 @@ cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
 metal = ["candle-nn/metal", "candle-core/metal", "candle-transformers/metal"]
 ffmpeg = ["ffmpeg-next"]
 
+
 [lints.clippy]
 needless_range_loop = "allow"
 single_range_in_vec_init = "allow"
 manual_div_ceil = "allow"
+
+[lints.rust]
+unsafe_code = { level = "allow", priority = 0 }
 
