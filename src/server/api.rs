@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 use utoipa::ToSchema;
 
 use crate::models::load_gguf_model;
-use crate::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
+use crate::models::{GenerateModel, common::model_mapping::WhichModel, load_model};
 use crate::params::chat::{ChatCompletionParameters, ChatCompletionResponse};
 use crate::utils::string_to_static_str;
 use anyhow::anyhow;
@@ -23,16 +23,7 @@ use tokio::sync::RwLock;
 use crate::server::model_manager::{ModelEntry, MultiModelManager, SharedResources};
 use crate::server::process::cleanup_pid_file;
 
-/// Wrapper to store model type together with the model instance
-pub(crate) struct StoredModel {
-    pub which_model: WhichModel,
-    pub instance: ModelInstance<'static>,
-}
-
-// 保留旧的单模型接口用于向后兼容
-pub(crate) static MODEL: OnceLock<Arc<RwLock<StoredModel>>> = OnceLock::new();
-
-// 新的多模型管理器
+// 多模型管理器
 pub(crate) static MULTI_MODEL_MANAGER: OnceLock<Arc<MultiModelManager>> = OnceLock::new();
 
 static SHUTDOWN_FLAG: OnceLock<Arc<AtomicBool>> = OnceLock::new();
@@ -107,7 +98,7 @@ pub fn load_and_register_model(
     // 注册模型
     let entry = ModelEntry {
         which_model: model_type,
-        instance,
+        instance: RwLock::new(instance),
         model_id: model_id.clone(),
     };
     
@@ -116,36 +107,6 @@ pub fn load_and_register_model(
     });
     
     println!("Model {} registered successfully", model_id);
-    Ok(())
-}
-
-pub fn init(
-    model_type: WhichModel,
-    path: String,
-    gguf: Option<String>,
-    mmproj: Option<String>,
-) -> anyhow::Result<()> {
-    let model = if model_type.is_gguf() {
-        if let Some(gguf_path) = gguf {
-            let gguf_path = string_to_static_str(gguf_path);
-            let mmproj_path = mmproj.map(string_to_static_str);
-            load_gguf_model(model_type, None, gguf_path, mmproj_path, None)?
-        } else {
-            return Err(anyhow!("gguf model need gguf model path"));
-        }
-    } else if model_type.is_onnx() {
-        return Err(anyhow!("onnx comming soon but now not support"));
-    } else {
-        let model_path = string_to_static_str(path);
-        load_model(model_type, model_path, None, None)?
-    };
-
-    MODEL.get_or_init(|| {
-        Arc::new(RwLock::new(StoredModel {
-            which_model: model_type,
-            instance: model,
-        }))
-    });
     Ok(())
 }
 
@@ -189,7 +150,7 @@ where
 }
 
 /// 根据 model 参数获取对应的模型实例
-async fn get_model_by_name(model_name: &str) -> anyhow::Result<Arc<crate::server::model_manager::ModelEntry>> {
+pub(crate) async fn get_model_by_name(model_name: &str) -> anyhow::Result<Arc<crate::server::model_manager::ModelEntry>> {
     let manager = MULTI_MODEL_MANAGER.get().ok_or_else(|| {
         anyhow::anyhow!("Multi-model manager not initialized")
     })?;
@@ -229,22 +190,19 @@ pub(crate) async fn chat(
 ) -> (ContentType, Response<impl Stream<Item = String> + Send>) {
     let params = req.into_inner();
     let model_name = params.model.clone();
-    
+
+    let entry = match get_model_by_name(&model_name).await {
+        Ok(e) => e,
+        Err(e) => return (ContentType::Text, Response::Error(e.to_string())),
+    };
+
     match params.stream {
         Some(false) => {
-            let response = async {
-                let entry = get_model_by_name(&model_name).await?;
-                // TODO: use entry.instance directly once multi-model chat is fully implemented
-                drop(entry);
-                
-                let model_ref = MODEL
-                    .get()
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("model not init"))?;
-                let mut guard = model_ref.write().await;
-                guard.instance.generate(params)
-            }.await;
-            
+            let response = {
+                let mut guard = entry.instance.write().await;
+                guard.generate(params)
+            };
+
             match response {
                 Ok(res) => {
                     let response_str = serde_json::to_string(&res).unwrap();
@@ -255,9 +213,8 @@ pub(crate) async fn chat(
         }
         _ => {
             let text_stream = TextStream! {
-                let model_ref = MODEL.get().cloned().ok_or_else(|| anyhow::anyhow!("model not init")).unwrap();
-                let mut guard = model_ref.write().await;
-                let stream_result = guard.instance.generate_stream(params);
+                let mut guard = entry.instance.write().await;
+                let stream_result = guard.generate_stream(params);
                 match stream_result {
                     Ok(stream) => {
                         let mut stream = pin!(stream);
@@ -320,14 +277,14 @@ pub(crate) async fn list_loaded_models() -> (ContentType, String) {
 )]
 #[post("/remove_background", data = "<req>")]
 pub(crate) async fn remove_background(req: Json<ChatCompletionParameters>) -> (Status, String) {
+    let params = req.into_inner();
+    let entry = match get_model_by_name(&params.model).await {
+        Ok(e) => e,
+        Err(e) => return (Status::ServiceUnavailable, e.to_string()),
+    };
     let response = {
-        let model_ref = MODEL
-            .get()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("model not init"))
-            .unwrap();
-        let mut guard = model_ref.write().await;
-        guard.instance.generate(req.into_inner())
+        let mut guard = entry.instance.write().await;
+        guard.generate(params)
     };
     match response {
         Ok(res) => {
@@ -347,14 +304,14 @@ pub(crate) async fn remove_background(req: Json<ChatCompletionParameters>) -> (S
 )]
 #[post("/speech", data = "<req>")]
 pub(crate) async fn speech(req: Json<ChatCompletionParameters>) -> (Status, String) {
+    let params = req.into_inner();
+    let entry = match get_model_by_name(&params.model).await {
+        Ok(e) => e,
+        Err(e) => return (Status::ServiceUnavailable, e.to_string()),
+    };
     let response = {
-        let model_ref = MODEL
-            .get()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("model not init"))
-            .unwrap();
-        let mut guard = model_ref.write().await;
-        guard.instance.generate(req.into_inner())
+        let mut guard = entry.instance.write().await;
+        guard.generate(params)
     };
     match response {
         Ok(res) => {
@@ -385,7 +342,11 @@ pub struct HealthResponse {
 )]
 #[get("/health")]
 pub(crate) async fn health() -> (Status, (ContentType, Json<HealthResponse>)) {
-    if MODEL.get().is_some() {
+    let healthy = match MULTI_MODEL_MANAGER.get() {
+        Some(m) => !m.list_models().await.is_empty(),
+        None => false,
+    };
+    if healthy {
         let response = HealthResponse {
             status: "ok".to_string(),
             error: None,
@@ -434,40 +395,43 @@ struct ErrorResponse {
 )]
 #[get("/models")]
 pub(crate) async fn models() -> (Status, (ContentType, Json<serde_json::Value>)) {
-    if let Some(model_ref) = MODEL.get() {
-        let guard = model_ref.read().await;
-        let which_model = guard.which_model;
+    match MULTI_MODEL_MANAGER.get() {
+        Some(manager) => {
+            let model_ids = manager.list_models().await;
+            let data: Vec<ModelObject> = model_ids
+                .into_iter()
+                .map(|id| ModelObject {
+                    id: id.clone(),
+                    object: "model".to_string(),
+                    created: None,
+                    owned_by: "aha".to_string(),
+                })
+                .collect();
 
-        let model_obj = ModelObject {
-            id: which_model.as_string(),
-            object: "model".to_string(),
-            created: None, // We don't track creation time
-            owned_by: which_model.model_owner(),
-        };
-        drop(guard);
-
-        let response = ModelsListResponse {
-            object: "list".to_string(),
-            data: vec![model_obj],
-        };
-        (
-            Status::Ok,
+            let response = ModelsListResponse {
+                object: "list".to_string(),
+                data,
+            };
             (
-                ContentType::JSON,
-                Json(serde_json::to_value(response).unwrap()),
-            ),
-        )
-    } else {
-        let response = ErrorResponse {
-            error: "model not initialized".to_string(),
-        };
-        (
-            Status::ServiceUnavailable,
+                Status::Ok,
+                (
+                    ContentType::JSON,
+                    Json(serde_json::to_value(response).unwrap()),
+                ),
+            )
+        }
+        None => {
+            let response = ErrorResponse {
+                error: "model not initialized".to_string(),
+            };
             (
-                ContentType::JSON,
-                Json(serde_json::to_value(response).unwrap()),
-            ),
-        )
+                Status::ServiceUnavailable,
+                (
+                    ContentType::JSON,
+                    Json(serde_json::to_value(response).unwrap()),
+                ),
+            )
+        }
     }
 }
 

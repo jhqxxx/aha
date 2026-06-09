@@ -12,7 +12,7 @@ use rocket::serde::json::Json;
 use rocket::{form::Form, post};
 
 use crate::params::asr::{ErrorDetail, ErrorResponse, TranscriptionRequest, TranscriptionResponse};
-use crate::server::api::MODEL;
+use crate::server::api::get_model_by_name;
 
 /// Handle audio transcription requests
 ///
@@ -109,9 +109,10 @@ pub(crate) async fn transcriptions(
     };
 
     // Get the model and generate transcription
-    let model_ref = match MODEL.get() {
-        Some(m) => m,
-        None => {
+    let model_name = params.model.clone();
+    let entry = match get_model_by_name(&model_name).await {
+        Ok(e) => e,
+        Err(_) => {
             return error_response(
                 Status::ServiceUnavailable,
                 "service_unavailable",
@@ -122,8 +123,8 @@ pub(crate) async fn transcriptions(
     };
 
     let response = {
-        let mut guard = model_ref.write().await;
-        guard.instance.generate(params)
+        let mut guard = entry.instance.write().await;
+        guard.generate(params)
     };
 
     match response {

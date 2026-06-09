@@ -35,16 +35,16 @@ impl SharedResources {
                 return Ok(tokenizer.clone());
             }
         }
-        
+
         // 缓存未命中，加载并存储
         let tokenizer = loader()?;
         let tokenizer = Arc::new(tokenizer);
-        
+
         {
             let mut cache = self.tokenizer_cache.write().await;
             cache.insert(model_id.to_string(), tokenizer.clone());
         }
-        
+
         Ok(tokenizer)
     }
 }
@@ -52,7 +52,7 @@ impl SharedResources {
 /// 单个模型的完整信息
 pub struct ModelEntry {
     pub which_model: WhichModel,
-    pub instance: ModelInstance<'static>,
+    pub instance: RwLock<ModelInstance<'static>>,
     pub model_id: String,
 }
 
