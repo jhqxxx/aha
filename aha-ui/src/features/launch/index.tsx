@@ -121,6 +121,22 @@ export function LaunchPage() {
 
   const handleStart = async () => {
     if (selectedModels.length === 0) return
+
+    // 如果服务正在运行，先停止
+    if (status.running) {
+      try {
+        await invoke("stop_server")
+        // 等一会在启动，确保端口释放
+        await new Promise((r) => setTimeout(r, 500))
+      } catch (e) {
+        setStatus((prev) => ({
+          ...prev,
+          logs: [...prev.logs, `[错误] 停止旧服务失败: ${e}`],
+        }))
+        return
+      }
+    }
+
     try {
       await invoke("start_server", {
         config: {
@@ -235,7 +251,7 @@ export function LaunchPage() {
                               checked
                                 ? "bg-primary/10 text-primary"
                                 : "hover:bg-muted/50"
-                            } ${status.running ? "opacity-50 pointer-events-none" : ""}`}
+                            }`}
                           >
                             <div
                               className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
@@ -268,7 +284,6 @@ export function LaunchPage() {
                   id="address"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  disabled={status.running}
                 />
               </div>
               <div className="space-y-2">
@@ -277,7 +292,6 @@ export function LaunchPage() {
                   id="port"
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
-                  disabled={status.running}
                 />
               </div>
             </div>
@@ -292,7 +306,6 @@ export function LaunchPage() {
                 value={weightPath}
                 onChange={(e) => setWeightPath(e.target.value)}
                 placeholder="留空则使用默认路径"
-                disabled={status.running}
               />
             </div>
           </Card>
@@ -325,26 +338,23 @@ export function LaunchPage() {
             </div>
 
             <div className="flex gap-2">
-              {!status.running ? (
                 <Button
                   onClick={handleStart}
                   disabled={selectedModels.length === 0}
                   className="flex-1"
                 >
-                  <Play className="w-4 h-4 mr-1.5" />
-                  启动服务
+                  {status.running ? (
+                    <><RotateCw className="w-4 h-4 mr-1.5" />重启服务</>
+                  ) : (
+                    <><Play className="w-4 h-4 mr-1.5" />启动服务</>
+                  )}
                 </Button>
-              ) : (
-                <Button
-                  onClick={handleStop}
-                  variant="destructive"
-                  className="flex-1"
-                >
-                  <Square className="w-4 h-4 mr-1.5" />
-                  停止服务
-                </Button>
-              )}
-            </div>
+                {status.running && (
+                  <Button onClick={handleStop} variant="destructive">
+                    <Square className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
 
             {/* 服务运行信息 */}
             {status.running && (
