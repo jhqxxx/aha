@@ -1,0 +1,90 @@
+name: Build aha-ui (Windows)
+
+on:
+  # 手动触发构建（从 Actions 页面点击 "Run workflow"）
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "创建 GitHub Release"
+        type: boolean
+        required: false
+        default: false
+
+  push:
+    branches:
+      - main
+    tags:
+      - "aha-ui-v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # ---- 1. 设置 Rust ----
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+
+      # ---- 2. 设置 Node.js + pnpm ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      # ---- 3. 安装前端依赖 ----
+      - name: Install dependencies
+        working-directory: aha-ui
+        run: pnpm install --frozen-lockfile
+
+      # ---- 4. 构建 Tauri 桌面应用 ----
+      - name: Build aha-ui (Tauri)
+        working-directory: aha-ui
+        run: pnpm tauri build
+        env:
+          TAURI_SKIP_DEVTOOLS_UPDATE: true
+
+      # ---- 5. 上传构建产物（安装包）到 Actions Artifacts ----
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aha-ui-windows
+          path: |
+            aha-ui/src-tauri/target/release/bundle/msi/*.msi
+            aha-ui/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
+          compression-level: 0
+
+      # ---- 6. tag 推送时自动发布到 GitHub Release ----
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            aha-ui/src-tauri/target/release/bundle/msi/*.msi
+            aha-ui/src-tauri/target/release/bundle/nsis/*.exe
+          generate_release_notes: true
+          draft: false
