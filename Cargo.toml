@@ -45,6 +45,8 @@ derive_builder = "0.20.2"
 kaldi-native-fbank = "0.1.0"
 rand = "0.10.1"
 esaxx-rs = "0.1.10"
+utoipa = { version = "5", features = ["rocket_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["rocket"] }
 
 
 [features]
@@ -53,8 +55,12 @@ cuda = ["candle-nn/cuda", "candle-core/cuda", "candle-transformers/cuda"]
 metal = ["candle-nn/metal", "candle-core/metal", "candle-transformers/metal"]
 ffmpeg = ["ffmpeg-next"]
 
+
 [lints.clippy]
 needless_range_loop = "allow"
 single_range_in_vec_init = "allow"
 manual_div_ceil = "allow"
+
+[lints.rust]
+unsafe_code = { level = "allow", priority = 0 }
 

@@ -41,7 +41,9 @@ struct ModelDetail {
 
 #[derive(Debug, Clone, Deserialize)]
 struct LaunchConfig {
-    model_id: String,
+    /// 支持多模型：单个模型 ID 或模型 ID 列表
+    model_id: Option<String>,
+    models: Option<Vec<String>>,
     address: Option<String>,
     port: Option<u16>,
     weight_path: Option<String>,
@@ -275,12 +277,19 @@ fn start_server(
 
     let mut cmd = Command::new(&binary);
     cmd.arg("cli")
-        .arg("-m")
-        .arg(&config.model_id)
         .arg("--address")
         .arg(&address)
         .arg("--port")
         .arg(port.to_string());
+
+    // 支持多模型：可以传单个 model_id 或多个 models
+    if let Some(models) = &config.models {
+        for m in models {
+            cmd.arg("-m").arg(m);
+        }
+    } else if let Some(mid) = &config.model_id {
+        cmd.arg("-m").arg(mid);
+    }
 
     if let Some(wp) = &config.weight_path {
         cmd.arg("--weight-path").arg(wp);
@@ -306,12 +315,21 @@ fn start_server(
     let logs = state.server_logs.clone();
     let app_clone = app.clone();
 
+    // 构建模型列表字符串
+    let model_names = if let Some(models) = &config.models {
+        models.join(", ")
+    } else if let Some(mid) = &config.model_id {
+        mid.clone()
+    } else {
+        "未知".to_string()
+    };
+
     // 启动前追加一条日志
     {
         let mut l = logs.lock().map_err(|e| e.to_string())?;
         l.push(format!(
             "[aha] 启动服务: {}:{}  模型: {}  PID: {}",
-            address, port, config.model_id, pid
+            address, port, model_names, pid
         ));
     }
 

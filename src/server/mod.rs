@@ -1,4 +1,5 @@
 use crate::server::api::set_server_port;
+use crate::server::openapi::ApiDoc;
 use crate::server::process::{cleanup_pid_file, create_pid_file};
 use rocket::data::{ByteUnit, Limits};
 use rocket::{Config, routes};
@@ -6,15 +7,19 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 // ASR (Automatic Speech Recognition) API module
-pub(crate) mod api;
 pub(crate) mod asr;
 pub(crate) mod embedding;
-pub(crate) mod process;
+pub mod api;
+pub mod model_manager;
+pub mod openapi;
+pub mod process;
 pub(crate) mod reranker;
 
-pub(crate) async fn start_http_server(
+pub async fn start_http_server(
     address: String,
     port: u16,
     allow_remote_shutdown: bool,
@@ -74,9 +79,18 @@ pub(crate) async fn start_http_server(
     builder = builder.mount("/", routes![api::health, api::models]);
     // OpenAI-compatible model listing endpoint: /v1/models
     builder = builder.mount("/v1", routes![api::models]);
+    // 多模型管理端点
+    builder = builder.mount("/admin", routes![api::list_loaded_models]);
     // Shutdown endpoint
     builder = builder.manage(shutdown_flag);
     builder = builder.mount("/", routes![api::shutdown]);
+
+    // Swagger UI / OpenAPI
+    builder = builder.mount(
+        "/",
+        SwaggerUi::new("/swagger-ui/{_:.*}")
+            .url("/api-docs/openapi.json", ApiDoc::openapi()),
+    );
 
     let _rocket = builder.launch().await?;
 

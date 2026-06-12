@@ -1,10 +1,7 @@
-use crate::{
-    cli::args::{CliArgs, DeleteArgs, DownloadArgs, ListArgs, RunArgs, ServArgs, ServListArgs},
-    server::{
-        api::init,
-        process::{ServiceStatus, find_aha_services},
-        start_http_server,
-    },
+use crate::cli::args::{CliArgs, DeleteArgs, DownloadArgs, ListArgs, RunArgs, ServArgs, ServListArgs};
+use aha::server::{
+    process::{ServiceStatus, find_aha_services},
+    start_http_server,
 };
 use aha::exec::*;
 use aha::{
@@ -82,36 +79,60 @@ pub(crate) async fn run_cli(args: CliArgs) -> anyhow::Result<()> {
         download_retries,
         path_common,
     } = args;
-    let model_id = model.as_string();
+    
+    // 初始化共享资源（只执行一次）
+    aha::server::api::init_shared_resources();
 
-    let (model_path, gguf, mmproj) = if model.is_gguf() {
-        if path_common.gguf_path.is_none() {
-            return Err(anyhow!("gguf model path is required"));
-        }
-        (
-            "GGUF".to_string(),
-            path_common.gguf_path,
-            path_common.mmproj_path,
-        )
-    } else if model.is_onnx() {
-        return Err(anyhow!("onnx model not support now"));
-    } else {
-        let model_path = match path_common.weight_path {
-            Some(path) => path,
-            None => {
-                let save_dir = match save_dir {
-                    Some(dir) => dir,
-                    None => get_default_save_dir().expect("Failed to get home directory"),
-                };
-                let max_retries = download_retries.unwrap_or(3);
-                download_model(&model_id, &save_dir, max_retries).await?;
-                save_dir + "/" + &model_id
+    // 支持多模型加载
+    if model.is_empty() {
+        return Err(anyhow!("At least one model must be specified"));
+    }
+
+    println!("Preparing {} model(s)...", model.len());
+
+    for (idx, model_type) in model.iter().enumerate() {
+        let model_id = model_type.as_string();
+        println!("[{}/{}] Preparing model: {}", idx + 1, model.len(), model_id);
+
+        let (model_path, gguf, mmproj) = if model_type.is_gguf() {
+            if path_common.gguf_path.is_none() {
+                return Err(anyhow!("gguf model path is required"));
             }
+            (
+                "GGUF".to_string(),
+                path_common.gguf_path.clone(),
+                path_common.mmproj_path.clone(),
+            )
+        } else if model_type.is_onnx() {
+            return Err(anyhow!("onnx model not support now"));
+        } else {
+            let model_path = match &path_common.weight_path {
+                Some(path) => path.clone(),
+                None => {
+                    let save_dir = match &save_dir {
+                        Some(dir) => dir.clone(),
+                        None => get_default_save_dir().expect("Failed to get home directory"),
+                    };
+                    let max_retries = download_retries.unwrap_or(3);
+                    download_model(&model_id, &save_dir, max_retries).await?;
+                    save_dir + "/" + &model_id
+                }
+            };
+            (model_path, None, None)
         };
-        (model_path, None, None)
-    };
 
-    init(model, model_path, gguf, mmproj)?;
+        // 加载并注册模型
+        aha::server::api::load_and_register_model(
+            *model_type,
+            model_path,
+            gguf,
+            mmproj,
+        )?;
+    }
+    
+    println!("All models loaded successfully!");
+    println!("Starting HTTP server on {}:{}", server_common.address, server_common.port);
+    
     start_http_server(
         server_common.address,
         server_common.port,
@@ -129,31 +150,59 @@ pub(crate) async fn run_serv(args: ServArgs) -> anyhow::Result<()> {
         server_common,
         path_common,
     } = args;
-    let (model_path, gguf, mmproj) = if model.is_gguf() {
-        if path_common.gguf_path.is_none() {
-            return Err(anyhow!("gguf model path is required"));
-        }
-        (
-            "GGUF".to_string(),
-            path_common.gguf_path,
-            path_common.mmproj_path,
-        )
-    } else if model.is_onnx() {
-        return Err(anyhow!("onnx model not support now"));
-    } else {
-        let model_path = match path_common.weight_path {
-            Some(path) => path,
-            None => get_default_weight_path(model),
-        };
-        if !std::path::Path::new(&model_path).exists() {
-            return Err(anyhow!(
-                "serv subcommand will not download model, use `weight-path` to pass the model path"
-            ));
-        }
-        (model_path, None, None)
-    };
+    
+    // 初始化共享资源（只执行一次）
+    aha::server::api::init_shared_resources();
 
-    init(model, model_path, gguf, mmproj)?;
+    // 支持多模型加载
+    if model.is_empty() {
+        return Err(anyhow!("At least one model must be specified"));
+    }
+
+    println!("Loading {} model(s)...", model.len());
+
+    for (idx, model_type) in model.iter().enumerate() {
+        let model_id = model_type.as_string();
+        println!("[{}/{}] Loading model: {}", idx + 1, model.len(), model_id);
+
+        let (model_path, gguf, mmproj) = if model_type.is_gguf() {
+            if path_common.gguf_path.is_none() {
+                return Err(anyhow!("gguf model path is required"));
+            }
+            (
+                "GGUF".to_string(),
+                path_common.gguf_path.clone(),
+                path_common.mmproj_path.clone(),
+            )
+        } else if model_type.is_onnx() {
+            return Err(anyhow!("onnx model not support now"));
+        } else {
+            let model_path = match &path_common.weight_path {
+                Some(path) => path.clone(),
+                None => get_default_weight_path(*model_type),
+            };
+            if !std::path::Path::new(&model_path).exists() {
+                return Err(anyhow!(
+                    "serv subcommand will not download model, use `weight-path` to pass the model path for {}",
+                    model_id
+                ));
+            }
+            (model_path, None, None)
+        };
+
+        // 加载并注册模型
+        aha::server::api::load_and_register_model(
+            *model_type,
+            model_path,
+            gguf,
+            mmproj,
+        )?;
+    }
+    
+    println!("All models loaded successfully!");
+    println!("Starting HTTP server on {}:{}", server_common.address, server_common.port);
+    
+    // 启动 HTTP 服务器
     start_http_server(
         server_common.address,
         server_common.port,

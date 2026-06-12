@@ -1,45 +1,96 @@
 use std::pin::pin;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::atomic::{ AtomicBool, Ordering };
+use std::sync::{ Arc, OnceLock };
+use utoipa::ToSchema;
 
-use aha::models::load_gguf_model;
-use aha::models::{GenerateModel, ModelInstance, common::model_mapping::WhichModel, load_model};
-use aha::params::chat::ChatCompletionParameters;
-use aha::utils::string_to_static_str;
+use crate::models::load_gguf_model;
+use crate::models::{ GenerateModel, common::model_mapping::WhichModel, load_model };
+use crate::params::chat::{ ChatCompletionParameters, ChatCompletionResponse };
+use crate::utils::string_to_static_str;
 use anyhow::anyhow;
 use rocket::futures::StreamExt;
-use rocket::serde::{Serialize, json::Json};
+use rocket::serde::{ Serialize, json::Json };
 use rocket::{
-    Request, State,
+    Request,
+    State,
     futures::Stream,
     get,
-    http::{ContentType, Status},
+    http::{ ContentType, Status },
     post,
-    response::{Responder, stream::TextStream},
+    response::{ Responder, stream::TextStream },
 };
 use tokio::sync::RwLock;
 
+use crate::server::model_manager::{ ModelEntry, MultiModelManager, SharedResources };
 use crate::server::process::cleanup_pid_file;
 
-/// Wrapper to store model type together with the model instance
-pub(crate) struct StoredModel {
-    pub which_model: WhichModel,
-    pub instance: ModelInstance<'static>,
-}
+// 多模型管理器
+pub(crate) static MULTI_MODEL_MANAGER: OnceLock<Arc<MultiModelManager>> = OnceLock::new();
 
-// Export MODEL for use in ASR module
-pub(crate) static MODEL: OnceLock<Arc<RwLock<StoredModel>>> = OnceLock::new();
 static SHUTDOWN_FLAG: OnceLock<Arc<AtomicBool>> = OnceLock::new();
 static SERVER_PORT: OnceLock<u16> = OnceLock::new();
 static ALLOW_REMOTE_SHUTDOWN: OnceLock<bool> = OnceLock::new();
 
-pub fn init(
+/// 初始化共享资源（只调用一次）
+pub fn init_shared_resources() -> Arc<SharedResources> {
+    use candle_core::{ Device, DType };
+
+    // 检测可用的设备
+    let device = if cfg!(feature = "cuda") {
+        Device::new_cuda(0).unwrap()
+    } else if cfg!(feature = "metal") {
+        Device::new_metal(0).unwrap_or(Device::Cpu)
+    } else {
+        Device::Cpu
+    };
+
+    // ============ 添加这部分打印 ============
+    // 打印当前使用的设备类型
+    match &device {
+        Device::Cpu => println!("[aha] 推理设备: CPU"),
+        Device::Cuda(_) => println!("[aha] 推理设备: NVIDIA GPU (CUDA)"),
+        Device::Metal(_) => println!("[aha] 推理设备: Apple Silicon GPU (Metal)"),
+    }
+    // ========================================
+
+    // 根据设备选择最优数据类型
+    let dtype = match &device {
+        Device::Cuda(_) => DType::F16, // GPU 使用 F16 节省显存
+        Device::Metal(_) => DType::F16,
+        Device::Cpu => DType::F32,
+    };
+
+    let shared = Arc::new(SharedResources::new(device, dtype));
+    MULTI_MODEL_MANAGER.get_or_init(|| { Arc::new(MultiModelManager::new(shared.clone())) });
+
+    shared
+}
+
+/// 加载单个模型并注册到管理器
+pub fn load_and_register_model(
     model_type: WhichModel,
     path: String,
     gguf: Option<String>,
-    mmproj: Option<String>,
+    mmproj: Option<String>
 ) -> anyhow::Result<()> {
-    let model = if model_type.is_gguf() {
+    let manager = MULTI_MODEL_MANAGER.get().ok_or_else(|| {
+        anyhow!("Multi-model manager not initialized. Call init_shared_resources first.")
+    })?;
+
+    let model_id = format!("{:?}", model_type);
+
+    // 检查模型是否已加载
+    if
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(manager.has_model(&model_id))
+        })
+    {
+        println!("Model {} already loaded, skipping...", model_id);
+        return Ok(());
+    }
+
+    // 加载模型
+    let instance = if model_type.is_gguf() {
         if let Some(gguf_path) = gguf {
             let gguf_path = string_to_static_str(gguf_path);
             let mmproj_path = mmproj.map(string_to_static_str);
@@ -54,12 +105,18 @@ pub fn init(
         load_model(model_type, model_path, None, None)?
     };
 
-    MODEL.get_or_init(|| {
-        Arc::new(RwLock::new(StoredModel {
-            which_model: model_type,
-            instance: model,
-        }))
+    // 注册模型
+    let entry = ModelEntry {
+        which_model: model_type,
+        instance: RwLock::new(instance),
+        model_id: model_id.clone(),
+    };
+
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(manager.register_model(model_id.clone(), entry))
     });
+
+    println!("Model {} registered successfully", model_id);
     Ok(())
 }
 
@@ -71,9 +128,7 @@ pub fn set_server_port(port: u16, allow_remote_shutdown: bool) {
 
 #[allow(unused)]
 pub fn get_shutdown_flag() -> Arc<AtomicBool> {
-    SHUTDOWN_FLAG
-        .get_or_init(|| Arc::new(AtomicBool::new(false)))
-        .clone()
+    SHUTDOWN_FLAG.get_or_init(|| Arc::new(AtomicBool::new(false))).clone()
 }
 
 pub(crate) enum Response<R: Stream<Item = String> + Send> {
@@ -82,10 +137,9 @@ pub(crate) enum Response<R: Stream<Item = String> + Send> {
     Error(String),
 }
 
-impl<'r, 'o: 'r, R> Responder<'r, 'o> for Response<R>
-where
-    R: Stream<Item = String> + Send + 'o,
-    'r: 'o,
+impl<'r, 'o: 'r, R> Responder<'r, 'o>
+    for Response<R>
+    where R: Stream<Item = String> + Send + 'o, 'r: 'o
 {
     fn respond_to(self, req: &'r Request<'_>) -> rocket::response::Result<'o> {
         match self {
@@ -102,21 +156,63 @@ where
     }
 }
 
+/// 根据 model 参数获取对应的模型实例
+pub(crate) async fn get_model_by_name(
+    model_name: &str
+) -> anyhow::Result<Arc<crate::server::model_manager::ModelEntry>> {
+    let manager = MULTI_MODEL_MANAGER.get().ok_or_else(|| {
+        anyhow::anyhow!("Multi-model manager not initialized")
+    })?;
+
+    // 尝试直接匹配 model_id
+    if let Some(entry) = manager.get_model(model_name).await {
+        return Ok(entry);
+    }
+
+    // 如果只有一个模型，直接使用它（向后兼容）
+    let models = manager.list_models().await;
+    if models.len() == 1 {
+        if let Some(entry) = manager.get_model(&models[0]).await {
+            return Ok(entry);
+        }
+    }
+
+    Err(anyhow::anyhow!("Model '{}' not found. Available models: {:?}", model_name, models))
+}
+
+#[utoipa::path(
+    post,
+    path = "/chat/completions",
+    request_body = ChatCompletionParameters,
+    responses((
+        status = 200,
+        description = "Chat completion response. When stream=true, returns SSE event stream with ChatCompletionChunkResponse chunks.",
+        body = ChatCompletionResponse,
+        content_type = "application/json",
+    )),
+    tag = "chat"
+)]
 #[post("/completions", data = "<req>")]
 pub(crate) async fn chat(
-    req: Json<ChatCompletionParameters>,
+    req: Json<ChatCompletionParameters>
 ) -> (ContentType, Response<impl Stream<Item = String> + Send>) {
-    match req.stream {
+    let params = req.into_inner();
+    let model_name = params.model.clone();
+
+    let entry = match get_model_by_name(&model_name).await {
+        Ok(e) => e,
+        Err(e) => {
+            return (ContentType::Text, Response::Error(e.to_string()));
+        }
+    };
+
+    match params.stream {
         Some(false) => {
             let response = {
-                let model_ref = MODEL
-                    .get()
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("model not init"))
-                    .unwrap();
-                let mut guard = model_ref.write().await;
-                guard.instance.generate(req.into_inner())
+                let mut guard = entry.instance.write().await;
+                guard.generate(params)
             };
+
             match response {
                 Ok(res) => {
                     let response_str = serde_json::to_string(&res).unwrap();
@@ -127,9 +223,8 @@ pub(crate) async fn chat(
         }
         _ => {
             let text_stream = TextStream! {
-                let model_ref = MODEL.get().cloned().ok_or_else(|| anyhow::anyhow!("model not init")).unwrap();
-                let mut guard = model_ref.write().await;
-                let stream_result = guard.instance.generate_stream(req.into_inner());
+                let mut guard = entry.instance.write().await;
+                let stream_result = guard.generate_stream(params);
                 match stream_result {
                     Ok(stream) => {
                         let mut stream = pin!(stream);
@@ -147,7 +242,7 @@ pub(crate) async fn chat(
                             }
                         }
                         yield "data: [DONE]\n\n".to_string();
-                    },
+                    }
                     Err(e) => {
                         yield format!("event: error\ndata: {}\n\n", e.to_string());
                     }
@@ -158,16 +253,53 @@ pub(crate) async fn chat(
     }
 }
 
+/// 列出所有已加载的模型
+#[utoipa::path(
+    get,
+    path = "/admin/models/list",
+    responses((status = 200, description = "List of loaded models")),
+    tag = "admin"
+)]
+#[get("/models/list")]
+pub(crate) async fn list_loaded_models() -> (ContentType, String) {
+    let manager = match MULTI_MODEL_MANAGER.get() {
+        Some(m) => m,
+        None => {
+            return (
+                ContentType::JSON,
+                serde_json::json!({"error": "Manager not initialized"}).to_string(),
+            );
+        }
+    };
+
+    let models = manager.list_models().await;
+    let response = serde_json::json!({
+        "models": models,
+        "count": models.len()
+    });
+
+    (ContentType::JSON, response.to_string())
+}
+
+#[utoipa::path(
+    post,
+    path = "/images/remove_background",
+    request_body = ChatCompletionParameters,
+    responses((status = 200, description = "Background removal result")),
+    tag = "images"
+)]
 #[post("/remove_background", data = "<req>")]
 pub(crate) async fn remove_background(req: Json<ChatCompletionParameters>) -> (Status, String) {
+    let params = req.into_inner();
+    let entry = match get_model_by_name(&params.model).await {
+        Ok(e) => e,
+        Err(e) => {
+            return (Status::ServiceUnavailable, e.to_string());
+        }
+    };
     let response = {
-        let model_ref = MODEL
-            .get()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("model not init"))
-            .unwrap();
-        let mut guard = model_ref.write().await;
-        guard.instance.generate(req.into_inner())
+        let mut guard = entry.instance.write().await;
+        guard.generate(params)
     };
     match response {
         Ok(res) => {
@@ -178,16 +310,25 @@ pub(crate) async fn remove_background(req: Json<ChatCompletionParameters>) -> (S
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/audio/speech",
+    request_body = ChatCompletionParameters,
+    responses((status = 200, description = "Audio speech generated successfully")),
+    tag = "audio"
+)]
 #[post("/speech", data = "<req>")]
 pub(crate) async fn speech(req: Json<ChatCompletionParameters>) -> (Status, String) {
+    let params = req.into_inner();
+    let entry = match get_model_by_name(&params.model).await {
+        Ok(e) => e,
+        Err(e) => {
+            return (Status::ServiceUnavailable, e.to_string());
+        }
+    };
     let response = {
-        let model_ref = MODEL
-            .get()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("model not init"))
-            .unwrap();
-        let mut guard = model_ref.write().await;
-        guard.instance.generate(req.into_inner())
+        let mut guard = entry.instance.write().await;
+        guard.generate(params)
     };
     match response {
         Ok(res) => {
@@ -200,16 +341,29 @@ pub(crate) async fn speech(req: Json<ChatCompletionParameters>) -> (Status, Stri
 
 // Health check endpoint
 
-#[derive(Serialize)]
-pub(crate) struct HealthResponse {
-    status: String,
+#[derive(Serialize, ToSchema)]
+pub struct HealthResponse {
+    pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub error: Option<String>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Service is healthy", body = HealthResponse),
+        (status = 503, description = "Service is unhealthy")
+    ),
+    tag = "models"
+)]
 #[get("/health")]
 pub(crate) async fn health() -> (Status, (ContentType, Json<HealthResponse>)) {
-    if MODEL.get().is_some() {
+    let healthy = match MULTI_MODEL_MANAGER.get() {
+        Some(m) => !m.list_models().await.is_empty(),
+        None => false,
+    };
+    if healthy {
         let response = HealthResponse {
             status: "ok".to_string(),
             error: None,
@@ -220,10 +374,7 @@ pub(crate) async fn health() -> (Status, (ContentType, Json<HealthResponse>)) {
             status: "unhealthy".to_string(),
             error: Some("model not initialized".to_string()),
         };
-        (
-            Status::ServiceUnavailable,
-            (ContentType::JSON, Json(response)),
-        )
+        (Status::ServiceUnavailable, (ContentType::JSON, Json(response)))
     }
 }
 
@@ -250,42 +401,42 @@ struct ErrorResponse {
     error: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/models",
+    responses((status = 200, description = "List of available models")),
+    tag = "models"
+)]
 #[get("/models")]
 pub(crate) async fn models() -> (Status, (ContentType, Json<serde_json::Value>)) {
-    if let Some(model_ref) = MODEL.get() {
-        let guard = model_ref.read().await;
-        let which_model = guard.which_model;
+    match MULTI_MODEL_MANAGER.get() {
+        Some(manager) => {
+            let model_ids = manager.list_models().await;
+            let data: Vec<ModelObject> = model_ids
+                .into_iter()
+                .map(|id| ModelObject {
+                    id: id.clone(),
+                    object: "model".to_string(),
+                    created: None,
+                    owned_by: "aha".to_string(),
+                })
+                .collect();
 
-        let model_obj = ModelObject {
-            id: which_model.as_string(),
-            object: "model".to_string(),
-            created: None, // We don't track creation time
-            owned_by: which_model.model_owner(),
-        };
-        drop(guard);
-
-        let response = ModelsListResponse {
-            object: "list".to_string(),
-            data: vec![model_obj],
-        };
-        (
-            Status::Ok,
+            let response = ModelsListResponse {
+                object: "list".to_string(),
+                data,
+            };
+            (Status::Ok, (ContentType::JSON, Json(serde_json::to_value(response).unwrap())))
+        }
+        None => {
+            let response = ErrorResponse {
+                error: "model not initialized".to_string(),
+            };
             (
-                ContentType::JSON,
-                Json(serde_json::to_value(response).unwrap()),
-            ),
-        )
-    } else {
-        let response = ErrorResponse {
-            error: "model not initialized".to_string(),
-        };
-        (
-            Status::ServiceUnavailable,
-            (
-                ContentType::JSON,
-                Json(serde_json::to_value(response).unwrap()),
-            ),
-        )
+                Status::ServiceUnavailable,
+                (ContentType::JSON, Json(serde_json::to_value(response).unwrap())),
+            )
+        }
     }
 }
 
@@ -327,13 +478,13 @@ mod tests {
     #[test]
     fn test_get_model_type_llm() {
         assert_eq!(WhichModel::Qwen3_0_6B.model_type(), "llm");
-        assert_eq!(WhichModel::Qwen3VL2B.model_type(), "llm");
         assert_eq!(WhichModel::MiniCPM4_0_5B.model_type(), "llm");
-        assert_eq!(WhichModel::Qwen2_5VL3B.model_type(), "llm");
-        assert_eq!(WhichModel::Qwen2_5VL7B.model_type(), "llm");
-        assert_eq!(WhichModel::Qwen3VL4B.model_type(), "llm");
-        assert_eq!(WhichModel::Qwen3VL8B.model_type(), "llm");
-        assert_eq!(WhichModel::Qwen3VL32B.model_type(), "llm");
+        assert_eq!(WhichModel::Qwen3VL4B.model_type(), "vlm");
+        assert_eq!(WhichModel::Qwen3VL8B.model_type(), "vlm");
+        assert_eq!(WhichModel::Qwen3VL32B.model_type(), "vlm");
+        assert_eq!(WhichModel::Qwen3VL2B.model_type(), "vlm");
+        assert_eq!(WhichModel::Qwen2_5VL3B.model_type(), "vlm");
+        assert_eq!(WhichModel::Qwen2_5VL7B.model_type(), "vlm");
     }
 
     #[test]
@@ -358,8 +509,8 @@ mod tests {
 
     #[test]
     fn test_get_model_type_tts() {
-        assert_eq!(WhichModel::VoxCPM.model_type(), "image");
-        assert_eq!(WhichModel::VoxCPM1_5.model_type(), "image");
+        assert_eq!(WhichModel::VoxCPM.model_type(), "tts");
+        assert_eq!(WhichModel::VoxCPM1_5.model_type(), "tts");
     }
 }
 
@@ -369,18 +520,21 @@ struct ShutdownResponse {
     message: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/shutdown",
+    responses((status = 200, description = "Server is shutting down")),
+    tag = "admin"
+)]
 #[post("/shutdown")]
 pub(crate) async fn shutdown(
-    shutdown_flag: &State<Arc<AtomicBool>>,
+    shutdown_flag: &State<Arc<AtomicBool>>
 ) -> (Status, (ContentType, Json<serde_json::Value>)) {
     // Check if remote shutdown is allowed
     let allow_remote = ALLOW_REMOTE_SHUTDOWN.get().copied().unwrap_or(false);
 
     // Log the shutdown request
-    eprintln!(
-        "[SHUTDOWN] Shutdown requested (remote_allowed: {})",
-        allow_remote
-    );
+    eprintln!("[SHUTDOWN] Shutdown requested (remote_allowed: {})", allow_remote);
 
     // Note: Rocket 0.5 doesn't provide easy access to client IP in request guards
     // For proper IP-based filtering, you would need to use custom request guards
@@ -403,11 +557,5 @@ pub(crate) async fn shutdown(
     let response = ShutdownResponse {
         message: "Shutting down...".to_string(),
     };
-    (
-        Status::Ok,
-        (
-            ContentType::JSON,
-            Json(serde_json::to_value(response).unwrap()),
-        ),
-    )
+    (Status::Ok, (ContentType::JSON, Json(serde_json::to_value(response).unwrap())))
 }

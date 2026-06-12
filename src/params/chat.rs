@@ -3,11 +3,12 @@ use crate::params::shared::StopToken;
 use crate::params::shared::{FinishReason, Usage};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Display;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionResponse {
     /// A unique identifier for the chat completion.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -31,7 +32,7 @@ pub struct ChatCompletionResponse {
     pub usage: Option<Usage>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionChunkResponse {
     /// A unique identifier for the chat completion. Each chunk has the same ID.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -53,7 +54,7 @@ pub struct ChatCompletionChunkResponse {
     pub usage: Option<Usage>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Builder, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Builder, Clone, PartialEq, ToSchema)]
 #[builder(name = "ChatCompletionParametersBuilder")]
 #[builder(setter(into, strip_option), default)]
 pub struct ChatCompletionParameters {
@@ -184,7 +185,7 @@ pub struct ChatCompletionParameters {
     pub query_params: Option<HashMap<String, String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionStreamOptions {
     /// If set, an additional chunk will be streamed before the data: [DONE] message.
     pub include_usage: Option<bool>,
@@ -192,7 +193,7 @@ pub struct ChatCompletionStreamOptions {
     pub continuous_usage_stats: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionToolChoiceFunction {
     /// The type of the tool. Currently, only 'function' is supported.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,13 +202,13 @@ pub struct ChatCompletionToolChoiceFunction {
     pub function: ChatCompletionToolChoiceFunctionName,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionToolChoiceFunctionName {
     /// Name of the function.
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionFunction {
     /// Name of the function.
     pub name: String,
@@ -218,7 +219,7 @@ pub struct ChatCompletionFunction {
     pub parameters: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChatCompletionResponseFormat {
     Text,
@@ -226,7 +227,7 @@ pub enum ChatCompletionResponseFormat {
     JsonSchema { json_schema: JsonSchema },
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Builder, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Builder, Clone, PartialEq, ToSchema)]
 #[builder(name = "JsonSchemaBuilder")]
 #[builder(setter(into, strip_option), default)]
 pub struct JsonSchema {
@@ -243,7 +244,7 @@ pub struct JsonSchema {
     strict: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionTool {
     /// The type of the tool. Currently, only 'function' is supported.
     pub r#type: ChatCompletionToolType,
@@ -251,7 +252,7 @@ pub struct ChatCompletionTool {
     pub function: ChatCompletionFunction,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(tag = "role", rename_all = "snake_case")]
 pub enum ChatMessage {
     Developer {
@@ -352,7 +353,7 @@ impl ChatMessage {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(tag = "role", rename_all = "snake_case")]
 pub enum DeltaChatMessage {
     Developer {
@@ -416,7 +417,7 @@ pub enum DeltaChatMessage {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ToolCall {
     /// The ID of the tool call.
     pub id: String,
@@ -426,7 +427,7 @@ pub struct ToolCall {
     pub function: Function,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct DeltaToolCall {
     /// The index of the tool call in the list of tool calls.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -441,7 +442,7 @@ pub struct DeltaToolCall {
     pub function: DeltaFunction,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct Function {
     /// The name of the function to call.
     pub name: String,
@@ -449,7 +450,7 @@ pub struct Function {
     pub arguments: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct DeltaFunction {
     /// The name of the function to call.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -459,7 +460,7 @@ pub struct DeltaFunction {
     pub arguments: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionChoice {
     /// The index of the choice in the list of choices.
     pub index: u32,
@@ -473,13 +474,13 @@ pub struct ChatCompletionChoice {
     pub logprobs: Option<LogProps>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct AudioDataIdParameter {
     /// Unique identifier for a previous audio response from the model.
     pub id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct AudioParameters {
     /// The voice the model uses to respond.
     pub voice: Voice,
@@ -487,7 +488,7 @@ pub struct AudioParameters {
     pub format: AudioFormat,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct LogProps {
     /// A list of message content tokens with log probability information.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -497,7 +498,7 @@ pub struct LogProps {
     pub refusal: Option<Vec<LogPropsContent>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct LogPropsContent {
     /// Token information
     #[serde(flatten)]
@@ -506,7 +507,7 @@ pub struct LogPropsContent {
     pub top_logprobs: Vec<LogProbsContentInfo>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct LogProbsContentInfo {
     /// The token.
     pub token: String,
@@ -517,7 +518,7 @@ pub struct LogProbsContentInfo {
     pub bytes: Option<Vec<u8>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatCompletionChunkChoice {
     /// The index of the choice in the list of choices.
     pub index: Option<u32>,
@@ -531,7 +532,7 @@ pub struct ChatCompletionChunkChoice {
     pub logprobs: Option<LogProps>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ImageUrlType {
     /// Either a URL of the image or the base64 encoded image data.
     pub url: String,
@@ -540,19 +541,19 @@ pub struct ImageUrlType {
     pub detail: Option<ImageUrlDetail>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct AudioUrlType {
     /// audio  URL or base64
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct VideoUrlType {
     /// video  URL
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct PredictedOutput {
     /// The type of the predicted content you want to provide.
     pub r#type: PredictedOutputType,
@@ -561,14 +562,14 @@ pub struct PredictedOutput {
     pub content: PredictedOutputContent,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(untagged)]
 pub enum PredictedOutputContent {
     String(String),
     Array(Vec<PredictedOutputArrayPart>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct PredictedOutputArrayPart {
     /// The type of the content part.
     pub r#type: String,
@@ -576,20 +577,20 @@ pub struct PredictedOutputArrayPart {
     pub text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PredictedOutputType {
     Content,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Modality {
     Text,
     Audio,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ImageUrlDetail {
     Auto,
@@ -597,7 +598,7 @@ pub enum ImageUrlDetail {
     Low,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(untagged)]
 pub enum ChatMessageContent {
     Text(String),
@@ -605,7 +606,7 @@ pub enum ChatMessageContent {
     None,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(untagged)]
 pub enum ChatMessageContentPart {
     Text(ChatMessageTextContentPart),
@@ -614,7 +615,7 @@ pub enum ChatMessageContentPart {
     Video(ChatMessageVideoContentPart),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatMessageTextContentPart {
     /// The type of the content part.
     pub r#type: String,
@@ -622,7 +623,7 @@ pub struct ChatMessageTextContentPart {
     pub text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatMessageImageContentPart {
     /// The type of the content part.
     pub r#type: String,
@@ -630,7 +631,7 @@ pub struct ChatMessageImageContentPart {
     pub image_url: ImageUrlType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatMessageAudioContentPart {
     /// The type of the content part. Always input_audio.
     pub r#type: String,
@@ -638,7 +639,7 @@ pub struct ChatMessageAudioContentPart {
     pub audio_url: AudioUrlType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatMessageVideoContentPart {
     /// The type of the content part.
     pub r#type: String,
@@ -646,7 +647,7 @@ pub struct ChatMessageVideoContentPart {
     pub video_url: VideoUrlType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ChatMessageImageUrl {
     /// Either a URL of the image or the base64 encoded image data.
     pub url: String,
@@ -654,7 +655,7 @@ pub struct ChatMessageImageUrl {
     pub detail: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct InputAudioData {
     /// Base64 encoded audio data.
     pub data: String,
@@ -662,7 +663,7 @@ pub struct InputAudioData {
     pub format: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct WebSearchOptions {
     /// High level guidance for the amount of context window space to use for the search.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -672,7 +673,7 @@ pub struct WebSearchOptions {
     pub user_location: Option<ApproximateUserLocation>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct ApproximateUserLocation {
     pub r#type: UserLocationType,
     /// Approximate location parameters for the search.
@@ -694,13 +695,13 @@ impl Display for ChatMessageContent {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ChatCompletionToolType {
     Function,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ChatCompletionToolChoice {
     None,
@@ -710,7 +711,7 @@ pub enum ChatCompletionToolChoice {
     ChatCompletionToolChoiceFunction(ChatCompletionToolChoiceFunction),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 pub struct WebSearchUserLocation {
     pub city: Option<String>,
     pub country: Option<String>,
@@ -718,13 +719,13 @@ pub struct WebSearchUserLocation {
     pub timezone: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum UserLocationType {
     Approximate,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Voice {
     Alloy,
@@ -737,7 +738,7 @@ pub enum Voice {
     Verse,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioFormat {
     Wav,

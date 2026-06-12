@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::{
     params::rerank::{RerankRequest, RerankResponse, RerankResult},
-    server::api::MODEL,
+    server::api::get_model_by_name,
 };
 
 fn validate_rerank_input(query: &str, documents: &[String]) -> anyhow::Result<()> {
@@ -21,6 +21,15 @@ fn validate_rerank_input(query: &str, documents: &[String]) -> anyhow::Result<()
     Ok(())
 }
 
+#[utoipa::path(
+    post,
+    path = "/rerank",
+    request_body = RerankRequest,
+    responses(
+        (status = 200, description = "Reranked documents with relevance scores", body = RerankResponse, content_type = "application/json"),
+    ),
+    tag = "rerank",
+)]
 #[post("/rerank", data = "<req>")]
 pub(crate) async fn rerank(req: Json<RerankRequest>) -> (Status, Json<Value>) {
     let req = req.into_inner();
@@ -31,9 +40,10 @@ pub(crate) async fn rerank(req: Json<RerankRequest>) -> (Status, Json<Value>) {
         );
     }
 
-    let model_ref = match MODEL.get().cloned() {
-        Some(v) => v,
-        None => {
+    let model_name = req.model.clone().unwrap_or_default();
+    let entry = match get_model_by_name(&model_name).await {
+        Ok(e) => e,
+        Err(_) => {
             return (
                 Status::ServiceUnavailable,
                 Json(serde_json::json!({ "error": "model not init" })),
@@ -41,8 +51,8 @@ pub(crate) async fn rerank(req: Json<RerankRequest>) -> (Status, Json<Value>) {
         }
     };
 
-    let mut guard = model_ref.write().await;
-    let scores = match guard.instance.rerank(&req.query, &req.documents) {
+    let mut guard = entry.instance.write().await;
+    let scores = match guard.rerank(&req.query, &req.documents) {
         Ok(v) => v,
         Err(e) => {
             return (
@@ -68,7 +78,7 @@ pub(crate) async fn rerank(req: Json<RerankRequest>) -> (Status, Json<Value>) {
 
     let response = RerankResponse {
         object: "list".to_string(),
-        model: guard.which_model.as_string(),
+        model: entry.which_model.as_string(),
         results,
     };
     (Status::Ok, Json(serde_json::to_value(response).unwrap()))
