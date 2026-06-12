@@ -33,3 +33,5 @@ task_plan.md
 aha-ui/node_modules
 aha-ui/src-tauri/target/*
 aha-ui/dist/*
+.codegraph/daemon.pid
+aha-ui/src-tauri/Cargo.lock
